@@ -27,6 +27,8 @@ import {
   isCloudTranslationMode,
 } from "../stores/settingsStore";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
+import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
+
 import {
   getBatchTranscriptionModel,
   getTranscriptionProvider,
@@ -1998,7 +2000,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           fallbackToCleanup: true,
         });
         logger.warn("Reasoning failed", { source, error: error.message }, "notes");
-        if (route?.kind === "cleanup") recordCleanupFailure();
+        if (route?.kind === "cleanup" && !isCleanupPermanentlyUnavailable(error)) {
+          recordCleanupFailure();
+        }
       }
     }
 
@@ -2314,7 +2318,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           { error: reasonError.message },
           "transcription"
         );
-        if (route.kind === "cleanup") recordCleanupFailure();
+        if (route.kind === "cleanup" && !isCleanupPermanentlyUnavailable(reasonError)) {
+          recordCleanupFailure();
+        }
       }
       timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
     }
@@ -3942,7 +3948,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           { error: reasonError.message },
           "streaming"
         );
-        if (route.kind === "cleanup") recordCleanupFailure();
+        if (route.kind === "cleanup" && !isCleanupPermanentlyUnavailable(reasonError)) {
+          recordCleanupFailure();
+        }
       }
     }
 
