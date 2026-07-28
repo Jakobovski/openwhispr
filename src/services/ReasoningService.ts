@@ -14,7 +14,7 @@ import logger from "../utils/logger";
 import { getSettings, isCloudCleanupMode } from "../stores/settingsStore";
 import { wrapCleanupTranscript } from "../config/prompts";
 import { stripThinkingTags } from "../helpers/stripThinking.js";
-import { isTruncatedChatChoice } from "../helpers/completionTruncation.js";
+import { isTruncatedChatChoice, truncatedResponseError } from "../helpers/completionTruncation.js";
 import { resolveGeminiThinkingConfig } from "../helpers/geminiResponse.js";
 import { streamText, stepCountIs } from "ai";
 import { getAIModel } from "./ai/providers";
@@ -90,14 +90,7 @@ class ReasoningService extends BaseReasoningService {
 
   private async getApiKey(
     provider:
-      | "openai"
-      | "anthropic"
-      | "gemini"
-      | "groq"
-      | "tinfoil"
-      | "custom"
-      | "openrouter"
-      | "corti"
+      "openai" | "anthropic" | "gemini" | "groq" | "tinfoil" | "custom" | "openrouter" | "corti"
   ): Promise<string> {
     if (provider === "custom") {
       let customKey = "";
@@ -315,10 +308,10 @@ class ReasoningService extends BaseReasoningService {
       logger.logReasoning(`${providerName.toUpperCase()}_TRUNCATED_RESPONSE`, {
         model,
         finishReason: choice.finish_reason,
-        contentLength: choice.message?.content?.length || 0,
+        responseLength: choice.message?.content?.length || 0,
         tokensUsed: response.usage?.total_tokens || 0,
       });
-      throw new Error(`${providerName} hit the token limit and returned a truncated response`);
+      throw truncatedResponseError(providerName);
     }
 
     // Reasoning models leak <think> blocks into non-streamed output; strip them
@@ -433,14 +426,7 @@ class ReasoningService extends BaseReasoningService {
       endpoint = `http://127.0.0.1:${serverResult.port}/v1/chat/completions`;
     } else {
       const providerKey = provider as
-        | "openai"
-        | "groq"
-        | "gemini"
-        | "anthropic"
-        | "tinfoil"
-        | "custom"
-        | "openrouter"
-        | "corti";
+        "openai" | "groq" | "gemini" | "anthropic" | "tinfoil" | "custom" | "openrouter" | "corti";
       const overrideKey = providerKey === "custom" ? config.customApiKey?.trim() : "";
       apiKey = overrideKey || (await this.getApiKey(providerKey));
 
@@ -661,14 +647,7 @@ class ReasoningService extends BaseReasoningService {
       baseURL = `http://127.0.0.1:${serverResult.port}/v1`;
     } else {
       const providerKey = provider as
-        | "openai"
-        | "groq"
-        | "gemini"
-        | "anthropic"
-        | "tinfoil"
-        | "custom"
-        | "openrouter"
-        | "corti";
+        "openai" | "groq" | "gemini" | "anthropic" | "tinfoil" | "custom" | "openrouter" | "corti";
       const overrideKey = providerKey === "custom" ? config.customApiKey?.trim() : "";
       apiKey = overrideKey || (await this.getApiKey(providerKey));
       baseURL =
