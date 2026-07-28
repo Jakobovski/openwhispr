@@ -9,6 +9,10 @@ import { applyThinkingSuppression } from "../thinkingSuppression";
 import { detectEndpointDialect } from "../thinkingSuppressionDialects";
 import { extractApiErrorMessage } from "../apiErrorMessage";
 import { wrapCleanupTranscript } from "../../../config/prompts";
+import {
+  isTruncatedChatChoice,
+  isTruncatedResponsesPayload,
+} from "../../../helpers/completionTruncation.js";
 
 const OPENAI_ENDPOINT_PREF_STORAGE_KEY = "openAiEndpointPreference";
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -340,6 +344,25 @@ export const openaiProvider: InferenceProvider = {
           break;
         }
       }
+    }
+
+    // A token-limit cut means partial text; fail instead of pasting a clipped reply. See #1341.
+    if (
+      (isChatCompletions && isTruncatedChatChoice(response.choices?.[0])) ||
+      (isResponsesApi && isTruncatedResponsesPayload(response))
+    ) {
+      const providerLabel = isCustomProvider
+        ? "Custom endpoint"
+        : isOpenRouter
+          ? "OpenRouter"
+          : "OpenAI";
+      logger.logReasoning("OPENAI_TRUNCATED_RESPONSE", {
+        model,
+        finishReason: isChatCompletions ? response.choices?.[0]?.finish_reason : response.status,
+        responseLength: responseText.length,
+        tokensUsed: response.usage?.total_tokens || 0,
+      });
+      throw new Error(`${providerLabel} hit the token limit and returned a truncated response`);
     }
 
     logger.logReasoning("OPENAI_RESPONSE", {

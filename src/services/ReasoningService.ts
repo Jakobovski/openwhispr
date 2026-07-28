@@ -14,6 +14,8 @@ import logger from "../utils/logger";
 import { getSettings, isCloudCleanupMode } from "../stores/settingsStore";
 import { wrapCleanupTranscript } from "../config/prompts";
 import { stripThinkingTags } from "../helpers/stripThinking.js";
+import { isTruncatedChatChoice } from "../helpers/completionTruncation.js";
+import { resolveGeminiThinkingConfig } from "../helpers/geminiResponse.js";
 import { streamText, stepCountIs } from "ai";
 import { getAIModel } from "./ai/providers";
 import { createEnterpriseChatModel } from "./ai/enterpriseChatModel";
@@ -88,7 +90,14 @@ class ReasoningService extends BaseReasoningService {
 
   private async getApiKey(
     provider:
-      "openai" | "anthropic" | "gemini" | "groq" | "tinfoil" | "custom" | "openrouter" | "corti"
+      | "openai"
+      | "anthropic"
+      | "gemini"
+      | "groq"
+      | "tinfoil"
+      | "custom"
+      | "openrouter"
+      | "corti"
   ): Promise<string> {
     if (provider === "custom") {
       let customKey = "";
@@ -300,6 +309,18 @@ class ReasoningService extends BaseReasoningService {
     }
 
     const choice = response.choices[0];
+
+    // finish_reason "length" is a max_tokens cut; the partial text would drop the tail. See #1341.
+    if (isTruncatedChatChoice(choice)) {
+      logger.logReasoning(`${providerName.toUpperCase()}_TRUNCATED_RESPONSE`, {
+        model,
+        finishReason: choice.finish_reason,
+        contentLength: choice.message?.content?.length || 0,
+        tokensUsed: response.usage?.total_tokens || 0,
+      });
+      throw new Error(`${providerName} hit the token limit and returned a truncated response`);
+    }
+
     // Reasoning models leak <think> blocks into non-streamed output; strip them
     // unless the user explicitly enabled thinking (same default as streaming).
     const rawContent = choice.message?.content?.trim() || "";
@@ -412,7 +433,14 @@ class ReasoningService extends BaseReasoningService {
       endpoint = `http://127.0.0.1:${serverResult.port}/v1/chat/completions`;
     } else {
       const providerKey = provider as
-        "openai" | "groq" | "gemini" | "anthropic" | "tinfoil" | "custom" | "openrouter" | "corti";
+        | "openai"
+        | "groq"
+        | "gemini"
+        | "anthropic"
+        | "tinfoil"
+        | "custom"
+        | "openrouter"
+        | "corti";
       const overrideKey = providerKey === "custom" ? config.customApiKey?.trim() : "";
       apiKey = overrideKey || (await this.getApiKey(providerKey));
 
@@ -633,7 +661,14 @@ class ReasoningService extends BaseReasoningService {
       baseURL = `http://127.0.0.1:${serverResult.port}/v1`;
     } else {
       const providerKey = provider as
-        "openai" | "groq" | "gemini" | "anthropic" | "tinfoil" | "custom" | "openrouter" | "corti";
+        | "openai"
+        | "groq"
+        | "gemini"
+        | "anthropic"
+        | "tinfoil"
+        | "custom"
+        | "openrouter"
+        | "corti";
       const overrideKey = providerKey === "custom" ? config.customApiKey?.trim() : "";
       apiKey = overrideKey || (await this.getApiKey(providerKey));
       baseURL =
@@ -659,12 +694,15 @@ class ReasoningService extends BaseReasoningService {
     const userSuppressesThinking = config.disableThinking === true && !!modelDef?.supportsThinking;
     const needsGroqDisableThinking =
       provider === "groq" && (modelDef?.disableThinking || userSuppressesThinking);
-    const needsGeminiMinimalThinking = provider === "gemini" && userSuppressesThinking;
+    // Chat never suppresses by default, so gate on the explicit toggle; the
+    // helper picks a level the model accepts — 3.1 Pro has no "minimal". See #1341.
+    const geminiThinkingConfig =
+      provider === "gemini" && config.disableThinking === true
+        ? resolveGeminiThinkingConfig(config, modelDef)
+        : undefined;
     const providerOptions = {
       ...(needsGroqDisableThinking ? { groq: { reasoningEffort: "none" } } : {}),
-      ...(needsGeminiMinimalThinking
-        ? { google: { thinkingConfig: { thinkingLevel: "minimal", includeThoughts: false } } }
-        : {}),
+      ...(geminiThinkingConfig ? { google: { thinkingConfig: geminiThinkingConfig } } : {}),
     };
     const hasProviderOptions = Object.keys(providerOptions).length > 0;
 
