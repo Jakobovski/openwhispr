@@ -8,6 +8,13 @@ const WEBSOCKET_TIMEOUT_MS = 30000;
 const TERMINATION_TIMEOUT_MS = 5000;
 const KEEPALIVE_INTERVAL_MS = 15000;
 const PRE_READY_BUFFER_MAX = 3 * SAMPLE_RATE * 2; // 3 seconds of 16-bit mono PCM
+// A warm socket can stay OPEN long after xAI has stopped transcribing on it, so
+// don't trust one indefinitely — cold-connect instead once it's this old.
+const MAX_WARM_AGE_MS = 120000;
+// Max wait for the first transcript.partial from a promoted warm connection
+// before treating it as dead. xAI emits interims even while the speaker is
+// silent, so any partial (empty text included) proves the session is alive.
+const LIVENESS_TIMEOUT_MS = 2500;
 
 // xAI's WSS transport: API key in an Authorization header, all configuration in
 // the query string, then raw PCM frames once the server sends transcript.created.
@@ -39,7 +46,13 @@ class XaiStreaming {
     this.warmConnectionReady = false;
     this.warmSessionId = null;
     this.warmSessionStartedAt = null;
+    this.warmReadyAt = null;
     this.keepAliveInterval = null;
+    this.resultsReceived = 0;
+    this.livenessTimer = null;
+    this.replayBuffer = [];
+    this.replayBufferSize = 0;
+    this.connectionOptions = null;
   }
 
   get completedSegments() {
@@ -101,6 +114,14 @@ class XaiStreaming {
     return { headers: { Authorization: `Bearer ${apiKey}` } };
   }
 
+  // 100ms of silence at the session's rate. Warm connections are kept alive with
+  // real (silent) audio rather than a websocket ping: a ping keeps the socket
+  // open but does not stop xAI from finishing the transcription session, which
+  // leaves a socket that accepts audio and never returns a transcript.
+  silenceFrame() {
+    return Buffer.alloc(Math.round(this.sampleRate / 10) * 2);
+  }
+
   async connect(options = {}) {
     const apiKey = this.resolveApiKey(options);
     if (!apiKey) {
@@ -112,18 +133,35 @@ class XaiStreaming {
       return;
     }
 
-    this.accumulatedText = "";
-    this.finalSegments = [];
+    const { replayBuffer, forceNew } = options;
+    // A reconnect keeps the text already committed; a fresh session starts clean.
+    if (!replayBuffer) {
+      this.accumulatedText = "";
+      this.finalSegments = [];
+      this.audioBytesSent = 0;
+    }
     this.serverReady = false;
     this.preReadyBuffer = [];
     this.preReadyBufferSize = 0;
-    this.audioBytesSent = 0;
     this.sampleRate = options.sampleRate || SAMPLE_RATE;
+    this.connectionOptions = { ...options, replayBuffer: undefined, forceNew: undefined };
 
     // Reuse the pre-warmed socket for an instant start; cold-connect otherwise.
-    if (this.useWarmConnection()) {
+    if (!forceNew && this.useWarmConnection()) {
       debugLogger.debug("xAI using warm connection - instant start");
       return;
+    }
+    this.clearLivenessWatch();
+
+    // Audio captured while a dead warm session was being detected replays first,
+    // so the pre-ready buffer flushes it in order once the new session is up.
+    if (replayBuffer && replayBuffer.length > 0) {
+      this.preReadyBuffer = [...replayBuffer];
+      this.preReadyBufferSize = replayBuffer.reduce((sum, b) => sum + b.length, 0);
+      debugLogger.debug("xAI replaying audio into new session", {
+        chunks: this.preReadyBuffer.length,
+        bytes: this.preReadyBufferSize,
+      });
     }
 
     const url = this.buildWebSocketUrl(options);
@@ -147,12 +185,24 @@ class XaiStreaming {
   }
 
   // Live-socket wiring shared by the cold connect and a promoted warm connection.
+  // Every handler ignores a socket we've already moved on from (a reconnect
+  // replaces this.ws, and the old socket's close/error still arrives later —
+  // acting on it would tear down the session that just replaced it).
   attachSocketHandlers(ws) {
+    const isStale = () => this.ws !== ws;
+
     ws.on("message", (data) => {
+      if (isStale()) return;
       this.handleMessage(data);
     });
 
     ws.on("error", (error) => {
+      if (isStale()) {
+        debugLogger.debug("xAI ignoring error from replaced socket", {
+          error: error.message,
+        });
+        return;
+      }
       debugLogger.error("xAI WebSocket error", { error: error.message });
       this.cleanup();
       if (this.pendingReject) {
@@ -164,6 +214,10 @@ class XaiStreaming {
     });
 
     ws.on("close", (code, reason) => {
+      if (isStale()) {
+        debugLogger.debug("xAI replaced socket closed", { code });
+        return;
+      }
       const wasActive = this.isConnected;
       debugLogger.debug("xAI WebSocket closed", {
         code,
@@ -234,6 +288,7 @@ class XaiStreaming {
           this.warmConnectionReady = true;
           this.warmSessionId = message.request_id || message.id || null;
           this.warmSessionStartedAt = Date.now();
+          this.warmReadyAt = Date.now();
           this.startKeepAlive();
           debugLogger.debug("xAI connection warmed up", { sessionId: this.warmSessionId });
           resolve();
@@ -268,11 +323,21 @@ class XaiStreaming {
   }
 
   hasWarmConnection() {
-    return (
-      this.warmConnection !== null &&
-      this.warmConnectionReady &&
-      this.warmConnection.readyState === WebSocket.OPEN
-    );
+    if (
+      this.warmConnection === null ||
+      !this.warmConnectionReady ||
+      this.warmConnection.readyState !== WebSocket.OPEN
+    ) {
+      return false;
+    }
+    // readyState alone is not proof the session still transcribes.
+    if (this.warmReadyAt != null && Date.now() - this.warmReadyAt > MAX_WARM_AGE_MS) {
+      debugLogger.debug("xAI warm connection too old, discarding", {
+        ageMs: Date.now() - this.warmReadyAt,
+      });
+      return false;
+    }
+    return true;
   }
 
   // Promote the warm socket to the active session — the server already sent
@@ -294,6 +359,8 @@ class XaiStreaming {
     this.warmConnectionReady = false;
     this.warmSessionId = null;
     this.warmSessionStartedAt = null;
+    this.warmReadyAt = null;
+    this.startLivenessWatch();
 
     this.ws.removeAllListeners("open");
     this.ws.removeAllListeners("message");
@@ -305,16 +372,28 @@ class XaiStreaming {
 
   startKeepAlive() {
     this.stopKeepAlive();
+    const frame = this.silenceFrame();
     this.keepAliveInterval = setInterval(() => {
-      if (this.warmConnection?.readyState === WebSocket.OPEN) {
-        try {
-          this.warmConnection.ping();
-        } catch (err) {
-          debugLogger.debug("xAI keep-alive ping failed", { error: err.message });
-          this.cleanupWarmConnection();
-        }
-      } else {
+      if (this.warmConnection?.readyState !== WebSocket.OPEN) {
         this.stopKeepAlive();
+        return;
+      }
+      // Stop paying for a warm session nobody claimed. Streaming STT is billed
+      // per hour of audio, and the keep-alive silence is audio — tiny per tick,
+      // but there's no reason to send it (or hold the session) indefinitely.
+      // The next dictation cold-connects instead, which costs ~500ms.
+      if (this.warmReadyAt != null && Date.now() - this.warmReadyAt > MAX_WARM_AGE_MS) {
+        debugLogger.debug("xAI warm connection expired, closing", {
+          ageMs: Date.now() - this.warmReadyAt,
+        });
+        this.cleanupWarmConnection();
+        return;
+      }
+      try {
+        this.warmConnection.send(frame);
+      } catch (err) {
+        debugLogger.debug("xAI keep-alive failed", { error: err.message });
+        this.cleanupWarmConnection();
       }
     }, KEEPALIVE_INTERVAL_MS);
   }
@@ -339,6 +418,61 @@ class XaiStreaming {
     this.warmConnectionReady = false;
     this.warmSessionId = null;
     this.warmSessionStartedAt = null;
+    this.warmReadyAt = null;
+  }
+
+  // A promoted warm socket that never returns a partial is a dead session: it
+  // accepts audio and silently transcribes nothing. Detect that and cold-connect,
+  // replaying the audio captured meanwhile so no speech is lost.
+  startLivenessWatch() {
+    clearTimeout(this.livenessTimer);
+    this.resultsReceived = 0;
+    this.replayBuffer = [];
+    this.replayBufferSize = 0;
+    this.livenessTimer = setTimeout(() => {
+      this.livenessTimer = null;
+      this.recoverDeadWarmSession();
+    }, LIVENESS_TIMEOUT_MS);
+  }
+
+  clearLivenessWatch() {
+    clearTimeout(this.livenessTimer);
+    this.livenessTimer = null;
+    this.replayBuffer = [];
+    this.replayBufferSize = 0;
+  }
+
+  async recoverDeadWarmSession() {
+    if (this.resultsReceived > 0 || !this.isConnected || this.isDisconnecting) return;
+
+    const replay = this.replayBuffer;
+    const options = this.connectionOptions;
+    debugLogger.warn("xAI warm session produced no results, reconnecting", {
+      replayChunks: replay.length,
+      replayBytes: this.replayBufferSize,
+    });
+
+    this.replayBuffer = [];
+    this.replayBufferSize = 0;
+    if (this.ws) {
+      try {
+        this.ws.close(1000);
+      } catch (err) {
+        // Ignore close errors
+      }
+      this.ws = null;
+    }
+    this.isConnected = false;
+    this.serverReady = false;
+
+    try {
+      await this.connect({ ...options, replayBuffer: replay, forceNew: true });
+    } catch (error) {
+      debugLogger.error("xAI reconnect after dead warm session failed", {
+        error: error.message,
+      });
+      this.onError?.(error);
+    }
   }
 
   handleMessage(data) {
@@ -367,6 +501,11 @@ class XaiStreaming {
         break;
 
       case "transcript.partial": {
+        // Count before the empty-text guard: an empty interim still proves the
+        // session is alive, which is all the liveness watch needs.
+        this.resultsReceived++;
+        this.clearLivenessWatch();
+
         const text = message.text;
         if (!text || !text.trim()) break;
         // Three states ride on is_final/speech_final. A chunk final
@@ -454,6 +593,13 @@ class XaiStreaming {
       return true;
     }
 
+    // Keep a copy until the session proves it transcribes, so a dead warm
+    // session can be replayed into a fresh one instead of losing the audio.
+    if (this.livenessTimer) {
+      this.replayBuffer.push(Buffer.from(pcmBuffer));
+      this.replayBufferSize += pcmBuffer.length;
+    }
+
     this.audioBytesSent += pcmBuffer.length;
     this.ws.send(pcmBuffer);
     return true;
@@ -520,6 +666,7 @@ class XaiStreaming {
     this.connectionTimeout = null;
     this.preReadyBuffer = [];
     this.preReadyBufferSize = 0;
+    this.clearLivenessWatch();
 
     if (this.ws) {
       try {

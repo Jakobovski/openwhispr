@@ -339,6 +339,97 @@ function getSocketText(streaming, text) {
   );
 }
 
+test("a warm connection past its age cap is not promoted", async () => {
+  await withServer(ready, async ({ url }) => {
+    const streaming = connected(url);
+    try {
+      await streaming.warmup({ apiKey: "test-key" });
+      assert.equal(streaming.hasWarmConnection(), true);
+
+      // Socket is still OPEN, but too old to trust — xAI may have finished the
+      // session server-side while the socket stayed up.
+      streaming.warmReadyAt = Date.now() - 10 * 60 * 1000;
+      assert.equal(streaming.hasWarmConnection(), false);
+    } finally {
+      streaming.cleanupAll();
+    }
+  });
+});
+
+test("keep-alive sends silence audio, not a ping", async () => {
+  await withServer(ready, async ({ url, received }) => {
+    const streaming = connected(url);
+    try {
+      await streaming.warmup({ apiKey: "test-key" });
+      // Fire the interval body directly rather than waiting 15s.
+      streaming.warmConnection.send(streaming.silenceFrame());
+      await waitFor(() => received.binary.length === 1, "silence frame");
+      assert.equal(received.binary[0].length, 3200, "100ms of 16kHz 16-bit mono");
+      assert.ok(
+        received.binary[0].every((b) => b === 0),
+        "must be silence"
+      );
+    } finally {
+      streaming.cleanupAll();
+    }
+  });
+});
+
+test("a promoted warm session that returns nothing reconnects and replays audio", async () => {
+  // First connection goes quiet after transcript.created (the dead-session case);
+  // the reconnect behaves normally and must receive the replayed audio.
+  let connections = 0;
+  await withServer(
+    (ws) => {
+      connections++;
+      ready(ws);
+    },
+    async ({ url, received }) => {
+      const streaming = connected(url);
+      try {
+        await streaming.warmup({ apiKey: "test-key" });
+        await streaming.connect({ apiKey: "test-key" });
+        assert.equal(connections, 1);
+
+        streaming.sendAudio(Buffer.from([7, 7]));
+        streaming.sendAudio(Buffer.from([8, 8]));
+        assert.equal(streaming.replayBufferSize, 4, "audio held pending liveness");
+
+        // No partial arrives, so the liveness watch fires and reconnects.
+        await waitFor(() => connections === 2, "reconnect", 6000);
+        await waitFor(
+          () => Buffer.concat(received.binary).includes(Buffer.from([7, 7])),
+          "replayed audio"
+        );
+        assert.equal(streaming.isConnected, true);
+      } finally {
+        streaming.cleanupAll();
+      }
+    }
+  );
+});
+
+test("a partial cancels the liveness watch and stops buffering for replay", async () => {
+  await withServer(ready, async ({ url, getSocket }) => {
+    const streaming = connected(url);
+    try {
+      await streaming.warmup({ apiKey: "test-key" });
+      await streaming.connect({ apiKey: "test-key" });
+      assert.ok(streaming.livenessTimer, "watch armed on promotion");
+
+      // Even an empty interim proves the session is alive.
+      getSocket().send(JSON.stringify({ type: "transcript.partial", text: "", is_final: false }));
+      await waitFor(() => streaming.livenessTimer === null, "watch cleared");
+      assert.equal(streaming.resultsReceived, 1);
+
+      streaming.sendAudio(Buffer.from([1, 2]));
+      assert.equal(streaming.replayBufferSize, 0, "no replay buffering once alive");
+    } finally {
+      streaming.cleanupAll();
+    }
+  });
+});
+
 test("buildWebSocketUrl asks for PCM interim results at the capture rate", () => {
   const params = new URL(
     new XaiStreaming().buildWebSocketUrl({ sampleRate: 24000, language: "en" })
