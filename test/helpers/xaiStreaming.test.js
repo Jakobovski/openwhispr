@@ -466,22 +466,58 @@ test("buildWebSocketUrl enforces xAI's keyterm limits", () => {
   assert.equal(terms[1].length, 50);
 });
 
-test("smart turn options are only sent when a caller opts in", () => {
+test("smart turn is on by default so a thinking pause doesn't end the utterance", () => {
   const defaults = new URL(new XaiStreaming().buildWebSocketUrl({})).searchParams;
-  assert.equal(defaults.get("smart_turn"), null);
+  assert.equal(defaults.get("smart_turn"), "0.7");
+  assert.equal(defaults.get("smart_turn_timeout"), "3000");
+  // Endpointing and VAD stay at xAI's own defaults unless a caller tunes them.
   assert.equal(defaults.get("endpointing"), null);
   assert.equal(defaults.get("vad_threshold"), null);
+});
 
+test("smart turn can be tuned or turned off", () => {
   const tuned = new URL(
     new XaiStreaming().buildWebSocketUrl({
-      smartTurn: 0.7,
-      smartTurnTimeout: 3000,
+      smartTurn: 0.9,
+      smartTurnTimeout: 1500,
       endpointing: 300,
       vadThreshold: 0.2,
     })
   ).searchParams;
-  assert.equal(tuned.get("smart_turn"), "0.7");
-  assert.equal(tuned.get("smart_turn_timeout"), "3000");
+  assert.equal(tuned.get("smart_turn"), "0.9");
+  assert.equal(tuned.get("smart_turn_timeout"), "1500");
   assert.equal(tuned.get("endpointing"), "300");
   assert.equal(tuned.get("vad_threshold"), "0.2");
+
+  for (const off of [null, false]) {
+    const disabled = new URL(new XaiStreaming().buildWebSocketUrl({ smartTurn: off })).searchParams;
+    assert.equal(disabled.get("smart_turn"), null, `smartTurn: ${off} disables it`);
+    assert.equal(disabled.get("smart_turn_timeout"), null);
+  }
+});
+
+test("stitched segments do not carry sentence-case capitals mid-sentence", async () => {
+  await withServer(ready, async ({ url, getSocket }) => {
+    const streaming = connected(url);
+    try {
+      await streaming.connect({ apiKey: "test-key" });
+      const ws = getSocket();
+      const utter = (text) =>
+        ws.send(
+          JSON.stringify({ type: "transcript.partial", text, is_final: true, speech_final: true })
+        );
+
+      utter("We don't need cleanup, just");
+      await waitFor(() => streaming.completedSegments.length === 1, "first segment");
+      utter("Just have it, not even try");
+      await waitFor(() => streaming.completedSegments.length === 2, "second segment");
+
+      assert.equal(
+        streaming.accumulatedText,
+        "We don't need cleanup, just just have it, not even try"
+      );
+    } finally {
+      streaming.cleanupAll();
+    }
+  });
 });

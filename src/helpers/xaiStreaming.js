@@ -1,6 +1,7 @@
 const WebSocket = require("ws");
 const debugLogger = require("./debugLogger");
 const { resolveXaiSttLanguage } = require("./xaiSttLanguages");
+const { joinTranscriptSegments } = require("../utils/transcriptSegments");
 
 const XAI_STT_WSS_URL = "wss://api.x.ai/v1/stt";
 const SAMPLE_RATE = 16000;
@@ -15,6 +16,14 @@ const MAX_WARM_AGE_MS = 120000;
 // before treating it as dead. xAI emits interims even while the speaker is
 // silent, so any partial (empty text included) proves the session is alive.
 const LIVENESS_TIMEOUT_MS = 2500;
+// Smart Turn on by default. Without it, xAI ends an utterance at any silence,
+// so a speaker who pauses mid-thought gets their dictation chopped into
+// segments that each begin with a capital. Smart Turn asks a model whether the
+// thought actually finished; the timeout is the safety net for a speaker who
+// trails off. Stopping the recording sends Finalize anyway, so holding an
+// utterance open costs nothing at the end of a dictation.
+const DEFAULT_SMART_TURN = 0.7;
+const DEFAULT_SMART_TURN_TIMEOUT_MS = 3000;
 
 // xAI's WSS transport: API key in an Authorization header, all configuration in
 // the query string, then raw PCM frames once the server sends transcript.created.
@@ -90,11 +99,20 @@ class XaiStreaming {
     if (typeof options.vadThreshold === "number") {
       params.set("vad_threshold", String(options.vadThreshold));
     }
-    if (typeof options.smartTurn === "number") {
-      params.set("smart_turn", String(options.smartTurn));
-      if (typeof options.smartTurnTimeout === "number") {
-        params.set("smart_turn_timeout", String(options.smartTurnTimeout));
-      }
+    // Pass smartTurn: null (or false) to fall back to plain silence endpointing.
+    const smartTurn =
+      options.smartTurn === null || options.smartTurn === false
+        ? null
+        : typeof options.smartTurn === "number"
+          ? options.smartTurn
+          : DEFAULT_SMART_TURN;
+    if (smartTurn !== null) {
+      params.set("smart_turn", String(smartTurn));
+      const smartTurnTimeout =
+        typeof options.smartTurnTimeout === "number"
+          ? options.smartTurnTimeout
+          : DEFAULT_SMART_TURN_TIMEOUT_MS;
+      params.set("smart_turn_timeout", String(smartTurnTimeout));
     }
 
     if (Array.isArray(options.keyterms)) {
@@ -551,7 +569,9 @@ class XaiStreaming {
     const trimmed = String(text || "").trim();
     if (!trimmed) return;
     this.finalSegments.push(trimmed);
-    this.accumulatedText = this.finalSegments.join(" ");
+    // Not a plain join: each segment arrives sentence-cased, so stitching them
+    // naively sprinkles capitals mid-sentence when the speaker merely paused.
+    this.accumulatedText = joinTranscriptSegments(this.finalSegments);
     const startedAt =
       this.sessionStartedAt != null && typeof message?.start === "number"
         ? this.sessionStartedAt + message.start * 1000
