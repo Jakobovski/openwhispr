@@ -751,6 +751,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         return false;
       }
 
+      // Fire and forget, before the mic is even acquired: OCR then runs while
+      // the user speaks instead of adding latency at the end.
+      window.electronAPI?.windowOcrStart?.();
+
       const constraints = await this.getAudioConstraints(forceDefaultMic);
       const micStream = await this.acquireHealthyMicStream(
         await navigator.mediaDevices.getUserMedia(constraints),
@@ -1834,7 +1838,41 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
+  // Reports what screen context would change in a transcript, without changing
+  // it. Shadow mode: the matcher's precision needs to be judged against real
+  // OCR output before it is allowed to rewrite anyone's dictation.
+  async reportScreenContext(text, source) {
+    if (!text || !window.electronAPI?.windowOcrCollect) return text;
+
+    try {
+      const capture = await window.electronAPI.windowOcrCollect();
+      if (!capture?.text) return text;
+
+      const { extractScreenTerms, applyScreenTermCorrections } =
+        await import("../utils/screenTermMatcher.js");
+      const terms = extractScreenTerms(capture.text);
+      const { replacements } = applyScreenTermCorrections(text, terms);
+
+      logger.info(
+        "Screen context (shadow mode - transcript unchanged)",
+        {
+          source,
+          window: capture.window,
+          ocrChars: capture.text.length,
+          termCount: terms.length,
+          sampleTerms: terms.slice(0, 25),
+          wouldReplace: replacements,
+        },
+        "window-ocr"
+      );
+    } catch (error) {
+      logger.debug("Screen context report failed", { error: error.message }, "window-ocr");
+    }
+    return text;
+  }
+
   async processTranscription(text, source) {
+    await this.reportScreenContext(text, source);
     const normalizedText = typeof text === "string" ? text.trim() : "";
 
     if (!normalizedText) {
@@ -3391,6 +3429,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         return false;
       }
 
+      // Same as the batch path: start OCR before the mic, so it overlaps speech.
+      window.electronAPI?.windowOcrStart?.();
+
       this.stopRequestedDuringStreamingStart = false;
 
       const t0 = performance.now();
@@ -3764,6 +3805,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       },
       "streaming"
     );
+
+    // Streaming has its own reasoning block below, so it needs the screen
+    // context report separately from processTranscription.
+    await this.reportScreenContext(finalText, "streaming");
 
     const stSettings = getSettings();
     const streamingSttModel = stopResult?.model || "nova-3";

@@ -110,6 +110,7 @@
         "macos-globe-listener",
         "macos-fast-paste",
         "macos-mic-listener",
+        "macos-window-ocr",
         "macos-text-monitor",
         "macos-media-remote",
         "MediaRemoteAdapter.framework/**",

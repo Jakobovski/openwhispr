@@ -1725,6 +1725,11 @@ declare global {
       onXaiError?: (callback: (error: string) => void) => () => void;
       onXaiSessionEnd?: (callback: (data: { text?: string }) => void) => () => void;
 
+      // Focused-window OCR (screen context for transcript correction)
+      windowOcrStart?: () => void;
+      windowOcrCollect?: () => Promise<{ text: string; window: string } | null>;
+      windowOcrCancel?: () => void;
+
       // Agent overlay
       resizeAgentWindow?: (width: number, height: number) => Promise<void>;
       getAgentWindowBounds?: () => Promise<{

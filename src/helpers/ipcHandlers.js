@@ -478,6 +478,7 @@ class IPCHandlers {
     this.deepgramStreaming = null;
     this.cortiStreaming = null;
     this.xaiStreaming = null;
+    this.windowOcr = null;
     this._dictationStreaming = null;
     this._dictationConnectPromise = null;
     this._dictationIdleTimer = null;
@@ -8639,6 +8640,26 @@ class IPCHandlers {
         return { isConnected: false, sessionId: null };
       }
       return this.xaiStreaming.getStatus();
+    });
+
+    // Focused-window OCR. Started when recording begins so recognition overlaps
+    // the user speaking, collected once the transcript exists.
+    ipcMain.on("window-ocr-start", () => {
+      if (!this.windowOcr) {
+        const WindowOcrManager = require("./windowOcrManager");
+        this.windowOcr = new WindowOcrManager();
+      }
+      if (!this.windowOcr.isSupported()) return;
+      this.windowOcr.start();
+    });
+
+    ipcMain.handle("window-ocr-collect", async () => {
+      if (!this.windowOcr) return null;
+      return this.windowOcr.collect();
+    });
+
+    ipcMain.on("window-ocr-cancel", () => {
+      this.windowOcr?.cancel();
     });
 
     // Agent mode handlers

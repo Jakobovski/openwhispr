@@ -661,6 +661,11 @@ contextBridge.exposeInMainWorld("electronAPI", {
     (callback) => (_event, data) => callback(data)
   ),
 
+  // Focused-window OCR (screen context for transcript correction)
+  windowOcrStart: () => ipcRenderer.send("window-ocr-start"),
+  windowOcrCollect: () => ipcRenderer.invoke("window-ocr-collect"),
+  windowOcrCancel: () => ipcRenderer.send("window-ocr-cancel"),
+
   // Meeting transcription (streaming, dual-channel)
   meetingTranscriptionPrepare: (options) =>
     ipcRenderer.invoke("meeting-transcription-prepare", options),
