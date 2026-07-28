@@ -1185,6 +1185,17 @@ declare global {
       saveCustomTranscriptionKey?: (key: string) => Promise<void>;
       getCleanupCustomKey?: () => Promise<string | null>;
       saveCleanupCustomKey?: (key: string) => Promise<void>;
+      getNoteFormattingCustomKey?: () => Promise<string | null>;
+      saveNoteFormattingCustomKey?: (key: string) => Promise<void>;
+      getDictationAgentCustomKey?: () => Promise<string | null>;
+      saveDictationAgentCustomKey?: (key: string) => Promise<void>;
+      getChatAgentCustomKey?: () => Promise<string | null>;
+      saveChatAgentCustomKey?: (key: string) => Promise<void>;
+      getTranslationCustomKey?: () => Promise<string | null>;
+      saveTranslationCustomKey?: (key: string) => Promise<void>;
+      onSecretChanged?: (
+        callback: (data: { storeKey: string; value: string }) => void
+      ) => () => void;
 
       // Enterprise provider key persistence
       getBedrockRegion?: () => Promise<string | null>;
