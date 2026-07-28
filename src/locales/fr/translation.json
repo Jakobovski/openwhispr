@@ -548,6 +548,9 @@
     "tinfoil": {
       "transportNote": "Tinfoil diffuse avec Voxtral Mini 4B et traite les lots avec Voxtral Small 24B.",
       "docsLink": "Voir la documentation"
+    },
+    "xai": {
+      "mode": "Mode de transcription"
     }
   },
   "hooks": {

@@ -216,6 +216,7 @@ interface ProviderCredentialField {
     | "openaiApiKey"
     | "groqApiKey"
     | "xaiApiKey"
+    | "xaiTranscriptionMode"
     | "mistralApiKey"
     | "cortiClientId"
     | "cortiClientSecret"
@@ -242,7 +243,18 @@ const PROVIDER_CREDENTIALS: Record<
   },
   xai: {
     consoleUrl: "https://console.x.ai",
-    fields: [{ key: "xaiApiKey", input: "secret" }],
+    fields: [
+      { key: "xaiApiKey", input: "secret" },
+      {
+        key: "xaiTranscriptionMode",
+        input: "select",
+        labelKey: "transcription.xai.mode",
+        options: [
+          { value: "streaming", label: "Streaming" },
+          { value: "batch", label: "Batch" },
+        ],
+      },
+    ],
   },
   mistral: {
     consoleUrl: "https://console.mistral.ai/api-keys",
@@ -346,6 +358,8 @@ export default function TranscriptionModelPicker({
   const setGroqApiKey = useSettingsStore((s) => s.setGroqApiKey);
   const xaiApiKey = useSettingsStore((s) => s.xaiApiKey);
   const setXaiApiKey = useSettingsStore((s) => s.setXaiApiKey);
+  const xaiTranscriptionMode = useSettingsStore((s) => s.xaiTranscriptionMode);
+  const setXaiTranscriptionMode = useSettingsStore((s) => s.setXaiTranscriptionMode);
   const mistralApiKey = useSettingsStore((s) => s.mistralApiKey);
   const setMistralApiKey = useSettingsStore((s) => s.setMistralApiKey);
   const cortiClientId = useSettingsStore((s) => s.cortiClientId);
@@ -740,6 +754,7 @@ export default function TranscriptionModelPicker({
     openaiApiKey,
     groqApiKey,
     xaiApiKey,
+    xaiTranscriptionMode,
     mistralApiKey,
     cortiClientId,
     cortiClientSecret,
@@ -751,6 +766,7 @@ export default function TranscriptionModelPicker({
     openaiApiKey: setOpenaiApiKey,
     groqApiKey: setGroqApiKey,
     xaiApiKey: setXaiApiKey,
+    xaiTranscriptionMode: setXaiTranscriptionMode,
     mistralApiKey: setMistralApiKey,
     cortiClientId: setCortiClientId,
     cortiClientSecret: setCortiClientSecret,

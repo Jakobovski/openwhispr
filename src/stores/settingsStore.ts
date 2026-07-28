@@ -627,6 +627,11 @@ export interface SettingsState
   setCortiEnvironment: (value: string) => void;
   setCortiTenant: (value: string) => void;
 
+  // xAI (BYOK): "streaming" for live partials over websockets, "batch" to
+  // upload the finished recording to the REST endpoint instead.
+  xaiTranscriptionMode: string;
+  setXaiTranscriptionMode: (value: string) => void;
+
   // Enterprise providers
   bedrockAuthMode: string;
   bedrockRegion: string;
@@ -954,6 +959,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cleanupCloudBaseUrl: readString("cleanupCloudBaseUrl", API_ENDPOINTS.OPENAI_BASE),
   cortiEnvironment: readString("cortiEnvironment", "us"),
   cortiTenant: readString("cortiTenant", "base"),
+  xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
   customDictionary: readStringArray("customDictionary", []),
   snippets: (() => {
     try {
@@ -1482,6 +1488,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   },
   setCortiApiKey: createSecretSetter("cortiApiKey", "cortiApiKey", "corti"),
   setCortiEnvironment: createStringSetter("cortiEnvironment"),
+  setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
   setCortiTenant: createStringSetter("cortiTenant"),
   setTinfoilApiKey: createSecretSetter("tinfoilApiKey", "tinfoil", "tinfoil"),
   setCustomTranscriptionApiKey: (key: string) => {

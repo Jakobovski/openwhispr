@@ -146,7 +146,13 @@ const getMeetingTranscriptionOptions = () => {
   }
 
   // xAI (BYOK) likewise streams over its own WSS, outside the server catalog.
-  if (resolved.cloudTranscriptionMode === "byok" && selectedProvider === "xai") {
+  // Meeting capture has no batch path, so batch mode falls through to the
+  // catalog rather than selecting a provider that cannot stream.
+  if (
+    resolved.cloudTranscriptionMode === "byok" &&
+    selectedProvider === "xai" &&
+    state.xaiTranscriptionMode !== "batch"
+  ) {
     return {
       provider: "xai-realtime" as const,
       model: "grok-stt",

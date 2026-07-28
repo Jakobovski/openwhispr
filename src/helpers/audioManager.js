@@ -533,7 +533,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     if (s.cloudTranscriptionProvider === "corti" && s.cloudTranscriptionMode === "byok") {
       return "corti";
     }
-    if (s.cloudTranscriptionProvider === "xai" && s.cloudTranscriptionMode === "byok") {
+    if (
+      s.cloudTranscriptionProvider === "xai" &&
+      s.cloudTranscriptionMode === "byok" &&
+      s.xaiTranscriptionMode !== "batch"
+    ) {
       return "xai";
     }
     if (REALTIME_MODELS.has(s.cloudTranscriptionModel)) {
@@ -3164,8 +3168,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return !!(s.cortiClientId && s.cortiClientSecret);
     }
 
-    // xAI (BYOK) likewise streams over its own WSS with the key in a header.
+    // xAI (BYOK) likewise streams over its own WSS with the key in a header,
+    // unless the user picked batch — streaming costs twice as much per hour and
+    // segments the transcript, so uploading the finished recording is a
+    // legitimate preference.
     if (s.cloudTranscriptionProvider === "xai" && s.cloudTranscriptionMode === "byok") {
+      if (s.xaiTranscriptionMode === "batch") return false;
       return !!s.xaiApiKey;
     }
 
