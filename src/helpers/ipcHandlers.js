@@ -14,6 +14,7 @@ const AssemblyAiStreaming = require("./assemblyAiStreaming");
 const { i18nMain, changeLanguage } = require("./i18nMain");
 const DeepgramStreaming = require("./deepgramStreaming");
 const CortiStreaming = require("./cortiStreaming");
+const XaiStreaming = require("./xaiStreaming");
 const OpenAIRealtimeStreaming = require("./openaiRealtimeStreaming");
 const { getCortiToken } = require("./cortiAuth");
 const { createTinfoilRealtimeSocket } = require("./tinfoilSecureClient");
@@ -57,6 +58,7 @@ const STREAMING_CLIENT_BY_PROVIDER = {
   "assemblyai-realtime": AssemblyAiStreaming,
   "deepgram-realtime": DeepgramStreaming,
   "corti-realtime": CortiStreaming,
+  "xai-realtime": XaiStreaming,
 };
 const ALLOWED_MEETING_PROVIDERS = new Set([
   "local",
@@ -64,6 +66,7 @@ const ALLOWED_MEETING_PROVIDERS = new Set([
   "assemblyai-realtime",
   "deepgram-realtime",
   "corti-realtime",
+  "xai-realtime",
 ]);
 
 // Meeting capture runs at 24 kHz (see meetingRecordingStore AudioContext); cloud
@@ -85,34 +88,9 @@ const MISTRAL_TRANSCRIPTION_URL = "https://api.mistral.ai/v1/audio/transcription
 
 const XAI_STT_URL = "https://api.x.ai/v1/stt";
 
-// xAI STT supports 25 languages; language must be in this set to enable ITN via format=true
-const XAI_STT_LANGUAGES = new Set([
-  "ar",
-  "cs",
-  "da",
-  "de",
-  "en",
-  "es",
-  "fa",
-  "fil",
-  "fr",
-  "hi",
-  "id",
-  "it",
-  "ja",
-  "ko",
-  "mk",
-  "ms",
-  "nl",
-  "pl",
-  "pt",
-  "ro",
-  "ru",
-  "sv",
-  "th",
-  "tr",
-  "vi",
-]);
+// Language must be in this set to enable ITN via format=true. Shared with the
+// streaming client, which uses it to decide when to omit `language` entirely.
+const { XAI_STT_LANGUAGES } = require("./xaiSttLanguages");
 
 // Debounce delay: wait for user to stop typing before processing corrections
 const AUTO_LEARN_DEBOUNCE_MS = 1500;
@@ -499,6 +477,7 @@ class IPCHandlers {
     this.assemblyAiStreaming = null;
     this.deepgramStreaming = null;
     this.cortiStreaming = null;
+    this.xaiStreaming = null;
     this._dictationStreaming = null;
     this._dictationConnectPromise = null;
     this._dictationIdleTimer = null;
@@ -5237,6 +5216,16 @@ class IPCHandlers {
         }
         return streams === 2 ? [apiKey, apiKey] : apiKey;
       }
+      if (options.provider === "xai-realtime") {
+        // xAI streams are BYOK-only; the key goes in the WSS Authorization header.
+        const apiKey = this.environmentManager.getXaiKey();
+        if (!apiKey) {
+          const err = new Error("No xAI API key configured. Add your key in Settings.");
+          err.code = "NO_API";
+          throw err;
+        }
+        return streams === 2 ? [apiKey, apiKey] : apiKey;
+      }
 
       if (options.mode === "byok") {
         const apiKey = this.environmentManager.getOpenAIKey();
@@ -8552,6 +8541,104 @@ class IPCHandlers {
         return { isConnected: false, sessionId: null };
       }
       return this.cortiStreaming.getStatus();
+    });
+
+    const requireXaiStreamingKey = () => {
+      const apiKey = this.environmentManager.getXaiKey();
+      if (!apiKey) {
+        const err = new Error("No xAI API key configured. Add your key in Settings.");
+        err.code = "NO_API";
+        throw err;
+      }
+      return apiKey;
+    };
+
+    ipcMain.handle("xai-streaming-warmup", async (_event, options = {}) => {
+      try {
+        if (!this.xaiStreaming) {
+          this.xaiStreaming = new XaiStreaming();
+        }
+        if (this.xaiStreaming.hasWarmConnection() || this.xaiStreaming.isConnected) {
+          return { success: true, alreadyWarm: true };
+        }
+        await this.xaiStreaming.warmup({
+          apiKey: requireXaiStreamingKey(),
+          sampleRate: options.sampleRate,
+          language: options.language,
+          keyterms: options.keyterms,
+        });
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message, code: error.code };
+      }
+    });
+
+    ipcMain.handle("xai-streaming-start", async (event, options = {}) => {
+      try {
+        if (!this.xaiStreaming) {
+          this.xaiStreaming = new XaiStreaming();
+        }
+        if (this.xaiStreaming.isConnected) {
+          await this.xaiStreaming.disconnect(false);
+        }
+
+        const apiKey = requireXaiStreamingKey();
+        const win = BrowserWindow.fromWebContents(event.sender);
+
+        this.xaiStreaming.onPartialTranscript = (text) => {
+          if (win && !win.isDestroyed()) win.webContents.send("xai-partial-transcript", text);
+        };
+        this.xaiStreaming.onFinalTranscript = (text) => {
+          if (win && !win.isDestroyed()) win.webContents.send("xai-final-transcript", text);
+        };
+        this.xaiStreaming.onError = (error) => {
+          if (win && !win.isDestroyed()) win.webContents.send("xai-error", error.message);
+        };
+        this.xaiStreaming.onSessionEnd = (data) => {
+          if (win && !win.isDestroyed()) win.webContents.send("xai-session-end", data);
+        };
+
+        await this.xaiStreaming.connect({
+          apiKey,
+          sampleRate: options.sampleRate,
+          language: options.language,
+          keyterms: options.keyterms,
+        });
+        return { success: true };
+      } catch (error) {
+        debugLogger.error("xAI streaming start error", { error: error.message }, "streaming");
+        return { success: false, error: error.message, code: error.code };
+      }
+    });
+
+    ipcMain.on("xai-streaming-send", (_event, audioBuffer) => {
+      this.xaiStreaming?.sendAudio(Buffer.from(audioBuffer));
+    });
+
+    ipcMain.on("xai-streaming-finalize", () => {
+      this.xaiStreaming?.finalize();
+    });
+
+    ipcMain.handle("xai-streaming-stop", async () => {
+      try {
+        const model = this.xaiStreaming?.currentModel || "grok-stt";
+        const audioBytesSent = this.xaiStreaming?.audioBytesSent || 0;
+        let result = { text: "" };
+        if (this.xaiStreaming) {
+          result = await this.xaiStreaming.disconnect(true);
+        }
+        return { success: true, text: result?.text || "", model, audioBytesSent };
+      } catch (error) {
+        debugLogger.error("xAI streaming stop error", { error: error.message }, "streaming");
+        return { success: false, error: error.message };
+      }
+    });
+
+    ipcMain.handle("xai-streaming-status", async () => {
+      if (!this.xaiStreaming) {
+        return { isConnected: false, sessionId: null };
+      }
+      return this.xaiStreaming.getStatus();
     });
 
     // Agent mode handlers

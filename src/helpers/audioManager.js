@@ -235,6 +235,18 @@ const STREAMING_PROVIDERS = {
     onError: (cb) => window.electronAPI.onCortiError(cb),
     onSessionEnd: (cb) => window.electronAPI.onCortiSessionEnd(cb),
   },
+  xai: {
+    warmup: (opts) => window.electronAPI.xaiStreamingWarmup(opts),
+    start: (opts) => window.electronAPI.xaiStreamingStart(opts),
+    send: (buf) => window.electronAPI.xaiStreamingSend(buf),
+    finalize: () => window.electronAPI.xaiStreamingFinalize(),
+    stop: () => window.electronAPI.xaiStreamingStop(),
+    status: () => window.electronAPI.xaiStreamingStatus(),
+    onPartial: (cb) => window.electronAPI.onXaiPartialTranscript(cb),
+    onFinal: (cb) => window.electronAPI.onXaiFinalTranscript(cb),
+    onError: (cb) => window.electronAPI.onXaiError(cb),
+    onSessionEnd: (cb) => window.electronAPI.onXaiSessionEnd(cb),
+  },
   "tinfoil-realtime": {
     warmup: (opts) =>
       window.electronAPI.dictationRealtimeWarmup({
@@ -520,6 +532,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
     if (s.cloudTranscriptionProvider === "corti" && s.cloudTranscriptionMode === "byok") {
       return "corti";
+    }
+    if (s.cloudTranscriptionProvider === "xai" && s.cloudTranscriptionMode === "byok") {
+      return "xai";
     }
     if (REALTIME_MODELS.has(s.cloudTranscriptionModel)) {
       return "openai-realtime";
@@ -3147,6 +3162,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // Corti (BYOK) streams over its own WSS — independent of OpenWhispr Cloud.
     if (s.cloudTranscriptionProvider === "corti" && s.cloudTranscriptionMode === "byok") {
       return !!(s.cortiClientId && s.cortiClientSecret);
+    }
+
+    // xAI (BYOK) likewise streams over its own WSS with the key in a header.
+    if (s.cloudTranscriptionProvider === "xai" && s.cloudTranscriptionMode === "byok") {
+      return !!s.xaiApiKey;
     }
 
     // Tinfoil realtime streams without an OpenWhispr account.

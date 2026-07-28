@@ -640,6 +640,27 @@ contextBridge.exposeInMainWorld("electronAPI", {
     (callback) => (_event, data) => callback(data)
   ),
 
+  // xAI streaming (BYOK)
+  xaiStreamingWarmup: (options) => ipcRenderer.invoke("xai-streaming-warmup", options),
+  xaiStreamingStart: (options) => ipcRenderer.invoke("xai-streaming-start", options),
+  xaiStreamingSend: (audioBuffer) => ipcRenderer.send("xai-streaming-send", audioBuffer),
+  xaiStreamingFinalize: () => ipcRenderer.send("xai-streaming-finalize"),
+  xaiStreamingStop: () => ipcRenderer.invoke("xai-streaming-stop"),
+  xaiStreamingStatus: () => ipcRenderer.invoke("xai-streaming-status"),
+  onXaiPartialTranscript: registerListener(
+    "xai-partial-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onXaiFinalTranscript: registerListener(
+    "xai-final-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onXaiError: registerListener("xai-error", (callback) => (_event, error) => callback(error)),
+  onXaiSessionEnd: registerListener(
+    "xai-session-end",
+    (callback) => (_event, data) => callback(data)
+  ),
+
   // Meeting transcription (streaming, dual-channel)
   meetingTranscriptionPrepare: (options) =>
     ipcRenderer.invoke("meeting-transcription-prepare", options),

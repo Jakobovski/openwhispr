@@ -145,6 +145,17 @@ const getMeetingTranscriptionOptions = () => {
     };
   }
 
+  // xAI (BYOK) likewise streams over its own WSS, outside the server catalog.
+  if (resolved.cloudTranscriptionMode === "byok" && selectedProvider === "xai") {
+    return {
+      provider: "xai-realtime" as const,
+      model: "grok-stt",
+      mode: "byok" as const,
+      language,
+      keyterms: (state.customDictionary ?? []).filter(Boolean),
+    };
+  }
+
   const catalog = useStreamingProvidersStore.getState().providers;
   const provider =
     catalog?.find((p) => p.id === resolved.cloudTranscriptionProvider) ?? catalog?.[0];

@@ -1699,6 +1699,32 @@ declare global {
       onCortiError?: (callback: (error: string) => void) => () => void;
       onCortiSessionEnd?: (callback: (data: { text?: string }) => void) => () => void;
 
+      // xAI streaming (BYOK)
+      xaiStreamingWarmup?: (options?: {
+        sampleRate?: number;
+        language?: string;
+        keyterms?: string[];
+      }) => Promise<{ success: boolean; alreadyWarm?: boolean; error?: string; code?: string }>;
+      xaiStreamingStart?: (options?: {
+        sampleRate?: number;
+        language?: string;
+        keyterms?: string[];
+      }) => Promise<{ success: boolean; error?: string; code?: string }>;
+      xaiStreamingSend?: (audioBuffer: ArrayBuffer) => void;
+      xaiStreamingFinalize?: () => void;
+      xaiStreamingStop?: () => Promise<{
+        success: boolean;
+        text?: string;
+        model?: string;
+        audioBytesSent?: number;
+        error?: string;
+      }>;
+      xaiStreamingStatus?: () => Promise<{ isConnected: boolean; sessionId: string | null }>;
+      onXaiPartialTranscript?: (callback: (text: string) => void) => () => void;
+      onXaiFinalTranscript?: (callback: (text: string) => void) => () => void;
+      onXaiError?: (callback: (error: string) => void) => () => void;
+      onXaiSessionEnd?: (callback: (data: { text?: string }) => void) => () => void;
+
       // Agent overlay
       resizeAgentWindow?: (width: number, height: number) => Promise<void>;
       getAgentWindowBounds?: () => Promise<{
