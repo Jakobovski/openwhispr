@@ -1852,7 +1852,11 @@
             "info": "Audio que se extiende de un segmento al siguiente para evitar cortes bruscos al concatenarlos."
           }
         }
-      }
+      },
+      "dualTranscription": "Transcripción doble",
+      "dualTranscriptionDescription": "Envía el audio a dos proveedores y deja que un LLM combine los resultados. Más preciso, más lento y cobran ambos proveedores.",
+      "dualProviderA": "Primer proveedor",
+      "dualProviderB": "Segundo proveedor"
     },
     "intelligence": {
       "gpuDevice": {

@@ -1977,7 +1977,11 @@
             "info": "Audio carried from each segment into the next to avoid abrupt cuts when concatenating."
           }
         }
-      }
+      },
+      "dualTranscription": "Dual transcription",
+      "dualTranscriptionDescription": "Send audio to two providers and have an LLM combine the results. More accurate, slower, and costs both providers.",
+      "dualProviderA": "First provider",
+      "dualProviderB": "Second provider"
     },
     "intelligence": {
       "gpuDevice": {

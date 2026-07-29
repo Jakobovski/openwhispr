@@ -1804,7 +1804,11 @@
             "info": "区間を連結するときに途切れないよう、次の区間に延長する音声の長さです。"
           }
         }
-      }
+      },
+      "dualTranscription": "デュアル文字起こし",
+      "dualTranscriptionDescription": "音声を2つのプロバイダーに送信し、LLM が結果を統合します。精度は上がりますが、遅くなり、両方のプロバイダーに料金が発生します。",
+      "dualProviderA": "1つ目のプロバイダー",
+      "dualProviderB": "2つ目のプロバイダー"
     },
     "intelligence": {
       "gpuDevice": {

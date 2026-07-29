@@ -342,6 +342,74 @@ function TranscriptionSection({
     </SettingsPanel>
   );
 
+  const dualTranscriptionEnabled = useSettingsStore((s) => s.dualTranscriptionEnabled);
+  const setDualTranscriptionEnabled = useSettingsStore((s) => s.setDualTranscriptionEnabled);
+  const dualTranscriptionProviderA = useSettingsStore((s) => s.dualTranscriptionProviderA);
+  const setDualTranscriptionProviderA = useSettingsStore((s) => s.setDualTranscriptionProviderA);
+  const dualTranscriptionProviderB = useSettingsStore((s) => s.dualTranscriptionProviderB);
+  const setDualTranscriptionProviderB = useSettingsStore((s) => s.setDualTranscriptionProviderB);
+
+  const DUAL_PROVIDER_OPTIONS = [
+    { value: "groq", label: "Groq" },
+    { value: "xai", label: "xAI" },
+    { value: "openai", label: "OpenAI" },
+  ];
+
+  const renderDualTranscription = () => (
+    <SettingsPanel>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.transcription.dualTranscription")}
+          description={t("settingsPage.transcription.dualTranscriptionDescription")}
+        >
+          <Toggle checked={dualTranscriptionEnabled} onChange={setDualTranscriptionEnabled} />
+        </SettingsRow>
+      </SettingsPanelRow>
+      {dualTranscriptionEnabled && (
+        <>
+          <SettingsPanelRow>
+            <SettingsRow label={t("settingsPage.transcription.dualProviderA")}>
+              <Select
+                value={dualTranscriptionProviderA}
+                onValueChange={setDualTranscriptionProviderA}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DUAL_PROVIDER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          <SettingsPanelRow>
+            <SettingsRow label={t("settingsPage.transcription.dualProviderB")}>
+              <Select
+                value={dualTranscriptionProviderB}
+                onValueChange={setDualTranscriptionProviderB}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DUAL_PROVIDER_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+        </>
+      )}
+    </SettingsPanel>
+  );
+
   const renderTranscriptionPicker = (mode?: "cloud" | "local") => (
     <TranscriptionModelPicker
       selectedCloudProvider={cloudTranscriptionProvider}
@@ -377,7 +445,12 @@ function TranscriptionSection({
         onSelect={handleTranscriptionModeSelect}
       />
 
-      {transcriptionMode === "providers" && renderTranscriptionPicker("cloud")}
+      {transcriptionMode === "providers" && (
+        <>
+          {renderTranscriptionPicker("cloud")}
+          {renderDualTranscription()}
+        </>
+      )}
       {transcriptionMode === "local" && (
         <>
           {renderTranscriptionPicker("local")}

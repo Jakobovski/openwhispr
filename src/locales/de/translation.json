@@ -1804,7 +1804,11 @@
             "info": "Audio, das von einem Segment ins nächste übertragen wird, um abrupte Schnitte beim Zusammenfügen zu vermeiden."
           }
         }
-      }
+      },
+      "dualTranscription": "Doppelte Transkription",
+      "dualTranscriptionDescription": "Sendet Audio an zwei Anbieter und lässt ein LLM die Ergebnisse kombinieren. Genauer, langsamer, und beide Anbieter berechnen Kosten.",
+      "dualProviderA": "Erster Anbieter",
+      "dualProviderB": "Zweiter Anbieter"
     },
     "intelligence": {
       "gpuDevice": {

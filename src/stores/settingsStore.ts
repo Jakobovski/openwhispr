@@ -117,6 +117,7 @@ function migrateMeetingFollowFlags() {
 migrateMeetingFollowFlags();
 
 const BOOLEAN_SETTINGS = new Set([
+  "dualTranscriptionEnabled",
   "useLocalWhisper",
   "meetingUseLocalWhisper",
   "uploadUseLocalWhisper",
@@ -632,6 +633,19 @@ export interface SettingsState
   xaiTranscriptionMode: string;
   setXaiTranscriptionMode: (value: string) => void;
 
+  // Dual transcription (BYOK): send the recording to two providers and have an
+  // LLM combine the results. Batch-only, since it compares finished transcripts.
+  dualTranscriptionEnabled: boolean;
+  dualTranscriptionProviderA: string;
+  dualTranscriptionProviderB: string;
+  dualTranscriptionReconcileProvider: string;
+  dualTranscriptionReconcileModel: string;
+  setDualTranscriptionEnabled: (value: boolean) => void;
+  setDualTranscriptionProviderA: (value: string) => void;
+  setDualTranscriptionProviderB: (value: string) => void;
+  setDualTranscriptionReconcileProvider: (value: string) => void;
+  setDualTranscriptionReconcileModel: (value: string) => void;
+
   // Enterprise providers
   bedrockAuthMode: string;
   bedrockRegion: string;
@@ -960,6 +974,14 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cortiEnvironment: readString("cortiEnvironment", "us"),
   cortiTenant: readString("cortiTenant", "base"),
   xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
+  dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", false),
+  dualTranscriptionProviderA: readString("dualTranscriptionProviderA", "groq"),
+  dualTranscriptionProviderB: readString("dualTranscriptionProviderB", "xai"),
+  dualTranscriptionReconcileProvider: readString("dualTranscriptionReconcileProvider", "groq"),
+  dualTranscriptionReconcileModel: readString(
+    "dualTranscriptionReconcileModel",
+    "openai/gpt-oss-120b"
+  ),
   customDictionary: readStringArray("customDictionary", []),
   snippets: (() => {
     try {
@@ -1489,6 +1511,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setCortiApiKey: createSecretSetter("cortiApiKey", "cortiApiKey", "corti"),
   setCortiEnvironment: createStringSetter("cortiEnvironment"),
   setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
+  setDualTranscriptionEnabled: createBooleanSetter("dualTranscriptionEnabled"),
+  setDualTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),
+  setDualTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),
+  setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
+  setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
   setCortiTenant: createStringSetter("cortiTenant"),
   setTinfoilApiKey: createSecretSetter("tinfoilApiKey", "tinfoil", "tinfoil"),
   setCustomTranscriptionApiKey: (key: string) => {

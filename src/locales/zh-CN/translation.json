@@ -1799,7 +1799,11 @@
             "info": "将每个片段延伸到下一个片段的音频量，避免拼接时出现突兀的截断。"
           }
         }
-      }
+      },
+      "dualTranscription": "双重转录",
+      "dualTranscriptionDescription": "将音频发送给两个提供商，并由 LLM 合并结果。更准确、更慢，且两个提供商都会计费。",
+      "dualProviderA": "第一个提供商",
+      "dualProviderB": "第二个提供商"
     },
     "intelligence": {
       "gpuDevice": {

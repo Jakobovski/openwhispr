@@ -28,6 +28,11 @@ import {
 } from "../stores/settingsStore";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
+import {
+  RECONCILE_SYSTEM_PROMPT,
+  buildReconcileInput,
+  transcriptsAgree,
+} from "../utils/transcriptReconcile";
 
 import {
   getBatchTranscriptionModel,
@@ -188,6 +193,42 @@ const isValidApiKey = (key, provider = "openai") => {
   if (!key || key.trim() === "") return false;
   const placeholder = PLACEHOLDER_KEYS[provider] || PLACEHOLDER_KEYS.openai;
   return key !== placeholder;
+};
+
+// Providers selectable for dual transcription, and the model each uses. Separate
+// from getTranscriptionModel(), which resolves the single active provider's
+// selected model and has no notion of a second provider running alongside it.
+// Reconciling is a judgement call about what was actually said, so it gets a
+// strong model. GPT-OSS 120B is served text-to-text over Groq's chat completions
+// endpoint like any other model here.
+//
+// It is a reasoning model (supportsThinking in the registry), so it may spend
+// thinking tokens before answering. Any <think> block is stripped from the reply
+// by ReasoningService, but the tokens still cost latency in the paste path — if
+// that proves too slow, llama-3.3-70b-versatile is the non-reasoning fallback.
+// Dual mode requires an explicit opt-in, BYOK credentials, and a key for each
+// selected provider — a half-configured pair would silently degrade to whichever
+// side happened to work, which is worse than staying on the single-provider path.
+function isDualTranscriptionEnabled(settings) {
+  if (!settings?.dualTranscriptionEnabled) return false;
+  if (settings.useLocalWhisper) return false;
+  if (settings.cloudTranscriptionMode !== "byok") return false;
+  const keyFor = {
+    groq: settings.groqApiKey,
+    xai: settings.xaiApiKey,
+    openai: settings.openaiApiKey,
+  };
+  const a = settings.dualTranscriptionProviderA || "groq";
+  const b = settings.dualTranscriptionProviderB || "xai";
+  return a !== b && !!keyFor[a] && !!keyFor[b];
+}
+
+const DEFAULT_RECONCILE_MODEL = "openai/gpt-oss-120b";
+
+const DUAL_TRANSCRIPTION_MODELS = {
+  groq: "whisper-large-v3-turbo",
+  xai: "grok-stt",
+  openai: "gpt-4o-mini-transcribe",
 };
 
 const STREAMING_PROVIDERS = {
@@ -1276,6 +1317,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
         activeModel = "openwhispr-cloud";
         result = await this.processWithOpenWhisprCloud(audioBlob, metadata);
+      } else if (isDualTranscriptionEnabled(settings)) {
+        activeModel = "dual";
+        result = await this.processWithDualTranscription(audioBlob, metadata);
       } else {
         activeModel = this.getTranscriptionModel();
         result = await this.processWithOpenAIAPI(audioBlob, metadata);
@@ -2808,6 +2852,217 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
+  // Raw transcription from one provider: no cleanup, no reasoning, no fallback.
+  // Dual mode needs two of these to compare, and processWithOpenAIAPI cannot
+  // supply them — it applies reasoning inside each provider branch and returns a
+  // finished result.
+  //
+  // Written alongside that method rather than extracted out of it on purpose.
+  // processWithOpenAIAPI is the single-provider path for every provider, has no
+  // test coverage (it needs browser APIs), and carries quirks that are easy to
+  // break in a mechanical refactor: Azure's api-key header, Groq's prompt cap,
+  // SSE streaming, dictionary-echo detection, the local-whisper fallback.
+  // Duplicating the two request shapes dual mode needs is the cheaper risk.
+  async transcribeRawWithProvider(audioBlob, provider, { language } = {}) {
+    const settings = getSettings();
+    const startedAt = performance.now();
+    const model = DUAL_TRANSCRIPTION_MODELS[provider];
+    if (!model) {
+      throw new Error(`Provider ${provider} is not available for dual transcription`);
+    }
+
+    let text;
+    if (provider === "xai") {
+      if (!window.electronAPI?.proxyXaiTranscription) {
+        throw new Error("xAI transcription is unavailable in this window");
+      }
+      const keyterms = this.getKeyterms()
+        .map((term) => term.trim().slice(0, 50))
+        .filter(Boolean)
+        .slice(0, 100);
+      const result = await window.electronAPI.proxyXaiTranscription({
+        audioBuffer: await audioBlob.arrayBuffer(),
+        language: language && language !== "auto" ? language : undefined,
+        ...(keyterms.length > 0 ? { keyterms } : {}),
+      });
+      text = result?.text;
+    } else {
+      const apiKey = provider === "groq" ? settings.groqApiKey : settings.openaiApiKey;
+      if (!apiKey) {
+        throw new Error(`No ${provider} API key configured`);
+      }
+      const endpoint =
+        provider === "groq"
+          ? buildApiUrl(API_ENDPOINTS.GROQ_BASE, "/audio/transcriptions")
+          : buildApiUrl(API_ENDPOINTS.OPENAI_BASE, "/audio/transcriptions");
+
+      const formData = new FormData();
+      formData.append("file", audioBlob, "audio.webm");
+      formData.append("model", model);
+      if (language && language !== "auto") formData.append("language", language);
+      // Same cap as the single-provider path: Groq rejects prompts over 896 chars.
+      const dictionaryPrompt = this.getCustomDictionaryPrompt();
+      if (dictionaryPrompt) {
+        formData.append("prompt", dictionaryPrompt.slice(0, provider === "groq" ? 890 : 900));
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: formData,
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(
+          `${provider} transcription failed: ${response.status} ${detail.slice(0, 200)}`
+        );
+      }
+      text = (await response.json())?.text;
+    }
+
+    const trimmed = typeof text === "string" ? text.trim() : "";
+    if (!trimmed) {
+      throw new Error(`No text transcribed - ${provider} response was empty`);
+    }
+    // The dictionary prompt echoing back means silence, not speech.
+    if (this.isDictionaryEcho(trimmed)) {
+      throw new Error("No audio detected");
+    }
+
+    return {
+      provider,
+      model,
+      text: trimmed,
+      ms: Math.round(performance.now() - startedAt),
+    };
+  }
+
+  // Dual transcription as a transcription source: raw text from two providers,
+  // merged, then handed to the same cleanup and reasoning every other source
+  // uses. Shaped to match processWithOpenAIAPI's return so callers don't branch.
+  async processWithDualTranscription(audioBlob, metadata = {}) {
+    const timings = {};
+    const settings = getSettings();
+    const language = getBaseLanguageCode(this.getEffectiveSttLanguage(settings));
+
+    const dual = await this.transcribeDual(audioBlob, { language });
+    timings.transcriptionProcessingDurationMs = dual.transcribeMs;
+    if (dual.reconcileMs != null) timings.reconcileDurationMs = dual.reconcileMs;
+
+    logger.info(
+      "Dual transcription complete",
+      {
+        providerA: dual.providerA,
+        providerB: dual.providerB,
+        reconciled: dual.reconciled,
+        agreed: !dual.reconciled && !!dual.textA && !!dual.textB,
+        transcribeMs: dual.transcribeMs,
+        reconcileMs: dual.reconcileMs,
+        durationSeconds: metadata.durationSeconds ?? null,
+      },
+      "transcription"
+    );
+
+    const reasoningStart = performance.now();
+    const text = await this.processTranscription(dual.text, "dual");
+    timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
+
+    const source = (await this.isReasoningAvailable()) ? "dual-reasoned" : "dual";
+    return { success: true, text, rawText: dual.text, source, timings };
+  }
+
+  // Runs two providers over the same audio and has an LLM combine the results.
+  //
+  // Returns raw text only — the caller still applies the normal cleanup and
+  // reasoning, so this behaves like any other transcription source.
+  //
+  // Every degradation is silent and safe: if one provider fails the other's text
+  // is used (better than today, where one outage means no transcript), if the two
+  // agree the LLM is skipped, and if the reconcile call fails provider A's text
+  // stands. Only both providers failing is an error.
+  async transcribeDual(audioBlob, { language } = {}) {
+    const settings = getSettings();
+    const providerA = settings.dualTranscriptionProviderA || "groq";
+    const providerB = settings.dualTranscriptionProviderB || "xai";
+
+    const startedAt = performance.now();
+    const [resultA, resultB] = await Promise.allSettled([
+      this.transcribeRawWithProvider(audioBlob, providerA, { language }),
+      this.transcribeRawWithProvider(audioBlob, providerB, { language }),
+    ]);
+
+    const textA = resultA.status === "fulfilled" ? resultA.value.text : null;
+    const textB = resultB.status === "fulfilled" ? resultB.value.text : null;
+
+    if (resultA.status === "rejected") {
+      logger.warn(
+        "Dual transcription: provider failed",
+        { provider: providerA, error: resultA.reason?.message },
+        "transcription"
+      );
+    }
+    if (resultB.status === "rejected") {
+      logger.warn(
+        "Dual transcription: provider failed",
+        { provider: providerB, error: resultB.reason?.message },
+        "transcription"
+      );
+    }
+
+    if (!textA && !textB) {
+      throw resultA.reason || resultB.reason || new Error("Dual transcription produced no text");
+    }
+
+    const transcribeMs = Math.round(performance.now() - startedAt);
+
+    // One side missing, or both sides identical: nothing for the LLM to decide.
+    if (!textA || !textB) {
+      const only = textA || textB;
+      return { text: only, providerA, providerB, textA, textB, reconciled: false, transcribeMs };
+    }
+    if (transcriptsAgree(textA, textB)) {
+      logger.debug("Dual transcription: providers agree, skipping reconcile", {}, "transcription");
+      return { text: textA, providerA, providerB, textA, textB, reconciled: false, transcribeMs };
+    }
+
+    const reconcileStart = performance.now();
+    try {
+      const merged = await ReasoningService.processText(
+        buildReconcileInput(textA, textB),
+        settings.dualTranscriptionReconcileModel || DEFAULT_RECONCILE_MODEL,
+        null,
+        {
+          // Groq for latency: this sits in the paste path, after the user has
+          // stopped speaking, so the reconcile is felt directly.
+          provider: settings.dualTranscriptionReconcileProvider || "groq",
+          systemPrompt: RECONCILE_SYSTEM_PROMPT,
+          temperature: 0,
+          disableThinking: true,
+        }
+      );
+      const trimmed = typeof merged === "string" ? merged.trim() : "";
+      if (!trimmed) throw new Error("Reconcile returned empty text");
+
+      return {
+        text: trimmed,
+        providerA,
+        providerB,
+        textA,
+        textB,
+        reconciled: true,
+        transcribeMs,
+        reconcileMs: Math.round(performance.now() - reconcileStart),
+      };
+    } catch (error) {
+      logger.warn(
+        "Dual transcription: reconcile failed, using first provider",
+        { error: error.message },
+        "transcription"
+      );
+      return { text: textA, providerA, providerB, textA, textB, reconciled: false, transcribeMs };
+    }
+  }
+
   getTranscriptionModel() {
     try {
       const s = getSettings();
@@ -3203,6 +3458,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   shouldUseStreaming(isSignedInOverride) {
     const s = getSettings();
     if (s.useLocalWhisper) return false;
+
+    // Dual transcription compares two finished transcripts, so it is batch-only.
+    if (isDualTranscriptionEnabled(s)) return false;
 
     // Self-hosted transcription is batch HTTP to the user's server, never cloud realtime WS.
     if (isSelfHostedTranscription(s)) return false;

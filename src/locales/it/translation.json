@@ -1804,7 +1804,11 @@
             "info": "Audio esteso da un segmento al successivo per evitare tagli netti nella concatenazione."
           }
         }
-      }
+      },
+      "dualTranscription": "Trascrizione doppia",
+      "dualTranscriptionDescription": "Invia l'audio a due provider e lascia che un LLM combini i risultati. Più accurato, più lento, ed entrambi i provider addebitano.",
+      "dualProviderA": "Primo provider",
+      "dualProviderB": "Secondo provider"
     },
     "intelligence": {
       "gpuDevice": {

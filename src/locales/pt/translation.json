@@ -1783,7 +1783,11 @@
             "info": "Áudio estendido de um segmento para o próximo, evitando cortes bruscos na concatenação."
           }
         }
-      }
+      },
+      "dualTranscription": "Transcrição dupla",
+      "dualTranscriptionDescription": "Envia o áudio para dois provedores e deixa um LLM combinar os resultados. Mais preciso, mais lento e ambos os provedores cobram.",
+      "dualProviderA": "Primeiro provedor",
+      "dualProviderB": "Segundo provedor"
     },
     "intelligence": {
       "gpuDevice": {
