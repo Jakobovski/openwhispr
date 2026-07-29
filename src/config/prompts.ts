@@ -18,6 +18,22 @@ export function getCleanupSystemPrompt(
   return resolvePrompt("cleanup", { agentName, language, customDictionary, uiLanguage });
 }
 
+// The cleanup prompt adapted for two candidate transcripts: same cleanup rules,
+// injection resistance and examples, with a reconcile step in front.
+export function getReconcileSystemPrompt(
+  agentName: string | null,
+  customDictionary?: string[],
+  language?: string,
+  uiLanguage?: string
+): string {
+  return resolvePrompt("reconcile", { agentName, language, customDictionary, uiLanguage });
+}
+
+// Mirrors wrapCleanupTranscript, which tags the single-transcript input.
+export function wrapReconcileVersions(a: string, b: string): string {
+  return `<version_a>\n${a}\n</version_a>\n\n<version_b>\n${b}\n</version_b>\n\nOutput only the reconciled, cleaned transcript.`;
+}
+
 export function getWordBoost(customDictionary?: string[]): string[] {
   if (!customDictionary || customDictionary.length === 0) return [];
   return customDictionary.filter((w) => w.trim());

@@ -28,11 +28,8 @@ import {
 } from "../stores/settingsStore";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
-import {
-  RECONCILE_SYSTEM_PROMPT,
-  buildReconcileInput,
-  transcriptsAgree,
-} from "../utils/transcriptReconcile";
+import { transcriptsAgree } from "../utils/transcriptReconcile";
+import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/prompts";
 
 import {
   getBatchTranscriptionModel,
@@ -3049,14 +3046,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const reconcileStart = performance.now();
     try {
       const merged = await ReasoningService.processText(
-        buildReconcileInput(textA, textB),
+        wrapReconcileVersions(textA, textB),
         settings.dualTranscriptionReconcileModel || DEFAULT_RECONCILE_MODEL,
         null,
         {
           // Groq for latency: this sits in the paste path, after the user has
           // stopped speaking, so the reconcile is felt directly.
           provider: settings.dualTranscriptionReconcileProvider || "groq",
-          systemPrompt: RECONCILE_SYSTEM_PROMPT,
+          // The app's own cleanup prompt, adapted for two candidate transcripts:
+          // keeps its localisation, {{agentName}} handling, custom dictionary
+          // suffix, prompt-injection resistance and few-shot examples.
+          systemPrompt: getReconcileSystemPrompt(
+            localStorage.getItem("agentName") || null,
+            this.getCustomDictionaryArray(),
+            language,
+            settings.uiLanguage
+          ),
           temperature: 0,
           disableThinking: true,
         }

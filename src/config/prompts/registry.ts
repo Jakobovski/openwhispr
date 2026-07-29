@@ -10,6 +10,10 @@ export const PROMPT_KINDS = {
     i18nKey: "cleanupPrompt" as const,
     fallback: enPrompts.cleanupPrompt,
   },
+  reconcile: {
+    i18nKey: "reconcilePrompt" as const,
+    fallback: enPrompts.reconcilePrompt,
+  },
   dictationAgent: {
     i18nKey: "fullPrompt" as const,
     fallback: enPrompts.fullPrompt,
