@@ -2574,6 +2574,12 @@
       "stopListening": "停止录音",
       "startListening": "开始录音",
       "hideForNow": "暂时隐藏"
+    },
+    "stats": {
+      "recorded": "录音",
+      "transcription": "stt",
+      "reconcile": "合并",
+      "total": "总计"
     }
   },
   "dictationTranslation": {

@@ -2715,6 +2715,12 @@
       "stopListening": "Stop listening",
       "startListening": "Start listening",
       "hideForNow": "Hide for now"
+    },
+    "stats": {
+      "recorded": "rec",
+      "transcription": "stt",
+      "reconcile": "merge",
+      "total": "total"
     }
   },
   "dictationTranslation": {

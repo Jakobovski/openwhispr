@@ -2627,6 +2627,12 @@
       "stopListening": "Dejar de escuchar",
       "startListening": "Empezar a escuchar",
       "hideForNow": "Ocultar por ahora"
+    },
+    "stats": {
+      "recorded": "grab",
+      "transcription": "stt",
+      "reconcile": "fusión",
+      "total": "total"
     }
   },
   "dictationTranslation": {

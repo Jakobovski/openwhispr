@@ -2585,6 +2585,12 @@
       "stopListening": "Остановить запись",
       "startListening": "Начать запись",
       "hideForNow": "Скрыть"
+    },
+    "stats": {
+      "recorded": "зап",
+      "transcription": "stt",
+      "reconcile": "слияние",
+      "total": "всего"
     }
   },
   "dictationTranslation": {

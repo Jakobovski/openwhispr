@@ -2579,6 +2579,12 @@
       "stopListening": "Parar de ouvir",
       "startListening": "Começar a ouvir",
       "hideForNow": "Ocultar por agora"
+    },
+    "stats": {
+      "recorded": "grav",
+      "transcription": "stt",
+      "reconcile": "fusão",
+      "total": "total"
     }
   },
   "dictationTranslation": {

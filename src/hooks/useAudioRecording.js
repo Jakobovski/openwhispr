@@ -8,6 +8,9 @@ import { expandSnippets } from "../utils/snippets";
 import { getRecordingErrorTitle, getRecordingErrorDescription } from "../utils/recordingErrors";
 import { isAccessibilitySkipped } from "../utils/permissions";
 
+// How long the timing readout stays on screen after a dictation.
+const STATS_VISIBLE_MS = 2000;
+
 export const useAudioRecording = (toast, options = {}) => {
   const { t } = useTranslation();
   const [isRecording, setIsRecording] = useState(false);
@@ -16,6 +19,9 @@ export const useAudioRecording = (toast, options = {}) => {
   const [micCaptureStatus, setMicCaptureStatus] = useState("inactive");
   const [transcript, setTranscript] = useState("");
   const [partialTranscript, setPartialTranscript] = useState("");
+  // Timing readout shown briefly beside the mic once a dictation lands.
+  const [lastStats, setLastStats] = useState(null);
+  const statsTimerRef = useRef(null);
   const audioManagerRef = useRef(null);
   const startLockRef = useRef(false);
   const stopLockRef = useRef(false);
@@ -156,6 +162,11 @@ export const useAudioRecording = (toast, options = {}) => {
       },
       onTranscriptionComplete: async (result) => {
         if (result.success) {
+          if (result.stats) {
+            clearTimeout(statsTimerRef.current);
+            setLastStats(result.stats);
+            statsTimerRef.current = setTimeout(() => setLastStats(null), STATS_VISIBLE_MS);
+          }
           const transcribedText = result.text?.trim();
 
           if (!transcribedText) {
@@ -373,6 +384,7 @@ export const useAudioRecording = (toast, options = {}) => {
     micCaptureStatus,
     transcript,
     partialTranscript,
+    lastStats,
     startRecording: performStartRecording,
     stopRecording: performStopRecording,
     cancelRecording,

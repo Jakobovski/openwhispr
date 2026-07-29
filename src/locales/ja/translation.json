@@ -2579,6 +2579,12 @@
       "stopListening": "録音を停止",
       "startListening": "録音を開始",
       "hideForNow": "一時的に非表示"
+    },
+    "stats": {
+      "recorded": "録音",
+      "transcription": "stt",
+      "reconcile": "統合",
+      "total": "合計"
     }
   },
   "dictationTranslation": {

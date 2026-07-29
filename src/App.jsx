@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import "./index.css";
 import { X } from "lucide-react";
 import { useToast } from "./components/ui/useToast";
+import DictationStats from "./components/DictationStats";
 import { LoadingDots } from "./components/ui/LoadingDots";
 import { useHotkey } from "./hooks/useHotkey";
 import { formatHotkeyListLabel } from "./utils/hotkeys";
@@ -210,6 +211,7 @@ export default function App() {
     isRecording,
     isProcessing,
     micCaptureStatus,
+    lastStats,
     toggleListening,
     cancelRecording,
     cancelProcessing,
@@ -387,6 +389,7 @@ export default function App() {
               />
             </button>
           )}
+          {!isRecording && !isProcessing && <DictationStats stats={lastStats} />}
           <Tooltip
             content={micProps.tooltip}
             align={

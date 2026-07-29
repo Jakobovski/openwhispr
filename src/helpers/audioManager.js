@@ -1337,6 +1337,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         model: activeModel || null,
       };
 
+      // Everything the stats readout needs, measured here so it covers the whole
+      // pipeline rather than any one provider's slice. pipelineStart is taken as
+      // the recording stops, so latencyMs is the wait the user actually felt.
+      if (result?.success) {
+        result.stats = {
+          recordedSeconds: metadata?.durationSeconds ?? null,
+          latencyMs: Math.round(performance.now() - pipelineStart),
+          ...(result.timings || {}),
+        };
+      }
+
       this.onTranscriptionComplete?.(result);
 
       if (result?.source === "openwhispr") {
@@ -2948,6 +2959,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const dual = await this.transcribeDual(audioBlob, { language });
     timings.transcriptionProcessingDurationMs = dual.transcribeMs;
     if (dual.reconcileMs != null) timings.reconcileDurationMs = dual.reconcileMs;
+    timings.dual = {
+      providerA: dual.providerA,
+      providerB: dual.providerB,
+      msA: dual.msA,
+      msB: dual.msB,
+      reconcileMs: dual.reconcileMs ?? null,
+      reconciled: dual.reconciled,
+    };
 
     logger.info(
       "Dual transcription complete",
@@ -2993,6 +3012,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     const textA = resultA.status === "fulfilled" ? resultA.value.text : null;
     const textB = resultB.status === "fulfilled" ? resultB.value.text : null;
+    const msA = resultA.status === "fulfilled" ? resultA.value.ms : null;
+    const msB = resultB.status === "fulfilled" ? resultB.value.ms : null;
 
     if (resultA.status === "rejected") {
       logger.warn(
@@ -3014,15 +3035,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
 
     const transcribeMs = Math.round(performance.now() - startedAt);
+    const base = { providerA, providerB, textA, textB, msA, msB, transcribeMs };
 
     // One side missing, or both sides identical: nothing for the LLM to decide.
     if (!textA || !textB) {
-      const only = textA || textB;
-      return { text: only, providerA, providerB, textA, textB, reconciled: false, transcribeMs };
+      return { ...base, text: textA || textB, reconciled: false };
     }
     if (transcriptsAgree(textA, textB)) {
       logger.debug("Dual transcription: providers agree, skipping reconcile", {}, "transcription");
-      return { text: textA, providerA, providerB, textA, textB, reconciled: false, transcribeMs };
+      return { ...base, text: textA, reconciled: false };
     }
 
     const reconcileStart = performance.now();
@@ -3044,13 +3065,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (!trimmed) throw new Error("Reconcile returned empty text");
 
       return {
+        ...base,
         text: trimmed,
-        providerA,
-        providerB,
-        textA,
-        textB,
         reconciled: true,
-        transcribeMs,
         reconcileMs: Math.round(performance.now() - reconcileStart),
       };
     } catch (error) {
@@ -3059,7 +3076,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         { error: error.message },
         "transcription"
       );
-      return { text: textA, providerA, providerB, textA, textB, reconciled: false, transcribeMs };
+      return { ...base, text: textA, reconciled: false };
     }
   }
 

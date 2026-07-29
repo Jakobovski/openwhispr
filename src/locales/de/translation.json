@@ -2579,6 +2579,12 @@
       "stopListening": "Aufnahme beenden",
       "startListening": "Aufnahme starten",
       "hideForNow": "Vorerst ausblenden"
+    },
+    "stats": {
+      "recorded": "aufn",
+      "transcription": "stt",
+      "reconcile": "merge",
+      "total": "gesamt"
     }
   },
   "dictationTranslation": {
