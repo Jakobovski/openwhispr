@@ -471,14 +471,6 @@
       "name": "Groq",
       "models": [
         {
-          "id": "qwen/qwen3-32b",
-          "name": "Qwen3 32B",
-          "description": "Powerful reasoning model, 131K context",
-          "disableThinking": true,
-          "supportsThinking": true,
-          "descriptionKey": "models.descriptions.cloud.groq_qwen_qwen3_32b"
-        },
-        {
           "id": "openai/gpt-oss-120b",
           "name": "GPT-OSS 120B",
           "description": "OpenAI's open-source flagship, 500 T/sec",
