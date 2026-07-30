@@ -3098,15 +3098,18 @@ class IPCHandlers {
 
     ipcMain.handle(
       "proxy-xai-transcription",
-      async (event, { audioBuffer, language, keyterms }) => {
+      async (event, { audioBuffer, language, keyterms, mimeType }) => {
         const apiKey = this.environmentManager.getXaiKey();
         if (!apiKey) {
           throw new Error("xAI API key not configured");
         }
 
         const formData = new FormData();
-        const audioBlob = new Blob([Buffer.from(audioBuffer)], { type: "audio/webm" });
-        formData.append("file", audioBlob, "audio.webm");
+        // Silence trimming re-encodes to WAV, so the type is not always WebM.
+        const type = mimeType || "audio/webm";
+        const extension = type.includes("wav") ? "wav" : "webm";
+        const audioBlob = new Blob([Buffer.from(audioBuffer)], { type });
+        formData.append("file", audioBlob, `audio.${extension}`);
         if (language && language !== "auto" && XAI_STT_LANGUAGES.has(language)) {
           formData.append("language", language);
           formData.append("format", "true");

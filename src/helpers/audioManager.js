@@ -58,6 +58,7 @@ import { syncService } from "../services/SyncService.js";
 import { evaluateFinishedRecording } from "./recordingValidation";
 import { isEmptyRecording } from "./recordingGuard";
 import { matchesDictionaryPrompt } from "../utils/dictionaryEchoFilter.js";
+import { planSilenceTrim, applySilenceTrim } from "../utils/silenceTrim";
 import { getDictionaryHintWords } from "../utils/snippets";
 
 const REASONING_CACHE_TTL = 30000; // 30 seconds
@@ -226,6 +227,40 @@ const DEFAULT_RECONCILE_MODEL = "openai/gpt-oss-120b";
 // slow one is abandoned and dual mode degrades to the result already in hand,
 // capping the tail latency dual costs over single mode.
 const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1500;
+
+// Minimal 16-bit PCM WAV writer. The trimmed audio only exists as samples, and
+// every provider here accepts WAV, so re-encoding to the original codec would be
+// work for nothing. Larger in bytes than WebM, shorter in the duration that gets
+// billed.
+function encodeWavPcm16(samples, sampleRate) {
+  const buffer = new ArrayBuffer(44 + samples.length * 2);
+  const view = new DataView(buffer);
+  const writeAscii = (offset, text) => {
+    for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i));
+  };
+
+  writeAscii(0, "RIFF");
+  view.setUint32(4, 36 + samples.length * 2, true);
+  writeAscii(8, "WAVE");
+  writeAscii(12, "fmt ");
+  view.setUint32(16, 16, true); // PCM header size
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true); // byte rate
+  view.setUint16(32, 2, true); // block align
+  view.setUint16(34, 16, true); // bits per sample
+  writeAscii(36, "data");
+  view.setUint32(40, samples.length * 2, true);
+
+  let offset = 44;
+  for (let i = 0; i < samples.length; i++) {
+    const clamped = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
+    offset += 2;
+  }
+  return new Blob([buffer], { type: "audio/wav" });
+}
 
 const DUAL_TRANSCRIPTION_MODELS = {
   groq: "whisper-large-v3-turbo",
@@ -450,6 +485,63 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 `;
     this.workletBlobUrl = URL.createObjectURL(new Blob([code], { type: "application/javascript" }));
     return this.workletBlobUrl;
+  }
+
+  // Strips silence before upload. Providers bill by audio duration, and in dual
+  // mode every pause is paid for twice.
+  //
+  // Returns the original blob on any failure or if the plan looks unsafe: a
+  // shorter upload is never worth risking a mangled recording, and the caller
+  // cannot tell afterwards that audio went missing.
+  async trimSilenceForUpload(audioBlob) {
+    if (!audioBlob?.size) return audioBlob;
+    try {
+      const context = new AudioContext();
+      let decoded;
+      try {
+        decoded = await context.decodeAudioData(await audioBlob.arrayBuffer());
+      } finally {
+        context.close().catch(() => {});
+      }
+
+      // Mono: every provider here transcribes a single channel, and mixing down
+      // first means the plan is computed on what is actually uploaded.
+      const channels = decoded.numberOfChannels;
+      const length = decoded.length;
+      const mono = new Float32Array(length);
+      for (let c = 0; c < channels; c++) {
+        const data = decoded.getChannelData(c);
+        for (let i = 0; i < length; i++) mono[i] += data[i] / channels;
+      }
+
+      const plan = planSilenceTrim(mono, decoded.sampleRate);
+      if (!plan.trimmed) {
+        logger.debug("Silence trim skipped", { reason: plan.reason }, "transcription");
+        return audioBlob;
+      }
+
+      const trimmed = applySilenceTrim(mono, plan);
+      const wav = encodeWavPcm16(trimmed, decoded.sampleRate);
+      logger.info(
+        "Silence trimmed before upload",
+        {
+          originalSeconds: +(length / decoded.sampleRate).toFixed(2),
+          trimmedSeconds: +(trimmed.length / decoded.sampleRate).toFixed(2),
+          segments: plan.segments.length,
+          originalBytes: audioBlob.size,
+          uploadBytes: wav.size,
+        },
+        "transcription"
+      );
+      return wav;
+    } catch (error) {
+      logger.debug(
+        "Silence trim failed, uploading as recorded",
+        { error: error.message },
+        "transcription"
+      );
+      return audioBlob;
+    }
   }
 
   getCustomDictionaryPrompt() {
@@ -2434,7 +2526,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       );
 
       const apiKey = await this.getAPIKey();
-      const optimizedAudio = audioBlob;
+      const optimizedAudio = await this.trimSilenceForUpload(audioBlob);
 
       // Dispatch before endpoint resolution (which defaults to OpenAI and would leak
       // the key). Self-hosted wins, so a leftover "tinfoil" provider isn't diverted here.
@@ -2583,7 +2675,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // xAI STT has a non-OpenAI-compatible API — proxy through main process. See #910.
       if (provider === "xai" && window.electronAPI?.proxyXaiTranscription) {
         const audioBuffer = await optimizedAudio.arrayBuffer();
-        const proxyData = { audioBuffer, language: language !== "auto" ? language : undefined };
+        const proxyData = {
+          audioBuffer,
+          mimeType: optimizedAudio.type || undefined,
+          language: language !== "auto" ? language : undefined,
+        };
 
         const keyterms = this.getKeyterms()
           .map((t) => t.trim().slice(0, 50))
@@ -2895,6 +2991,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         .slice(0, 100);
       const result = await window.electronAPI.proxyXaiTranscription({
         audioBuffer: await audioBlob.arrayBuffer(),
+        mimeType: audioBlob.type || undefined,
         language: language && language !== "auto" ? language : undefined,
         ...(keyterms.length > 0 ? { keyterms } : {}),
       });
@@ -2910,7 +3007,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           : buildApiUrl(API_ENDPOINTS.OPENAI_BASE, "/audio/transcriptions");
 
       const formData = new FormData();
-      formData.append("file", audioBlob, "audio.webm");
+      // Trimming re-encodes to WAV, so the filename must follow the blob rather
+      // than assume the recorder's format.
+      const extension = (audioBlob.type || "").includes("wav") ? "wav" : "webm";
+      formData.append("file", audioBlob, `audio.${extension}`);
       formData.append("model", model);
       if (language && language !== "auto") formData.append("language", language);
       // Same cap as the single-provider path: Groq rejects prompts over 896 chars.
@@ -3007,6 +3107,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const providerA = settings.dualTranscriptionProviderA || "groq";
     const providerB = settings.dualTranscriptionProviderB || "xai";
 
+    // Trimmed once, before the fan-out: both providers get the same shorter
+    // audio, and the saving counts twice.
+    const trimmedBlob = await this.trimSilenceForUpload(audioBlob);
+
     const startedAt = performance.now();
     const providers = [providerA, providerB];
     const settled = [null, null];
@@ -3027,7 +3131,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
       );
     const tracked = providers.map((provider, index) =>
-      track(this.transcribeRawWithProvider(audioBlob, provider, { language }), index)
+      track(this.transcribeRawWithProvider(trimmedBlob, provider, { language }), index)
     );
 
     const firstIndex = await Promise.race(tracked);
