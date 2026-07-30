@@ -342,6 +342,10 @@ function TranscriptionSection({
     </SettingsPanel>
   );
 
+  const silenceTrimEnabled = useSettingsStore((s) => s.silenceTrimEnabled);
+  const setSilenceTrimEnabled = useSettingsStore((s) => s.setSilenceTrimEnabled);
+  const silenceTrimStrength = useSettingsStore((s) => s.silenceTrimStrength);
+  const setSilenceTrimStrength = useSettingsStore((s) => s.setSilenceTrimStrength);
   const dualTranscriptionEnabled = useSettingsStore((s) => s.dualTranscriptionEnabled);
   const setDualTranscriptionEnabled = useSettingsStore((s) => s.setDualTranscriptionEnabled);
   const dualTranscriptionProviderA = useSettingsStore((s) => s.dualTranscriptionProviderA);
@@ -354,6 +358,40 @@ function TranscriptionSection({
     { value: "xai", label: "xAI" },
     { value: "openai", label: "OpenAI" },
   ];
+
+  const renderSilenceTrim = () => (
+    <SettingsPanel>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.transcription.silenceTrim")}
+          description={t("settingsPage.transcription.silenceTrimDescription")}
+        >
+          <Toggle checked={silenceTrimEnabled} onChange={setSilenceTrimEnabled} />
+        </SettingsRow>
+      </SettingsPanelRow>
+      {silenceTrimEnabled && (
+        <SettingsPanelRow>
+          <SettingsRow
+            label={t("settingsPage.transcription.silenceTrimStrength")}
+            description={t("settingsPage.transcription.silenceTrimStrengthDescription")}
+          >
+            <Select value={silenceTrimStrength} onValueChange={setSilenceTrimStrength}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {["light", "balanced", "aggressive"].map((level) => (
+                  <SelectItem key={level} value={level}>
+                    {t(`settingsPage.transcription.silenceTrimLevels.${level}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingsRow>
+        </SettingsPanelRow>
+      )}
+    </SettingsPanel>
+  );
 
   const renderDualTranscription = () => (
     <SettingsPanel>
@@ -448,6 +486,7 @@ function TranscriptionSection({
       {transcriptionMode === "providers" && (
         <>
           {renderTranscriptionPicker("cloud")}
+          {renderSilenceTrim()}
           {renderDualTranscription()}
         </>
       )}

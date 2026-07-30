@@ -1789,7 +1789,16 @@
       "dualTranscription": "Transcrição dupla",
       "dualTranscriptionDescription": "Envia o áudio para dois provedores e deixa um LLM combinar os resultados. Mais preciso, mais lento e ambos os provedores cobram.",
       "dualProviderA": "Primeiro provedor",
-      "dualProviderB": "Segundo provedor"
+      "dualProviderB": "Segundo provedor",
+      "silenceTrim": "Cortar silêncios",
+      "silenceTrimDescription": "Remove silêncios antes do envio, para não pagar pelas pausas.",
+      "silenceTrimStrength": "Intensidade",
+      "silenceTrimStrengthDescription": "Quanto silêncio remover. Menor é mais seguro.",
+      "silenceTrimLevels": {
+        "light": "Baixa",
+        "balanced": "Média",
+        "aggressive": "Alta"
+      }
     },
     "intelligence": {
       "gpuDevice": {

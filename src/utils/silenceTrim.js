@@ -157,4 +157,44 @@ function applySilenceTrim(samples, plan, Alloc = Float32Array) {
   return out;
 }
 
-module.exports = { planSilenceTrim, applySilenceTrim, SILENCE_TRIM_DEFAULTS: DEFAULTS };
+// Presets rather than raw RMS numbers: a percentile multiplier is not something
+// a user can reason about, but "how much do you want cut" is.
+//
+// Light is the default. Over-trimming clips words and shows up as a wrong
+// transcript with no explanation, while under-trimming only costs a little
+// provider time — so the timid end is the safe default.
+const SILENCE_TRIM_PRESETS = {
+  light: {
+    noiseFloorMultiple: 1.5,
+    peakFraction: 0.02,
+    paddingMs: 160,
+    maxGapMs: 350,
+    minKeepRatio: 0.35,
+  },
+  balanced: {
+    noiseFloorMultiple: 2.5,
+    peakFraction: 0.05,
+    paddingMs: 80,
+    maxGapMs: 220,
+    minKeepRatio: 0.2,
+  },
+  aggressive: {
+    noiseFloorMultiple: 3.5,
+    peakFraction: 0.08,
+    paddingMs: 50,
+    maxGapMs: 150,
+    minKeepRatio: 0.12,
+  },
+};
+
+function resolveSilenceTrimOptions(strength) {
+  return SILENCE_TRIM_PRESETS[strength] || SILENCE_TRIM_PRESETS.light;
+}
+
+module.exports = {
+  planSilenceTrim,
+  applySilenceTrim,
+  resolveSilenceTrimOptions,
+  SILENCE_TRIM_PRESETS,
+  SILENCE_TRIM_DEFAULTS: DEFAULTS,
+};

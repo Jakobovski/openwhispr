@@ -1810,7 +1810,16 @@
       "dualTranscription": "Doppelte Transkription",
       "dualTranscriptionDescription": "Sendet Audio an zwei Anbieter und lässt ein LLM die Ergebnisse kombinieren. Genauer, langsamer, und beide Anbieter berechnen Kosten.",
       "dualProviderA": "Erster Anbieter",
-      "dualProviderB": "Zweiter Anbieter"
+      "dualProviderB": "Zweiter Anbieter",
+      "silenceTrim": "Stille kürzen",
+      "silenceTrimDescription": "Entfernt Stille vor dem Upload, damit Pausen nicht berechnet werden.",
+      "silenceTrimStrength": "Stärke",
+      "silenceTrimStrengthDescription": "Wie viel Stille entfernt wird. Geringer ist sicherer.",
+      "silenceTrimLevels": {
+        "light": "Gering",
+        "balanced": "Mittel",
+        "aggressive": "Hoch"
+      }
     },
     "intelligence": {
       "gpuDevice": {

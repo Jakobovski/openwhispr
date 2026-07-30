@@ -1810,7 +1810,16 @@
       "dualTranscription": "デュアル文字起こし",
       "dualTranscriptionDescription": "音声を2つのプロバイダーに送信し、LLM が結果を統合します。精度は上がりますが、遅くなり、両方のプロバイダーに料金が発生します。",
       "dualProviderA": "1つ目のプロバイダー",
-      "dualProviderB": "2つ目のプロバイダー"
+      "dualProviderB": "2つ目のプロバイダー",
+      "silenceTrim": "無音を除去",
+      "silenceTrimDescription": "アップロード前に無音を除去し、間の時間に課金されないようにします。",
+      "silenceTrimStrength": "除去の強さ",
+      "silenceTrimStrengthDescription": "除去する無音の量。弱いほど安全です。",
+      "silenceTrimLevels": {
+        "light": "弱",
+        "balanced": "標準",
+        "aggressive": "強"
+      }
     },
     "intelligence": {
       "gpuDevice": {

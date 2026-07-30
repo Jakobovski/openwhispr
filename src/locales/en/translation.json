@@ -1983,7 +1983,16 @@
       "dualTranscription": "Dual transcription",
       "dualTranscriptionDescription": "Send audio to two providers and have an LLM combine the results. More accurate, slower, and costs both providers.",
       "dualProviderA": "First provider",
-      "dualProviderB": "Second provider"
+      "dualProviderB": "Second provider",
+      "silenceTrim": "Trim silence",
+      "silenceTrimDescription": "Remove silence before uploading, so you are not billed for pauses.",
+      "silenceTrimStrength": "Trim strength",
+      "silenceTrimStrengthDescription": "How much silence to remove. Lighter is safer for clipped words.",
+      "silenceTrimLevels": {
+        "light": "Light",
+        "balanced": "Balanced",
+        "aggressive": "Aggressive"
+      }
     },
     "intelligence": {
       "gpuDevice": {

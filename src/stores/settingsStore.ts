@@ -117,6 +117,7 @@ function migrateMeetingFollowFlags() {
 migrateMeetingFollowFlags();
 
 const BOOLEAN_SETTINGS = new Set([
+  "silenceTrimEnabled",
   "dualTranscriptionEnabled",
   "useLocalWhisper",
   "meetingUseLocalWhisper",
@@ -633,7 +634,12 @@ export interface SettingsState
   // xAI (BYOK): "streaming" for live partials over websockets, "batch" to
   // upload the finished recording to the REST endpoint instead.
   xaiTranscriptionMode: string;
+  // Silence trimming before upload, and how much to cut.
+  silenceTrimEnabled: boolean;
+  silenceTrimStrength: string;
   setXaiTranscriptionMode: (value: string) => void;
+  setSilenceTrimEnabled: (value: boolean) => void;
+  setSilenceTrimStrength: (value: string) => void;
 
   // Dual transcription (BYOK): send the recording to two providers and have an
   // LLM combine the results. Batch-only, since it compares finished transcripts.
@@ -981,6 +987,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cortiEnvironment: readString("cortiEnvironment", "us"),
   cortiTenant: readString("cortiTenant", "base"),
   xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
+  silenceTrimEnabled: readBoolean("silenceTrimEnabled", true),
+  silenceTrimStrength: readString("silenceTrimStrength", "light"),
   dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", false),
   dualTranscriptionProviderA: readString("dualTranscriptionProviderA", "groq"),
   dualTranscriptionProviderB: readString("dualTranscriptionProviderB", "xai"),
@@ -1520,6 +1528,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setCortiApiKey: createSecretSetter("cortiApiKey", "cortiApiKey", "corti"),
   setCortiEnvironment: createStringSetter("cortiEnvironment"),
   setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
+  setSilenceTrimEnabled: createBooleanSetter("silenceTrimEnabled"),
+  setSilenceTrimStrength: createStringSetter("silenceTrimStrength"),
   setDualTranscriptionEnabled: createBooleanSetter("dualTranscriptionEnabled"),
   setDualTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),
   setDualTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),

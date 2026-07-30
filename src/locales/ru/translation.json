@@ -1812,7 +1812,16 @@
       "dualTranscription": "Двойная транскрипция",
       "dualTranscriptionDescription": "Отправляет аудио двум провайдерам, а LLM объединяет результаты. Точнее, медленнее, и оплачиваются оба провайдера.",
       "dualProviderA": "Первый провайдер",
-      "dualProviderB": "Второй провайдер"
+      "dualProviderB": "Второй провайдер",
+      "silenceTrim": "Обрезать тишину",
+      "silenceTrimDescription": "Удаляет тишину перед отправкой, чтобы не платить за паузы.",
+      "silenceTrimStrength": "Интенсивность",
+      "silenceTrimStrengthDescription": "Сколько тишины удалять. Меньше — безопаснее.",
+      "silenceTrimLevels": {
+        "light": "Низкая",
+        "balanced": "Средняя",
+        "aggressive": "Высокая"
+      }
     },
     "intelligence": {
       "gpuDevice": {

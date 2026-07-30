@@ -58,7 +58,7 @@ import { syncService } from "../services/SyncService.js";
 import { evaluateFinishedRecording } from "./recordingValidation";
 import { isEmptyRecording } from "./recordingGuard";
 import { matchesDictionaryPrompt } from "../utils/dictionaryEchoFilter.js";
-import { planSilenceTrim, applySilenceTrim } from "../utils/silenceTrim";
+import { planSilenceTrim, applySilenceTrim, resolveSilenceTrimOptions } from "../utils/silenceTrim";
 import { getDictionaryHintWords } from "../utils/snippets";
 
 const REASONING_CACHE_TTL = 30000; // 30 seconds
@@ -496,6 +496,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   async trimSilenceForUpload(audioBlob) {
     this._lastTrim = null;
     if (!audioBlob?.size) return audioBlob;
+    const trimSettings = getSettings();
+    if (trimSettings.silenceTrimEnabled === false) return audioBlob;
     try {
       const context = new AudioContext();
       let decoded;
@@ -515,7 +517,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         for (let i = 0; i < length; i++) mono[i] += data[i] / channels;
       }
 
-      const plan = planSilenceTrim(mono, decoded.sampleRate);
+      const plan = planSilenceTrim(
+        mono,
+        decoded.sampleRate,
+        resolveSilenceTrimOptions(trimSettings.silenceTrimStrength)
+      );
       if (!plan.trimmed) {
         logger.debug(
           "Silence trim skipped",

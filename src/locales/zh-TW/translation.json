@@ -1805,7 +1805,16 @@
       "dualTranscription": "雙重轉錄",
       "dualTranscriptionDescription": "將音訊傳送給兩個供應商，並由 LLM 合併結果。更準確、更慢，且兩個供應商都會計費。",
       "dualProviderA": "第一個供應商",
-      "dualProviderB": "第二個供應商"
+      "dualProviderB": "第二個供應商",
+      "silenceTrim": "裁剪靜音",
+      "silenceTrimDescription": "上傳前移除靜音，避免為停頓付費。",
+      "silenceTrimStrength": "裁剪強度",
+      "silenceTrimStrengthDescription": "移除多少靜音。較弱更安全。",
+      "silenceTrimLevels": {
+        "light": "弱",
+        "balanced": "標準",
+        "aggressive": "強"
+      }
     },
     "intelligence": {
       "gpuDevice": {
