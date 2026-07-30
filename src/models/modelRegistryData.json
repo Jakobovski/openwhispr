@@ -485,18 +485,6 @@
           "descriptionKey": "models.descriptions.cloud.groq_openai_gpt_oss_20b"
         },
         {
-          "id": "llama-3.3-70b-versatile",
-          "name": "LLaMA 3.3 70B",
-          "description": "Meta's versatile model, 280 T/sec",
-          "descriptionKey": "models.descriptions.cloud.groq_llama_3_3_70b_versatile"
-        },
-        {
-          "id": "llama-3.1-8b-instant",
-          "name": "LLaMA 3.1 8B",
-          "description": "Ultra-fast 560 T/sec, 131K context",
-          "descriptionKey": "models.descriptions.cloud.groq_llama_3_1_8b_instant"
-        },
-        {
           "id": "meta-llama/llama-4-scout-17b-16e-instruct",
           "name": "Llama 4 Scout",
           "description": "Meta's efficient multimodal, 750 T/sec",

@@ -1969,8 +1969,6 @@
         "gemini_gemma_4_26b_a4b_it": "Gemma 4 MoE от Google, 4B активных параметров, контекст 256K",
         "groq_openai_gpt_oss_120b": "Открытая флагманская модель OpenAI, 500 т/с",
         "groq_openai_gpt_oss_20b": "Быстрая открытая модель, 1000 т/с",
-        "groq_llama_3_3_70b_versatile": "Универсальная модель Meta, 280 т/с",
-        "groq_llama_3_1_8b_instant": "Сверхбыстрая 560 т/с, контекст 131K",
         "groq_llama_4_scout": "Эффективная мультимодальная Meta, 750 т/с",
         "groq_compound": "Система Compound от Groq, 450 т/с",
         "groq_compound_mini": "Быстрая система Compound, 3x ниже задержка",

@@ -6,6 +6,7 @@ import { chooseDictionaryStartupAction } from "../helpers/dictionaryStartup";
 import { useStreamingProvidersStore } from "./streamingProvidersStore";
 import logger from "../utils/logger";
 import whisperVadConstants from "../constants/whisperVad.json";
+import modelRegistryData from "../models/modelRegistryData.json";
 import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
 import type { GoogleCalendarAccount } from "../types/calendar";
 import { PROMPT_KIND_LIST, type PromptKind } from "../config/prompts/registry";
@@ -15,6 +16,7 @@ import {
   inheritsFallbackEndpoint,
 } from "../helpers/reasoningRouting";
 import { findStaleLocalModelKeys } from "../helpers/localModelSelections";
+import { buildProviderModelIndex, resolveUsableModel } from "../helpers/modelAvailability";
 import {
   INFERENCE_SCOPES,
   type InferenceScope,
@@ -2143,6 +2145,25 @@ export interface ResolvedLLMConfig {
   disableThinking: boolean;
 }
 
+const PROVIDER_MODEL_INDEX = buildProviderModelIndex(modelRegistryData.cloudProviders);
+
+// Warn once per dead id, not once per selector call — this runs on every render.
+const healedModelWarnings = new Set<string>();
+
+function usableModel(provider: string, model: string): string {
+  const resolved = resolveUsableModel(provider, model, PROVIDER_MODEL_INDEX);
+  if (resolved !== model) {
+    const warnKey = `${provider}:${model}`;
+    if (!healedModelWarnings.has(warnKey)) {
+      healedModelWarnings.add(warnKey);
+      logger.warn(
+        `[settings] ${provider} model "${model}" is no longer offered; using "${resolved}" instead`
+      );
+    }
+  }
+  return resolved;
+}
+
 export const selectResolvedLLMConfig = (
   state: SettingsState,
   scope: InferenceScope
@@ -2161,11 +2182,13 @@ export const selectResolvedLLMConfig = (
   const disableThinkingKey = def.storeKeys.disableThinking;
   const disableThinking = disableThinkingKey ? (state[disableThinkingKey] as boolean) : true;
 
+  const provider = read("provider") || fallback?.provider || "";
+
   return {
     scope,
     mode: state[def.storeKeys.mode] as InferenceMode,
-    provider: read("provider") || fallback?.provider || "",
-    model: read("model") || fallback?.model || "",
+    provider,
+    model: usableModel(provider, read("model") || fallback?.model || ""),
     cloudMode: read("cloudMode") || fallback?.cloudMode,
     cloudBaseUrl: read("cloudBaseUrl") || fallback?.cloudBaseUrl,
     remoteUrl: read("remoteUrl") || fallback?.remoteUrl,

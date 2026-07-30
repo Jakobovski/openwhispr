@@ -1962,8 +1962,6 @@
         "gemini_gemma_4_26b_a4b_it": "Google Gemma 4 MoE，4B 活躍參數，256K 上下文",
         "groq_openai_gpt_oss_120b": "OpenAI 開源旗艦，500 T/sec",
         "groq_openai_gpt_oss_20b": "快速開源模型，1000 T/sec",
-        "groq_llama_3_3_70b_versatile": "Meta 多功能模型，280 T/sec",
-        "groq_llama_3_1_8b_instant": "超快速 560 T/sec，131K 上下文",
         "groq_llama_4_scout": "Meta 高效多模態，750 T/sec",
         "groq_compound": "Groq Compound 系統，450 T/sec",
         "groq_compound_mini": "快速 Compound 系統，3x 更低延遲",

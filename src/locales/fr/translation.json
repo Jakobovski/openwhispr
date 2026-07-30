@@ -2015,8 +2015,6 @@
         "gemini_gemma_4_26b_a4b_it": "Gemma 4 MoE de Google, 4B paramètres actifs, contexte 256K",
         "groq_openai_gpt_oss_120b": "Modèle phare open source d'OpenAI, 500 T/s",
         "groq_openai_gpt_oss_20b": "Modèle open source rapide, 1000 T/s",
-        "groq_llama_3_3_70b_versatile": "Modèle polyvalent de Meta, 280 T/s",
-        "groq_llama_3_1_8b_instant": "Ultra-rapide 560 T/s, contexte 131K",
         "groq_llama_4_scout": "Multimodal efficace de Meta, 750 T/s",
         "groq_compound": "Système compound de Groq, 450 T/s",
         "groq_compound_mini": "Système compound rapide, 3x latence réduite",

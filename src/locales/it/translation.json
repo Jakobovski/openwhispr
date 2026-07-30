@@ -1967,8 +1967,6 @@
         "gemini_gemma_4_26b_a4b_it": "Gemma 4 MoE di Google, 4B parametri attivi, contesto 256K",
         "groq_openai_gpt_oss_120b": "Ammiraglia open source di OpenAI, 500 T/sec",
         "groq_openai_gpt_oss_20b": "Modello open source veloce, 1000 T/sec",
-        "groq_llama_3_3_70b_versatile": "Modello versatile di Meta, 280 T/sec",
-        "groq_llama_3_1_8b_instant": "Ultra-veloce 560 T/sec, contesto 131K",
         "groq_llama_4_scout": "Multimodale efficiente di Meta, 750 T/sec",
         "groq_compound": "Sistema compound di Groq, 450 T/sec",
         "groq_compound_mini": "Sistema compound veloce, 3x latenza ridotta",
