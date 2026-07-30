@@ -517,7 +517,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       const plan = planSilenceTrim(mono, decoded.sampleRate);
       if (!plan.trimmed) {
-        logger.debug("Silence trim skipped", { reason: plan.reason }, "transcription");
+        logger.debug(
+          "Silence trim skipped",
+          {
+            reason: plan.reason || "unknown",
+            threshold: plan.threshold?.toFixed(5),
+            seconds: +(length / decoded.sampleRate).toFixed(2),
+          },
+          "transcription"
+        );
         return audioBlob;
       }
 

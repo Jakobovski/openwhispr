@@ -127,6 +127,30 @@ test("applying a plan preserves the speech samples in order", () => {
   );
 });
 
+test("a realistic noise floor is still treated as silence", () => {
+  // The bug this fixes: a fixed 0.003 threshold marked ordinary mic self-noise
+  // as speech, so nothing was ever trimmed on a real recording.
+  const noise = (secs, amp = 0.01) => {
+    const out = new Float32Array(Math.round(secs * RATE));
+    for (let i = 0; i < out.length; i++) out[i] = (Math.random() * 2 - 1) * amp;
+    return out;
+  };
+  const audio = concat(noise(2), tone(1), noise(2));
+  const plan = planSilenceTrim(audio, RATE);
+  assert.equal(plan.trimmed, true, `expected a trim, got ${plan.reason}`);
+  assert.ok(
+    seconds(plan.keptSamples) < 2,
+    `kept ${seconds(plan.keptSamples)}s of 5s, expected roughly the 1s of speech`
+  );
+});
+
+test("a skip always reports a reason", () => {
+  // An empty reason made a field skip undiagnosable from the log.
+  assert.ok(planSilenceTrim(tone(3), RATE).reason, "continuous speech reports why");
+  assert.ok(planSilenceTrim(silence(3), RATE).reason);
+  assert.ok(planSilenceTrim(new Float32Array(0), RATE).reason);
+});
+
 test("an untouched plan round-trips to the identical buffer", () => {
   const audio = tone(1);
   const plan = planSilenceTrim(audio, RATE);

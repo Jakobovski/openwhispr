@@ -14,8 +14,16 @@
 const DEFAULTS = {
   // Short enough to catch a gap between words, long enough that RMS is stable.
   windowMs: 20,
-  // Matches the speech gate's speech threshold, which is tuned on real mic input.
-  thresholdRms: 0.003,
+  // Floor for the adaptive threshold. A fixed value cannot work across
+  // microphones: a real noise floor sits anywhere from 0.005 to 0.02 RMS, so a
+  // low fixed threshold marks the whole recording as speech and trims nothing.
+  minThresholdRms: 0.004,
+  // The noise floor is taken as this percentile of window loudness, then scaled.
+  noiseFloorPercentile: 0.2,
+  noiseFloorMultiple: 2.5,
+  // Also require a fraction of the recording's own peak, so a quiet room does
+  // not make faint noise look like speech.
+  peakFraction: 0.05,
   // Kept either side of speech so a soft consonant is not clipped off.
   paddingMs: 80,
   // The pause left where a longer silence was cut. Some gap has to survive:
@@ -58,11 +66,24 @@ function planSilenceTrim(samples, sampleRate, options = {}) {
   const windowCount = Math.ceil(total / windowSamples);
   if (windowCount < 3) return untouched("too short");
 
-  const voiced = new Array(windowCount);
+  const levels = new Array(windowCount);
   for (let w = 0; w < windowCount; w++) {
     const start = w * windowSamples;
-    voiced[w] = rms(samples, start, Math.min(total, start + windowSamples)) >= opts.thresholdRms;
+    levels[w] = rms(samples, start, Math.min(total, start + windowSamples));
   }
+
+  // Adaptive: derived from this recording's own noise floor and peak, so the
+  // same code works on a quiet headset and a noisy room.
+  const sorted = [...levels].sort((a, b) => a - b);
+  const noiseFloor = sorted[Math.floor(sorted.length * opts.noiseFloorPercentile)] || 0;
+  const peak = sorted[sorted.length - 1] || 0;
+  const threshold = Math.max(
+    opts.minThresholdRms,
+    noiseFloor * opts.noiseFloorMultiple,
+    peak * opts.peakFraction
+  );
+
+  const voiced = levels.map((level) => level >= threshold);
 
   // Pad outward from every voiced window. Done as a separate pass so padding
   // never chains: an isolated blip does not drag in its neighbours' neighbours.
@@ -97,12 +118,16 @@ function planSilenceTrim(samples, sampleRate, options = {}) {
     return untouched("kept too little");
   }
 
+  const trimmed = segments.length > 1 || keptSamples < total;
   return {
     segments,
     gapSamples: Math.round((opts.maxGapMs / 1000) * sampleRate),
-    trimmed: segments.length > 1 || keptSamples < total,
+    trimmed,
     keptSamples,
     totalSamples: total,
+    threshold,
+    // Always set, so a skip is never logged as an empty object.
+    ...(trimmed ? {} : { reason: "nothing to trim" }),
   };
 }
 
