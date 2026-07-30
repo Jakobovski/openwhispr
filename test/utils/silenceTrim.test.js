@@ -89,14 +89,16 @@ test("audio that is silence throughout is handed back untouched", () => {
   assert.equal(plan.keptSamples, 3 * RATE);
 });
 
-test("a plan that would discard most of the audio is abandoned", () => {
-  // One tiny blip in a long recording: keeping only that is more likely a bad
-  // threshold than a real result, so the original is preserved.
-  const audio = concat(silence(10), tone(0.05), silence(10));
+test("a mostly-silent recording is trimmed hard rather than left alone", () => {
+  // The case trimming exists for: key pressed early, one short word, released
+  // late. There is no floor on how much may be cut.
+  const audio = concat(silence(10), tone(0.4), silence(10));
   const plan = planSilenceTrim(audio, RATE);
-  assert.equal(plan.trimmed, false);
-  assert.equal(plan.reason, "kept too little");
-  assert.equal(plan.keptSamples, audio.length);
+  assert.equal(plan.trimmed, true);
+  assert.ok(
+    seconds(plan.keptSamples) < 1.5,
+    `kept ${seconds(plan.keptSamples)}s of 20.4s, expected roughly the speech`
+  );
 });
 
 test("quiet speech below the threshold is not mistaken for silence", () => {

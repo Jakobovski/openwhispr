@@ -29,8 +29,6 @@ const DEFAULTS = {
   // The pause left where a longer silence was cut. Some gap has to survive:
   // splicing words flush together makes a recognizer run them into one.
   maxGapMs: 220,
-  // Below this fraction of the original, the plan is assumed wrong and dropped.
-  minKeepRatio: 0.2,
 };
 
 function rms(samples, start, end) {
@@ -113,10 +111,10 @@ function planSilenceTrim(samples, sampleRate, options = {}) {
   }
   if (runStart !== -1) segments.push([runStart * windowSamples, total]);
 
+  // No floor on how much may be cut. A recording that is mostly silence with one
+  // short utterance is exactly where trimming pays most, and refusing to trim
+  // there uploaded the silence in full.
   const keptSamples = segments.reduce((sum, [start, end]) => sum + (end - start), 0);
-  if (keptSamples < total * opts.minKeepRatio) {
-    return untouched("kept too little");
-  }
 
   const trimmed = segments.length > 1 || keptSamples < total;
   return {
@@ -169,21 +167,18 @@ const SILENCE_TRIM_PRESETS = {
     peakFraction: 0.02,
     paddingMs: 160,
     maxGapMs: 350,
-    minKeepRatio: 0.35,
   },
   balanced: {
     noiseFloorMultiple: 2.5,
     peakFraction: 0.05,
     paddingMs: 80,
     maxGapMs: 220,
-    minKeepRatio: 0.2,
   },
   aggressive: {
     noiseFloorMultiple: 3.5,
     peakFraction: 0.08,
     paddingMs: 50,
     maxGapMs: 150,
-    minKeepRatio: 0.12,
   },
 };
 
