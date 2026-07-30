@@ -2471,7 +2471,8 @@
     "inviteTeammate": "Teammitglied einladen",
     "createWorkspace": "Workspace erstellen",
     "collapse": "Seitenleiste einklappen",
-    "expand": "Seitenleiste ausklappen"
+    "expand": "Seitenleiste ausklappen",
+    "history": "Verlauf"
   },
   "chat": {
     "newChat": "Neuer Chat",

@@ -2156,7 +2156,8 @@
     "inviteTeammate": "Invite teammate",
     "createWorkspace": "Create workspace",
     "collapse": "Collapse sidebar",
-    "expand": "Expand sidebar"
+    "expand": "Expand sidebar",
+    "history": "History"
   },
   "workspaces": {
     "switcher": {

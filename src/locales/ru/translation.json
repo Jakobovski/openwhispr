@@ -2477,7 +2477,8 @@
     "inviteTeammate": "Teammitglied einladen",
     "createWorkspace": "Workspace erstellen",
     "collapse": "Свернуть боковую панель",
-    "expand": "Развернуть боковую панель"
+    "expand": "Развернуть боковую панель",
+    "history": "История"
   },
   "chat": {
     "newChat": "Новый чат",

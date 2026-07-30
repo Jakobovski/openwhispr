@@ -1,12 +1,7 @@
 import React, { useState } from "react";
 import {
   Home,
-  MessageSquare,
-  NotebookPen,
   BookOpen,
-  Upload,
-  Blocks,
-  Gift,
   Settings,
   HelpCircle,
   UserCircle,
@@ -34,15 +29,17 @@ const rowLabelClass =
 const rowButtonClass =
   "group flex items-center gap-2.5 w-full h-8 px-2.5 rounded-md text-left outline-none hover:bg-foreground/4 dark:hover:bg-white/4 focus-visible:ring-1 focus-visible:ring-primary/30 transition-colors duration-150";
 
-export type ControlPanelView =
-  "home" | "chat" | "personal-notes" | "dictionary" | "upload" | "integrations";
+// "personal-notes" is not in the sidebar. It stays in the union because meeting
+// recording deep-links straight into a note (the meeting hotkey, the pending-note
+// navigation drain, and the recording pill's "return to note"), so the view has to
+// remain reachable even though it is no longer somewhere you can navigate to.
+export type ControlPanelView = "home" | "dictionary" | "personal-notes";
 
 interface ControlPanelSidebarProps {
   activeView: ControlPanelView;
   onViewChange: (view: ControlPanelView) => void;
   onOpenSettings: () => void;
   onOpenSearch?: () => void;
-  onOpenReferrals?: () => void;
   onUpgrade?: () => void;
   isOverLimit?: boolean;
   userName?: string | null;
@@ -60,7 +57,6 @@ export default function ControlPanelSidebar({
   onViewChange,
   onOpenSettings,
   onOpenSearch,
-  onOpenReferrals,
   onUpgrade,
   isOverLimit,
   userName,
@@ -93,12 +89,8 @@ export default function ControlPanelSidebar({
     label: string;
     icon: React.ComponentType<{ size?: number; className?: string }>;
   }[] = [
-    { id: "home", label: t("sidebar.home"), icon: Home },
-    { id: "chat", label: t("sidebar.chat"), icon: MessageSquare },
-    { id: "personal-notes", label: t("sidebar.notes"), icon: NotebookPen },
-    { id: "upload", label: t("sidebar.upload"), icon: Upload },
+    { id: "home", label: t("sidebar.history"), icon: Home },
     { id: "dictionary", label: t("sidebar.dictionary"), icon: BookOpen },
-    { id: "integrations", label: t("sidebar.integrations"), icon: Blocks },
   ];
 
   return (
@@ -137,6 +129,17 @@ export default function ControlPanelSidebar({
       )}
 
       <nav className="flex flex-col gap-0.5 px-2 pt-2 pb-2">
+        {/* Settings first: it is where people actually spend their time in this
+            panel, and it is the view the panel opens on. */}
+        <button
+          onClick={onOpenSettings}
+          aria-label={t("sidebar.settings")}
+          className={rowButtonClass}
+        >
+          <Settings size={15} className={rowIconClass} />
+          <span className={rowLabelClass}>{t("sidebar.settings")}</span>
+        </button>
+
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeView === item.id;
@@ -240,17 +243,6 @@ export default function ControlPanelSidebar({
           </div>
         )}
 
-        {isSignedIn && onOpenReferrals && (
-          <button
-            onClick={onOpenReferrals}
-            aria-label={t("sidebar.referral")}
-            className={rowButtonClass}
-          >
-            <Gift size={15} className={rowIconClass} />
-            <span className={rowLabelClass}>{t("sidebar.referral")}</span>
-          </button>
-        )}
-
         {WORKSPACES_ENABLED && isSignedIn && (
           <button
             onClick={() => (activeWorkspace ? setInviteOpen(true) : setCreateWorkspaceOpen(true))}
@@ -265,15 +257,6 @@ export default function ControlPanelSidebar({
             </span>
           </button>
         )}
-
-        <button
-          onClick={onOpenSettings}
-          aria-label={t("sidebar.settings")}
-          className={rowButtonClass}
-        >
-          <Settings size={15} className={rowIconClass} />
-          <span className={rowLabelClass}>{t("sidebar.settings")}</span>
-        </button>
 
         <SupportDropdown
           trigger={

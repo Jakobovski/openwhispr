@@ -2471,7 +2471,8 @@
     "inviteTeammate": "Inviter un coéquipier",
     "createWorkspace": "Créer un espace de travail",
     "collapse": "Comprimi barra laterale",
-    "expand": "Espandi barra laterale"
+    "expand": "Espandi barra laterale",
+    "history": "Cronologia"
   },
   "chat": {
     "newChat": "Nuova chat",
