@@ -2593,7 +2593,8 @@
       "transcription": "stt",
       "reconcile": "слияние",
       "total": "всего",
-      "dropped": "пропущен"
+      "dropped": "пропущен",
+      "trimmed": "обрезано"
     }
   },
   "dictationTranslation": {

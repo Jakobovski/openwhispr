@@ -2587,7 +2587,8 @@
       "transcription": "stt",
       "reconcile": "fusão",
       "total": "total",
-      "dropped": "ignorado"
+      "dropped": "ignorado",
+      "trimmed": "cortado"
     }
   },
   "dictationTranslation": {

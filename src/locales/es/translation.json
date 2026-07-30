@@ -2635,7 +2635,8 @@
       "transcription": "stt",
       "reconcile": "fusión",
       "total": "total",
-      "dropped": "omitido"
+      "dropped": "omitido",
+      "trimmed": "recortado"
     }
   },
   "dictationTranslation": {

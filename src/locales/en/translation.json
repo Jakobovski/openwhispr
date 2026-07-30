@@ -2723,7 +2723,8 @@
       "transcription": "stt",
       "reconcile": "merge",
       "total": "total",
-      "dropped": "dropped"
+      "dropped": "dropped",
+      "trimmed": "trimmed"
     }
   },
   "dictationTranslation": {

@@ -494,6 +494,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // shorter upload is never worth risking a mangled recording, and the caller
   // cannot tell afterwards that audio went missing.
   async trimSilenceForUpload(audioBlob) {
+    this._lastTrim = null;
     if (!audioBlob?.size) return audioBlob;
     try {
       const context = new AudioContext();
@@ -522,6 +523,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       const trimmed = applySilenceTrim(mono, plan);
       const wav = encodeWavPcm16(trimmed, decoded.sampleRate);
+      this._lastTrim = {
+        originalSeconds: length / decoded.sampleRate,
+        trimmedSeconds: trimmed.length / decoded.sampleRate,
+        percentRemoved: Math.round(((length - trimmed.length) / length) * 100),
+      };
       logger.info(
         "Silence trimmed before upload",
         {
@@ -1438,6 +1444,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         result.stats = {
           recordedSeconds: metadata?.durationSeconds ?? null,
           latencyMs: Math.round(performance.now() - pipelineStart),
+          // Absent when nothing was trimmed, so the row only appears when it
+          // actually says something.
+          trimmedPercent: this._lastTrim?.percentRemoved ?? null,
           ...(result.timings || {}),
         };
       }

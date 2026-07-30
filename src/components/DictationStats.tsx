@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 export interface DictationStatsData {
   recordedSeconds?: number | null;
+  trimmedPercent?: number | null;
   latencyMs?: number | null;
   transcriptionProcessingDurationMs?: number | null;
   reconcileDurationMs?: number | null;
@@ -58,6 +59,11 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
 
   const recorded = formatSeconds(stats.recordedSeconds);
   if (recorded) rows.push({ label: t("app.stats.recorded"), value: recorded });
+
+  // Only when silence was actually removed; a 0% row would be noise.
+  if (typeof stats.trimmedPercent === "number" && stats.trimmedPercent > 0) {
+    rows.push({ label: t("app.stats.trimmed"), value: `${stats.trimmedPercent}%` });
+  }
 
   const dual = stats.dual;
   if (dual) {
