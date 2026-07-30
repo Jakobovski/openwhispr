@@ -60,10 +60,12 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
   const recorded = formatSeconds(stats.recordedSeconds);
   if (recorded) rows.push({ label: t("app.stats.recorded"), value: recorded });
 
-  // Only when silence was actually removed; a 0% row would be noise.
-  if (typeof stats.trimmedPercent === "number" && stats.trimmedPercent > 0) {
-    rows.push({ label: t("app.stats.trimmed"), value: `${stats.trimmedPercent}%` });
-  }
+  // Always shown, 0% included: an absent row could not be told apart from
+  // trimming that did not run, which is exactly the confusion it caused.
+  rows.push({
+    label: t("app.stats.trimmed"),
+    value: `${typeof stats.trimmedPercent === "number" ? stats.trimmedPercent : 0}%`,
+  });
 
   const dual = stats.dual;
   if (dual) {
