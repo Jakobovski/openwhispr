@@ -53,3 +53,42 @@ test("the same correction appearing twice is only learned once", () => {
   const sinead = result.filter((w) => w.toLowerCase() === "sinead");
   assert.ok(sinead.length <= 1);
 });
+
+test("a cleared field is not treated as an edit", () => {
+  // Submitting the message empties the field; nothing was corrected.
+  assert.deepEqual(extractCorrections("Ask Sinead about the deploy", "", []), []);
+  assert.deepEqual(extractCorrections("Ask Sinead about the deploy", "\n", []), []);
+  assert.deepEqual(extractCorrections("Ask Sinead about the deploy", "   ", []), []);
+});
+
+test("placeholder text read back from an empty field is not treated as an edit", () => {
+  // The real false positive: after submitting, the accessibility read returns the
+  // field's placeholder, which shares nothing with the dictation.
+  const original = "Is that happening in addition to the reconciliation";
+  for (const placeholder of [
+    "Type / for commands",
+    "Message OpenWhispr",
+    "Send a message...",
+    "Search or type a command",
+  ]) {
+    assert.deepEqual(extractCorrections(original, placeholder, []), [], placeholder);
+  }
+});
+
+test("an unrelated field's contents are not treated as an edit", () => {
+  // Focus moved elsewhere between paste and read.
+  assert.deepEqual(
+    extractCorrections("Ask Sinead about the deploy", "git commit --amend --no-edit", []),
+    []
+  );
+});
+
+test("a genuine correction still survives the retention guard", () => {
+  // Most of the dictation is still there, so this is a real edit.
+  const result = extractCorrections(
+    "Ask Shunade about the deploy tomorrow",
+    "Ask Sinead about the deploy tomorrow",
+    []
+  );
+  assert.ok(result.includes("Sinead"), `expected Sinead, got ${JSON.stringify(result)}`);
+});

@@ -4,6 +4,10 @@
  */
 
 /** Levenshtein edit distance between two strings */
+// How much of the dictation must survive in the field for an edit to be treated
+// as a correction rather than a different context entirely.
+const MIN_RETAINED_WORD_RATIO = 0.5;
+
 function editDistance(a, b) {
   const m = a.length;
   const n = b.length;
@@ -145,6 +149,15 @@ function extractCorrections(originalText, fieldValue, existingDictionary) {
   const editedWords = tokenize(editedRegion);
 
   if (origWords.length === 0 || editedWords.length === 0) return [];
+
+  // The field must still substantially contain the dictation. When it does not,
+  // this is not an edit of our text at all: the user submitted and the field
+  // cleared, or the accessibility read returned the field's placeholder ("Type /
+  // for commands"). Diffing a transcript against unrelated text finds spurious
+  // substitutions and learns them as corrections.
+  const editedSet = new Set(editedWords.map((w) => w.toLowerCase()));
+  const retained = origWords.filter((w) => editedSet.has(w.toLowerCase())).length;
+  if (retained / origWords.length < MIN_RETAINED_WORD_RATIO) return [];
 
   // If more than 50% of words changed, this is a rewrite, not corrections
   const subs = findSubstitutions(origWords, editedWords);
