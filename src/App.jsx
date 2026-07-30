@@ -195,12 +195,16 @@ export default function App() {
         window.electronAPI?.resizeMainWindow?.("WITH_MENU");
       } else if (toastCount > 0) {
         window.electronAPI?.resizeMainWindow?.("WITH_TOAST");
+      } else if (showStats) {
+        // Ranks below the menu and toasts: those are interactive, the readout is
+        // only informational and can wait for the window to come back to it.
+        window.electronAPI?.resizeMainWindow?.("WITH_STATS");
       } else {
         window.electronAPI?.resizeMainWindow?.("BASE");
       }
     };
     resizeWindow();
-  }, [isCommandMenuOpen, toastCount]);
+  }, [isCommandMenuOpen, toastCount, showStats]);
 
   const handleDictationToggle = React.useCallback(() => {
     setIsCommandMenuOpen(false);
@@ -345,6 +349,7 @@ export default function App() {
   };
 
   const micProps = getMicButtonProps();
+  const showStats = !!lastStats && !isRecording && !isProcessing;
 
   return (
     <div className="dictation-window">
@@ -389,7 +394,7 @@ export default function App() {
               />
             </button>
           )}
-          {!isRecording && !isProcessing && <DictationStats stats={lastStats} />}
+          {showStats && <DictationStats stats={lastStats} />}
           <Tooltip
             content={micProps.tooltip}
             align={

@@ -222,6 +222,11 @@ function isDualTranscriptionEnabled(settings) {
 
 const DEFAULT_RECONCILE_MODEL = "openai/gpt-oss-120b";
 
+// How long the second provider gets once the first has answered. Past this the
+// slow one is abandoned and dual mode degrades to the result already in hand,
+// capping the tail latency dual costs over single mode.
+const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1500;
+
 const DUAL_TRANSCRIPTION_MODELS = {
   groq: "whisper-large-v3-turbo",
   xai: "grok-stt",
@@ -2963,6 +2968,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       msB: dual.msB,
       reconcileMs: dual.reconcileMs ?? null,
       reconciled: dual.reconciled,
+      droppedProvider: dual.droppedProvider ?? null,
     };
 
     logger.info(
@@ -3002,37 +3008,82 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const providerB = settings.dualTranscriptionProviderB || "xai";
 
     const startedAt = performance.now();
-    const [resultA, resultB] = await Promise.allSettled([
-      this.transcribeRawWithProvider(audioBlob, providerA, { language }),
-      this.transcribeRawWithProvider(audioBlob, providerB, { language }),
-    ]);
+    const providers = [providerA, providerB];
+    const settled = [null, null];
 
-    const textA = resultA.status === "fulfilled" ? resultA.value.text : null;
-    const textB = resultB.status === "fulfilled" ? resultB.value.text : null;
-    const msA = resultA.status === "fulfilled" ? resultA.value.ms : null;
-    const msB = resultB.status === "fulfilled" ? resultB.value.ms : null;
-
-    if (resultA.status === "rejected") {
-      logger.warn(
-        "Dual transcription: provider failed",
-        { provider: providerA, error: resultA.reason?.message },
-        "transcription"
+    // Deliberately not a deadline on the pair: that would drop both when the
+    // network is merely slow. The budget is how long the *second* provider gets
+    // once the first has answered, which is exactly the tail latency dual mode
+    // adds over single mode.
+    const track = (promise, index) =>
+      promise.then(
+        (value) => {
+          settled[index] = { status: "fulfilled", value };
+          return index;
+        },
+        (reason) => {
+          settled[index] = { status: "rejected", reason };
+          return index;
+        }
       );
+    const tracked = providers.map((provider, index) =>
+      track(this.transcribeRawWithProvider(audioBlob, provider, { language }), index)
+    );
+
+    const firstIndex = await Promise.race(tracked);
+    const otherIndex = firstIndex === 0 ? 1 : 0;
+    let droppedProvider = null;
+
+    if (settled[firstIndex].status === "fulfilled") {
+      const budgetMs = Number.isFinite(settings.dualTranscriptionSecondTimeoutMs)
+        ? settings.dualTranscriptionSecondTimeoutMs
+        : DEFAULT_DUAL_SECOND_TIMEOUT_MS;
+      let timer;
+      const expired = Symbol("expired");
+      const raced = await Promise.race([
+        tracked[otherIndex],
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve(expired), budgetMs);
+        }),
+      ]);
+      clearTimeout(timer);
+      if (raced === expired) {
+        droppedProvider = providers[otherIndex];
+        logger.info(
+          "Dual transcription: dropped slow provider, using single result",
+          { dropped: droppedProvider, kept: providers[firstIndex], budgetMs },
+          "transcription"
+        );
+      }
+    } else {
+      // The first to answer failed, so there is nothing to fall back to and no
+      // point enforcing a budget — the other result is the only chance of text.
+      await tracked[otherIndex];
     }
-    if (resultB.status === "rejected") {
-      logger.warn(
-        "Dual transcription: provider failed",
-        { provider: providerB, error: resultB.reason?.message },
-        "transcription"
-      );
+
+    const resultA = settled[0];
+    const resultB = settled[1];
+    const textA = resultA?.status === "fulfilled" ? resultA.value.text : null;
+    const textB = resultB?.status === "fulfilled" ? resultB.value.text : null;
+    const msA = resultA?.status === "fulfilled" ? resultA.value.ms : null;
+    const msB = resultB?.status === "fulfilled" ? resultB.value.ms : null;
+
+    for (const [index, result] of [resultA, resultB].entries()) {
+      if (result?.status === "rejected") {
+        logger.warn(
+          "Dual transcription: provider failed",
+          { provider: providers[index], error: result.reason?.message },
+          "transcription"
+        );
+      }
     }
 
     if (!textA && !textB) {
-      throw resultA.reason || resultB.reason || new Error("Dual transcription produced no text");
+      throw resultA?.reason || resultB?.reason || new Error("Dual transcription produced no text");
     }
 
     const transcribeMs = Math.round(performance.now() - startedAt);
-    const base = { providerA, providerB, textA, textB, msA, msB, transcribeMs };
+    const base = { providerA, providerB, textA, textB, msA, msB, transcribeMs, droppedProvider };
 
     // One side missing, or both sides identical: nothing for the LLM to decide.
     if (!textA || !textB) {

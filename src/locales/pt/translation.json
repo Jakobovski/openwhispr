@@ -2584,7 +2584,8 @@
       "recorded": "grav",
       "transcription": "stt",
       "reconcile": "fusão",
-      "total": "total"
+      "total": "total",
+      "dropped": "ignorado"
     }
   },
   "dictationTranslation": {

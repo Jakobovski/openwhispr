@@ -2632,7 +2632,8 @@
       "recorded": "grab",
       "transcription": "stt",
       "reconcile": "fusión",
-      "total": "total"
+      "total": "total",
+      "dropped": "omitido"
     }
   },
   "dictationTranslation": {

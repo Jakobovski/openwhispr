@@ -31,6 +31,9 @@ const FLOATING_OVERLAY_TYPE =
 const WINDOW_SIZES = {
   BASE: { width: 96, height: 96 },
   WITH_MENU: { width: 240, height: 280 },
+  // The dictation panel is 96x96, so the timing readout needs its own size or it
+  // is simply clipped by the window edge.
+  WITH_STATS: { width: 300, height: 260 },
   WITH_TOAST: { width: 400, height: 500 },
   EXPANDED: { width: 400, height: 500 },
 };

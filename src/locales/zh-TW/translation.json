@@ -2579,7 +2579,8 @@
       "recorded": "錄音",
       "transcription": "stt",
       "reconcile": "合併",
-      "total": "總計"
+      "total": "總計",
+      "dropped": "已丟棄"
     }
   },
   "dictationTranslation": {

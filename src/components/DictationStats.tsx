@@ -12,6 +12,7 @@ export interface DictationStatsData {
     msB?: number | null;
     reconcileMs?: number | null;
     reconciled?: boolean;
+    droppedProvider?: string | null;
   } | null;
 }
 
@@ -22,8 +23,13 @@ const PROVIDER_LABELS: Record<string, string> = {
   openai: "OpenAI",
 };
 
-// Sub-second values read better as milliseconds; anything longer as seconds, so
-// the row stays scannable at a glance rather than needing to be parsed.
+function providerLabel(id?: string | null, fallback = ""): string {
+  if (!id) return fallback;
+  return PROVIDER_LABELS[id] || id;
+}
+
+// Sub-second values read better as milliseconds, longer ones as seconds, so a
+// row stays scannable at a glance rather than needing to be parsed.
 function formatMs(ms?: number | null): string | null {
   if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return null;
   return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
@@ -35,57 +41,64 @@ function formatSeconds(seconds?: number | null): string | null {
 }
 
 /**
- * The timing readout that appears beside the mic for a couple of seconds after a
- * dictation. Every field is optional: a provider that reports no timing simply
- * drops out of the row rather than rendering a blank or a zero.
+ * The timing readout shown beside the mic for a few seconds after a dictation.
+ *
+ * One row per statistic rather than a single line: the dual-provider case has
+ * five numbers, which a 96px-wide panel cannot show horizontally without
+ * clipping. The window is grown to WITH_STATS while this is on screen.
+ *
+ * Every row is optional — a provider that reports no timing drops out rather
+ * than rendering a blank or a zero.
  */
 export default function DictationStats({ stats }: { stats: DictationStatsData | null }) {
   const { t } = useTranslation();
   if (!stats) return null;
 
-  const parts: { label: string; value: string }[] = [];
+  const rows: { label: string; value: string; muted?: boolean }[] = [];
 
   const recorded = formatSeconds(stats.recordedSeconds);
-  if (recorded) parts.push({ label: t("app.stats.recorded"), value: recorded });
+  if (recorded) rows.push({ label: t("app.stats.recorded"), value: recorded });
 
   const dual = stats.dual;
   if (dual) {
     const a = formatMs(dual.msA);
     const b = formatMs(dual.msB);
-    if (a)
-      parts.push({
-        label: PROVIDER_LABELS[dual.providerA || ""] || dual.providerA || "A",
-        value: a,
+    if (a) rows.push({ label: providerLabel(dual.providerA, "A"), value: a });
+    if (b) rows.push({ label: providerLabel(dual.providerB, "B"), value: b });
+
+    // A provider dropped for exceeding the wait budget has no timing of its own,
+    // so it is reported explicitly instead of silently vanishing from the list.
+    if (dual.droppedProvider) {
+      rows.push({
+        label: providerLabel(dual.droppedProvider),
+        value: t("app.stats.dropped"),
+        muted: true,
       });
-    if (b)
-      parts.push({
-        label: PROVIDER_LABELS[dual.providerB || ""] || dual.providerB || "B",
-        value: b,
-      });
+    }
+
     const reconcile = formatMs(dual.reconcileMs);
     // Absent when the two transcripts agreed and the merge was skipped.
-    if (reconcile) parts.push({ label: t("app.stats.reconcile"), value: reconcile });
+    if (reconcile) rows.push({ label: t("app.stats.reconcile"), value: reconcile });
   } else {
     const transcription = formatMs(stats.transcriptionProcessingDurationMs);
-    if (transcription) parts.push({ label: t("app.stats.transcription"), value: transcription });
+    if (transcription) rows.push({ label: t("app.stats.transcription"), value: transcription });
   }
 
   const total = formatMs(stats.latencyMs);
-  if (total) parts.push({ label: t("app.stats.total"), value: total });
+  if (total) rows.push({ label: t("app.stats.total"), value: total });
 
-  if (parts.length === 0) return null;
+  if (rows.length === 0) return null;
 
   return (
     <div
-      className="flex items-center gap-2 rounded-full bg-black/60 px-2.5 py-1 text-[10px] whitespace-nowrap text-white/85 tabular-nums backdrop-blur-sm animate-in fade-in duration-150"
+      className="flex flex-col gap-1.5 rounded-xl bg-black/75 px-3.5 py-3 text-xs text-white/90 tabular-nums shadow-lg backdrop-blur-sm animate-in fade-in duration-150"
       role="status"
     >
-      {parts.map((part, index) => (
-        <span key={part.label} className="flex items-center gap-1">
-          {index > 0 && <span className="text-white/25">·</span>}
-          <span className="text-white/50">{part.label}</span>
-          <span className="font-medium">{part.value}</span>
-        </span>
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-baseline justify-between gap-4">
+          <span className={row.muted ? "text-white/35" : "text-white/55"}>{row.label}</span>
+          <span className={row.muted ? "text-white/45 italic" : "font-semibold"}>{row.value}</span>
+        </div>
       ))}
     </div>
   );

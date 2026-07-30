@@ -2720,7 +2720,8 @@
       "recorded": "rec",
       "transcription": "stt",
       "reconcile": "merge",
-      "total": "total"
+      "total": "total",
+      "dropped": "dropped"
     }
   },
   "dictationTranslation": {

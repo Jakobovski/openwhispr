@@ -2632,7 +2632,8 @@
       "recorded": "enr",
       "transcription": "stt",
       "reconcile": "fusion",
-      "total": "total"
+      "total": "total",
+      "dropped": "ignoré"
     }
   },
   "dictationTranslation": {

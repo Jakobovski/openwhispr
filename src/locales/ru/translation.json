@@ -2590,7 +2590,8 @@
       "recorded": "зап",
       "transcription": "stt",
       "reconcile": "слияние",
-      "total": "всего"
+      "total": "всего",
+      "dropped": "пропущен"
     }
   },
   "dictationTranslation": {

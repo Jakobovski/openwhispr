@@ -9,7 +9,7 @@ import { getRecordingErrorTitle, getRecordingErrorDescription } from "../utils/r
 import { isAccessibilitySkipped } from "../utils/permissions";
 
 // How long the timing readout stays on screen after a dictation.
-const STATS_VISIBLE_MS = 2000;
+const STATS_VISIBLE_MS = 4000;
 
 export const useAudioRecording = (toast, options = {}) => {
   const { t } = useTranslation();

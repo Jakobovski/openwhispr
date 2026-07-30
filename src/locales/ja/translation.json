@@ -2584,7 +2584,8 @@
       "recorded": "録音",
       "transcription": "stt",
       "reconcile": "統合",
-      "total": "合計"
+      "total": "合計",
+      "dropped": "破棄"
     }
   },
   "dictationTranslation": {

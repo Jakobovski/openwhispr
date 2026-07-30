@@ -2584,7 +2584,8 @@
       "recorded": "aufn",
       "transcription": "stt",
       "reconcile": "merge",
-      "total": "gesamt"
+      "total": "gesamt",
+      "dropped": "verworfen"
     }
   },
   "dictationTranslation": {

@@ -2584,7 +2584,8 @@
       "recorded": "reg",
       "transcription": "stt",
       "reconcile": "unione",
-      "total": "totale"
+      "total": "totale",
+      "dropped": "ignorato"
     }
   },
   "dictationTranslation": {

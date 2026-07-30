@@ -640,11 +640,15 @@ export interface SettingsState
   dualTranscriptionProviderB: string;
   dualTranscriptionReconcileProvider: string;
   dualTranscriptionReconcileModel: string;
+  // How long the second provider gets after the first answers, before it is
+  // dropped and dual degrades to the single result already in hand.
+  dualTranscriptionSecondTimeoutMs: number;
   setDualTranscriptionEnabled: (value: boolean) => void;
   setDualTranscriptionProviderA: (value: string) => void;
   setDualTranscriptionProviderB: (value: string) => void;
   setDualTranscriptionReconcileProvider: (value: string) => void;
   setDualTranscriptionReconcileModel: (value: string) => void;
+  setDualTranscriptionSecondTimeoutMs: (value: number) => void;
 
   // Enterprise providers
   bedrockAuthMode: string;
@@ -982,6 +986,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     "dualTranscriptionReconcileModel",
     "openai/gpt-oss-120b"
   ),
+  dualTranscriptionSecondTimeoutMs: readNumber("dualTranscriptionSecondTimeoutMs", 1500),
   customDictionary: readStringArray("customDictionary", []),
   snippets: (() => {
     try {
@@ -1516,6 +1521,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),
   setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
   setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
+  setDualTranscriptionSecondTimeoutMs: createNumberSetter("dualTranscriptionSecondTimeoutMs"),
   setCortiTenant: createStringSetter("cortiTenant"),
   setTinfoilApiKey: createSecretSetter("tinfoilApiKey", "tinfoil", "tinfoil"),
   setCustomTranscriptionApiKey: (key: string) => {
