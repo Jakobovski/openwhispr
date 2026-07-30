@@ -2,13 +2,21 @@ import React, { useState } from "react";
 import {
   Home,
   BookOpen,
-  Settings,
+  Sliders,
+  Mic,
+  Brain,
+  Keyboard,
+  CreditCard,
+  Shield,
+  Wrench,
+  Users,
   HelpCircle,
   UserCircle,
   UserPlus,
   X,
   Search,
 } from "lucide-react";
+import type { SettingsSectionType } from "./settingsSections";
 import logoIcon from "../assets/icon.png";
 import { useTranslation } from "react-i18next";
 import { cn } from "./lib/utils";
@@ -33,12 +41,14 @@ const rowButtonClass =
 // recording deep-links straight into a note (the meeting hotkey, the pending-note
 // navigation drain, and the recording pill's "return to note"), so the view has to
 // remain reachable even though it is no longer somewhere you can navigate to.
-export type ControlPanelView = "home" | "dictionary" | "personal-notes";
+//
+// The settings sections are views like any other: settings renders inline in the
+// panel rather than in a modal, so each of its panes is a sidebar destination.
+export type ControlPanelView = "home" | "dictionary" | "personal-notes" | SettingsSectionType;
 
 interface ControlPanelSidebarProps {
   activeView: ControlPanelView;
   onViewChange: (view: ControlPanelView) => void;
-  onOpenSettings: () => void;
   onOpenSearch?: () => void;
   onUpgrade?: () => void;
   isOverLimit?: boolean;
@@ -55,7 +65,6 @@ interface ControlPanelSidebarProps {
 export default function ControlPanelSidebar({
   activeView,
   onViewChange,
-  onOpenSettings,
   onOpenSearch,
   onUpgrade,
   isOverLimit,
@@ -84,13 +93,65 @@ export default function ControlPanelSidebar({
     !isProUser &&
     !upgradeDismissed;
 
-  const navItems: {
-    id: ControlPanelView;
-    label: string;
-    icon: React.ComponentType<{ size?: number; className?: string }>;
+  // Settings sections come first, in the same grouping the settings modal used, so
+  // the move from modal to inline does not also reshuffle where things live.
+  // History and Dictionary sit at the end under their own heading.
+  const navGroups: {
+    label: string | null;
+    items: {
+      id: ControlPanelView;
+      label: string;
+      icon: React.ComponentType<{ size?: number; className?: string }>;
+    }[];
   }[] = [
-    { id: "home", label: t("sidebar.history"), icon: Home },
-    { id: "dictionary", label: t("sidebar.dictionary"), icon: BookOpen },
+    {
+      label: t("settingsModal.groups.account"),
+      items: [
+        { id: "account", label: t("settingsModal.sections.account.label"), icon: UserCircle },
+        {
+          id: "plansBilling",
+          label: t("settingsModal.sections.plansBilling.label"),
+          icon: CreditCard,
+        },
+        ...(WORKSPACES_ENABLED
+          ? [
+              {
+                id: "workspace" as const,
+                label: t("settingsModal.sections.workspace.label"),
+                icon: Users,
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      label: t("settingsModal.groups.app"),
+      items: [
+        { id: "general", label: t("settingsModal.sections.general.label"), icon: Sliders },
+        { id: "hotkeys", label: t("settingsModal.sections.hotkeys.label"), icon: Keyboard },
+      ],
+    },
+    {
+      label: t("settingsModal.groups.aiModels"),
+      items: [
+        { id: "speechToText", label: t("settingsModal.sections.speechToText.label"), icon: Mic },
+        { id: "llms", label: t("settingsModal.sections.llms.label"), icon: Brain },
+      ],
+    },
+    {
+      label: t("settingsModal.groups.system"),
+      items: [
+        { id: "privacyData", label: t("settingsModal.sections.privacyData.label"), icon: Shield },
+        { id: "system", label: t("settingsModal.sections.system.label"), icon: Wrench },
+      ],
+    },
+    {
+      label: t("sidebar.groups.library"),
+      items: [
+        { id: "home", label: t("sidebar.history"), icon: Home },
+        { id: "dictionary", label: t("sidebar.dictionary"), icon: BookOpen },
+      ],
+    },
   ];
 
   return (
@@ -128,59 +189,61 @@ export default function ControlPanelSidebar({
         </div>
       )}
 
-      <nav className="flex flex-col gap-0.5 px-2 pt-2 pb-2">
-        {/* Settings first: it is where people actually spend their time in this
-            panel, and it is the view the panel opens on. */}
-        <button
-          onClick={onOpenSettings}
-          aria-label={t("sidebar.settings")}
-          className={rowButtonClass}
-        >
-          <Settings size={15} className={rowIconClass} />
-          <span className={rowLabelClass}>{t("sidebar.settings")}</span>
-        </button>
+      {/* Scrolls: the settings panes live here now, so the list is taller than the
+          window on small displays. The footer below stays pinned. */}
+      <nav className="flex-1 min-h-0 overflow-y-auto flex flex-col px-2 pt-2 pb-2">
+        {navGroups.map((group, groupIndex) => (
+          <div key={group.label ?? groupIndex} className={groupIndex > 0 ? "mt-2.5" : ""}>
+            {group.label && (
+              <div className="px-2.5 pb-0.5 pt-1">
+                <span className="text-[10px] font-medium tracking-[0.08em] uppercase text-foreground/40 dark:text-foreground/35">
+                  {group.label}
+                </span>
+              </div>
+            )}
+            <div className="flex flex-col gap-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeView === item.id;
 
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = activeView === item.id;
-
-          return (
-            <button
-              key={item.id}
-              onClick={() => onViewChange(item.id)}
-              className={cn(
-                "group relative flex items-center gap-2.5 w-full h-8 px-2.5 rounded-md outline-none transition-colors duration-150 text-left",
-                "focus-visible:ring-1 focus-visible:ring-primary/30",
-                isActive
-                  ? "bg-primary/8 dark:bg-primary/10"
-                  : "hover:bg-foreground/4 dark:hover:bg-white/4 active:bg-foreground/6"
-              )}
-            >
-              <Icon
-                size={15}
-                className={cn(
-                  "shrink-0 transition-colors duration-150",
-                  isActive
-                    ? "text-primary"
-                    : "text-foreground/60 group-hover:text-foreground/75 dark:text-foreground/55 dark:group-hover:text-foreground/70"
-                )}
-              />
-              <span
-                className={cn(
-                  "text-xs transition-colors duration-150",
-                  isActive
-                    ? "text-foreground font-medium"
-                    : "text-foreground/80 group-hover:text-foreground dark:text-foreground/75 dark:group-hover:text-foreground/90"
-                )}
-              >
-                {item.label}
-              </span>
-            </button>
-          );
-        })}
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => onViewChange(item.id)}
+                    className={cn(
+                      "group relative flex items-center gap-2.5 w-full h-8 px-2.5 rounded-md outline-none transition-colors duration-150 text-left",
+                      "focus-visible:ring-1 focus-visible:ring-primary/30",
+                      isActive
+                        ? "bg-primary/8 dark:bg-primary/10"
+                        : "hover:bg-foreground/4 dark:hover:bg-white/4 active:bg-foreground/6"
+                    )}
+                  >
+                    <Icon
+                      size={15}
+                      className={cn(
+                        "shrink-0 transition-colors duration-150",
+                        isActive
+                          ? "text-primary"
+                          : "text-foreground/60 group-hover:text-foreground/75 dark:text-foreground/55 dark:group-hover:text-foreground/70"
+                      )}
+                    />
+                    <span
+                      className={cn(
+                        "text-xs truncate transition-colors duration-150",
+                        isActive
+                          ? "text-foreground font-medium"
+                          : "text-foreground/80 group-hover:text-foreground dark:text-foreground/75 dark:group-hover:text-foreground/90"
+                      )}
+                    >
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
-
-      <div className="flex-1" />
 
       {showLimitBanner && (
         <div className="px-2 pb-2">

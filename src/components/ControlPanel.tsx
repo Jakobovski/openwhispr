@@ -37,6 +37,12 @@ import {
   useMeetingRecordingStore,
 } from "../stores/meetingRecordingStore";
 import ControlPanelSidebar, { type ControlPanelView } from "./ControlPanelSidebar";
+import {
+  isSettingsSection,
+  resolveSettingsSection,
+  resolveSettingsSubTab,
+} from "./settingsSections";
+import { SettingsLayoutProvider } from "./ui/useSettingsLayout";
 import MeetingRecordingMount from "./MeetingRecordingMount";
 import MeetingRecordingPill from "./notes/MeetingRecordingPill";
 import WindowControls from "./WindowControls";
@@ -69,7 +75,7 @@ const SIDEBAR_WIDTH_PX = 192;
 const toggleIconClass =
   "text-foreground/60 group-hover:text-foreground/75 dark:text-foreground/50 dark:group-hover:text-foreground/65 transition-colors duration-150";
 
-const SettingsModal = React.lazy(() => import("./SettingsModal"));
+const SettingsPage = React.lazy(() => import("./SettingsPage"));
 const PersonalNotesView = React.lazy(() => import("./notes/PersonalNotesView"));
 const DictionaryView = React.lazy(() => import("./DictionaryView"));
 const CommandSearch = React.lazy(() => import("./CommandSearch"));
@@ -83,15 +89,10 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   const { t } = useTranslation();
   const history = useTranscriptions();
   const [isLoading, setIsLoading] = useState(true);
-  // Settings is the panel's default destination, not a detour from Home.
-  const [showSettings, setShowSettings] = useState(true);
   const [showUpgradePrompt, setShowUpgradePrompt] = useState(false);
   const [showPostMigration, setShowPostMigration] = useState(false);
   const [limitData, setLimitData] = useState<{ wordsUsed: number; limit: number } | null>(null);
   const hasShownUpgradePrompt = useRef(false);
-  const [settingsSection, setSettingsSection] = useState<string | undefined>(
-    initialSettingsSection
-  );
   const [aiCTADismissed, setAiCTADismissed] = useState(
     () => localStorage.getItem("aiCTADismissed") === "true"
   );
@@ -99,7 +100,28 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
   const [showSearch, setShowSearch] = useState(false);
   const showDiscarded = useShowDiscarded();
   const [showCloudMigrationBanner, setShowCloudMigrationBanner] = useState(false);
-  const [activeView, setActiveView] = useState<ControlPanelView>("home");
+  // Settings is the panel's default destination, and its sections are ordinary
+  // views now — there is no separate settings window to open.
+  const [activeView, setActiveView] = useState<ControlPanelView>(() =>
+    resolveSettingsSection(initialSettingsSection)
+  );
+  // Only set when a legacy deep-link named a section that has since collapsed into
+  // a sub-tab (e.g. `meetings` -> llms/noteFormatting).
+  const [settingsSubTab, setSettingsSubTab] = useState<string | undefined>(() =>
+    resolveSettingsSubTab(initialSettingsSection)
+  );
+
+  /** Navigate to a settings pane, honouring the legacy section aliases. */
+  const openSettings = useCallback((section?: string) => {
+    setActiveView(resolveSettingsSection(section));
+    setSettingsSubTab(resolveSettingsSubTab(section));
+  }, []);
+
+  const changeView = useCallback((view: ControlPanelView) => {
+    setActiveView(view);
+    // A sub-tab only ever applies to the deep-link that requested it.
+    setSettingsSubTab(undefined);
+  }, []);
   const {
     collapsed: sidebarCollapsed,
     peek: sidebarPeek,
@@ -213,12 +235,12 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         setShowSearch(true);
       } else if (mod && e.key === ",") {
         e.preventDefault();
-        setShowSettings(true);
+        openSettings();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [openSettings]);
 
   useEffect(() => {
     if (updateStatus.updateDownloaded && !isDownloading) {
@@ -385,10 +407,10 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
 
   useEffect(() => {
     const cleanup = window.electronAPI?.onShowSettings?.(() => {
-      setShowSettings(true);
+      openSettings();
     });
     return () => cleanup?.();
-  }, []);
+  }, [openSettings]);
 
   // When accessibility is missing on macOS, open the permissions settings page
   useEffect(() => {
@@ -396,8 +418,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
       if (isAccessibilitySkipped()) return;
       const migration = await window.electronAPI?.getPostMigrationState?.();
       if (migration?.justMigrated) return;
-      setSettingsSection("privacyData");
-      setShowSettings(true);
+      openSettings("privacyData");
       toast({
         title: t("controlPanel.accessibilityMissing.title"),
         description: t("controlPanel.accessibilityMissing.description"),
@@ -405,7 +426,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
       });
     });
     return () => cleanup?.();
-  }, [toast, t]);
+  }, [toast, t, openSettings]);
 
   useEffect(() => {
     fetchStreamingProviders();
@@ -782,19 +803,6 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         onDone={dismissPostMigrationPermanently}
       />
 
-      {showSettings && (
-        <Suspense fallback={null}>
-          <SettingsModal
-            open={showSettings}
-            onOpenChange={(open) => {
-              setShowSettings(open);
-              if (!open) setSettingsSection(undefined);
-            }}
-            initialSection={settingsSection}
-          />
-        </Suspense>
-      )}
-
       {WORKSPACES_ENABLED && (
         <AcceptInvitationModal
           token={invitationToken}
@@ -846,16 +854,9 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
         >
           <ControlPanelSidebar
             activeView={activeView}
-            onViewChange={setActiveView}
+            onViewChange={changeView}
             onOpenSearch={() => setShowSearch(true)}
-            onOpenSettings={() => {
-              setSettingsSection(undefined);
-              setShowSettings(true);
-            }}
-            onUpgrade={() => {
-              setSettingsSection("plansBilling");
-              setShowSettings(true);
-            }}
+            onUpgrade={() => openSettings("plansBilling")}
             isOverLimit={usage?.isOverLimit ?? false}
             userName={user?.name}
             userEmail={user?.email}
@@ -932,10 +933,7 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                         variant="default"
                         size="sm"
                         className="h-7 text-xs"
-                        onClick={() => {
-                          setSettingsSection("account");
-                          setShowSettings(true);
-                        }}
+                        onClick={() => openSettings("account")}
                       >
                         {t("controlPanel.billing.updatePayment")}
                       </Button>
@@ -965,12 +963,11 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                             variant="default"
                             size="sm"
                             className="h-7 text-xs"
-                            onClick={() => {
-                              setSettingsSection(
+                            onClick={() =>
+                              openSettings(
                                 gpuAccelAvailable.transcription ? "transcription" : "intelligence"
-                              );
-                              setShowSettings(true);
-                            }}
+                              )
+                            }
                           >
                             {t("controlPanel.gpu.enableButton")}
                           </Button>
@@ -1006,19 +1003,13 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                 onRetryTranscription={retryTranscription}
                 showDiscarded={showDiscarded}
                 onToggleDiscarded={toggleShowDiscarded}
-                onOpenSettings={(section) => {
-                  setSettingsSection(section);
-                  setShowSettings(true);
-                }}
+                onOpenSettings={openSettings}
               />
             )}
             {activeView === "personal-notes" && (
               <Suspense fallback={null}>
                 <PersonalNotesView
-                  onOpenSettings={(section) => {
-                    setSettingsSection(section);
-                    setShowSettings(true);
-                  }}
+                  onOpenSettings={openSettings}
                   onOpenSearch={() => setShowSearch(true)}
                   meetingRecordingRequest={meetingRecordingRequest}
                   onMeetingRecordingRequestHandled={handleMeetingRecordingRequestHandled}
@@ -1028,6 +1019,22 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
             {activeView === "dictionary" && (
               <Suspense fallback={null}>
                 <DictionaryView />
+              </Suspense>
+            )}
+            {isSettingsSection(activeView) && (
+              <Suspense fallback={null}>
+                {/* SettingsPage reads isCompact from this context to lay its rows
+                    out; the modal used to supply it. Compact tracks the same
+                    threshold the settings modal used. */}
+                <SettingsLayoutProvider value={{ isCompact: isNarrowWindow }}>
+                  <div className="p-6">
+                    <SettingsPage
+                      activeSection={activeView}
+                      onNavigateToSection={changeView}
+                      initialSubTab={settingsSubTab}
+                    />
+                  </div>
+                </SettingsLayoutProvider>
               </Suspense>
             )}
           </div>

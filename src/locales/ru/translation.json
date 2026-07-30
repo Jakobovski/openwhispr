@@ -2478,7 +2478,10 @@
     "createWorkspace": "Workspace erstellen",
     "collapse": "Свернуть боковую панель",
     "expand": "Развернуть боковую панель",
-    "history": "История"
+    "history": "История",
+    "groups": {
+      "library": "Библиотека"
+    }
   },
   "chat": {
     "newChat": "Новый чат",

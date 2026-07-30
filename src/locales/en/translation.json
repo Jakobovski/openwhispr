@@ -2157,7 +2157,10 @@
     "createWorkspace": "Create workspace",
     "collapse": "Collapse sidebar",
     "expand": "Expand sidebar",
-    "history": "History"
+    "history": "History",
+    "groups": {
+      "library": "Library"
+    }
   },
   "workspaces": {
     "switcher": {

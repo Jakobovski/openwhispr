@@ -2520,7 +2520,10 @@
     "createWorkspace": "Crear espacio de trabajo",
     "collapse": "Contraer barra lateral",
     "expand": "Expandir barra lateral",
-    "history": "Historial"
+    "history": "Historial",
+    "groups": {
+      "library": "Biblioteca"
+    }
   },
   "chat": {
     "newChat": "Nuevo chat",

@@ -2117,7 +2117,10 @@
     "createWorkspace": "Créer un espace de travail",
     "collapse": "Réduire la barre latérale",
     "expand": "Développer la barre latérale",
-    "history": "Historique"
+    "history": "Historique",
+    "groups": {
+      "library": "Bibliothèque"
+    }
   },
   "chat": {
     "newChat": "Nouveau chat",

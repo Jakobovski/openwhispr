@@ -2472,7 +2472,10 @@
     "createWorkspace": "Créer un espace de travail",
     "collapse": "Comprimi barra laterale",
     "expand": "Espandi barra laterale",
-    "history": "Cronologia"
+    "history": "Cronologia",
+    "groups": {
+      "library": "Libreria"
+    }
   },
   "chat": {
     "newChat": "Nuova chat",

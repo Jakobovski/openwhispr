@@ -2472,7 +2472,10 @@
     "createWorkspace": "Workspace erstellen",
     "collapse": "Seitenleiste einklappen",
     "expand": "Seitenleiste ausklappen",
-    "history": "Verlauf"
+    "history": "Verlauf",
+    "groups": {
+      "library": "Bibliothek"
+    }
   },
   "chat": {
     "newChat": "Neuer Chat",

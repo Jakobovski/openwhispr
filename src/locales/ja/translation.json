@@ -2472,7 +2472,10 @@
     "createWorkspace": "Crear espacio de trabajo",
     "collapse": "サイドバーを折りたたむ",
     "expand": "サイドバーを展開",
-    "history": "履歴"
+    "history": "履歴",
+    "groups": {
+      "library": "ライブラリ"
+    }
   },
   "chat": {
     "newChat": "新しいチャット",
