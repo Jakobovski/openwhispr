@@ -187,25 +187,6 @@ export default function App() {
     }
   }, [isCommandMenuOpen, isHovered, toastCount, setWindowInteractivity]);
 
-  useEffect(() => {
-    const resizeWindow = () => {
-      if (isCommandMenuOpen && toastCount > 0) {
-        window.electronAPI?.resizeMainWindow?.("EXPANDED");
-      } else if (isCommandMenuOpen) {
-        window.electronAPI?.resizeMainWindow?.("WITH_MENU");
-      } else if (toastCount > 0) {
-        window.electronAPI?.resizeMainWindow?.("WITH_TOAST");
-      } else if (showStats) {
-        // Ranks below the menu and toasts: those are interactive, the readout is
-        // only informational and can wait for the window to come back to it.
-        window.electronAPI?.resizeMainWindow?.("WITH_STATS");
-      } else {
-        window.electronAPI?.resizeMainWindow?.("BASE");
-      }
-    };
-    resizeWindow();
-  }, [isCommandMenuOpen, toastCount, showStats]);
-
   const handleDictationToggle = React.useCallback(() => {
     setIsCommandMenuOpen(false);
     setWindowInteractivity(false);
@@ -351,6 +332,25 @@ export default function App() {
   const micProps = getMicButtonProps();
   const showStats = !!lastStats && !isRecording && !isProcessing;
 
+  useEffect(() => {
+    const resizeWindow = () => {
+      if (isCommandMenuOpen && toastCount > 0) {
+        window.electronAPI?.resizeMainWindow?.("EXPANDED");
+      } else if (isCommandMenuOpen) {
+        window.electronAPI?.resizeMainWindow?.("WITH_MENU");
+      } else if (toastCount > 0) {
+        window.electronAPI?.resizeMainWindow?.("WITH_TOAST");
+      } else if (showStats) {
+        // Ranks below the menu and toasts: those are interactive, the readout is
+        // only informational and can wait for the window to come back to it.
+        window.electronAPI?.resizeMainWindow?.("WITH_STATS");
+      } else {
+        window.electronAPI?.resizeMainWindow?.("BASE");
+      }
+    };
+    resizeWindow();
+  }, [isCommandMenuOpen, toastCount, showStats]);
+
   return (
     <div className="dictation-window">
       {/* Voice button - position determined by panelStartPosition setting */}
@@ -394,7 +394,6 @@ export default function App() {
               />
             </button>
           )}
-          {showStats && <DictationStats stats={lastStats} />}
           <Tooltip
             content={micProps.tooltip}
             align={
@@ -495,6 +494,7 @@ export default function App() {
               )}
             </button>
           </Tooltip>
+          {showStats && <DictationStats stats={lastStats} />}
           {isCommandMenuOpen && (
             <div
               ref={commandMenuRef}

@@ -91,7 +91,7 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
 
   return (
     <div
-      className="flex flex-col gap-1.5 rounded-xl bg-black/75 px-3.5 py-3 text-xs text-white/90 tabular-nums shadow-lg backdrop-blur-sm animate-in fade-in duration-150"
+      className="flex shrink-0 flex-col gap-1 rounded-xl bg-black/75 px-3 py-2.5 text-xs whitespace-nowrap text-white/90 tabular-nums shadow-lg backdrop-blur-sm animate-in fade-in duration-150"
       role="status"
     >
       {rows.map((row) => (
