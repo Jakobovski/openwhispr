@@ -207,7 +207,12 @@ class ReasoningService extends BaseReasoningService {
     // tokens (latency) and the tendency to answer the transcript instead of
     // cleaning it. applyThinkingSuppression still wins when thinking is
     // disabled by the user.
-    if (isCleanup && model.includes("gpt-oss")) {
+    //
+    // Applies to any transcript-shaped call, not just isCleanup: dual-provider
+    // reconciliation passes its own systemPrompt (so isCleanup is false) but is
+    // the same kind of work — rewriting a transcript, not reasoning about it —
+    // and sits in the paste path where thinking latency is felt directly.
+    if ((isCleanup || config.disableThinking === true) && model.includes("gpt-oss")) {
       requestBody.reasoning_effort = "low";
     }
 
