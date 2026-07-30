@@ -204,6 +204,11 @@ export default function App() {
     onToggle: handleDictationToggle,
   });
 
+  // Declared before the effects that depend on it: both the auto-hide and the
+  // resize effect read it during render, so a later const would be a temporal
+  // dead zone reference and crash the renderer.
+  const showStats = !!lastStats && !isRecording && !isProcessing;
+
   // Sync auto-hide from main process — setState directly to avoid IPC echo
   useEffect(() => {
     const unsubscribe = window.electronAPI?.onFloatingIconAutoHideChanged?.((enabled) => {
@@ -230,7 +235,7 @@ export default function App() {
   useEffect(() => {
     let hideTimeout;
 
-    if (floatingIconAutoHide && !isRecording && !isProcessing && toastCount === 0) {
+    if (floatingIconAutoHide && !isRecording && !isProcessing && toastCount === 0 && !showStats) {
       // Delay briefly so processing can start after recording stops without a flash
       hideTimeout = setTimeout(() => {
         window.electronAPI?.hideWindow?.();
@@ -241,7 +246,10 @@ export default function App() {
 
     prevAutoHideRef.current = floatingIconAutoHide;
     return () => clearTimeout(hideTimeout);
-  }, [isRecording, isProcessing, floatingIconAutoHide, toastCount]);
+    // showStats gates this too: the readout appears exactly when isProcessing
+    // goes false, so without it the panel hid 500ms in and took the stats with
+    // it — the four-second timer was never the limiting factor.
+  }, [isRecording, isProcessing, floatingIconAutoHide, toastCount, showStats]);
 
   const handleClose = () => {
     window.electronAPI.hideWindow();
@@ -330,8 +338,6 @@ export default function App() {
   };
 
   const micProps = getMicButtonProps();
-  const showStats = !!lastStats && !isRecording && !isProcessing;
-
   useEffect(() => {
     const resizeWindow = () => {
       if (isCommandMenuOpen && toastCount > 0) {
