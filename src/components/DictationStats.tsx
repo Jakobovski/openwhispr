@@ -76,9 +76,13 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
       });
     }
 
-    const reconcile = formatMs(dual.reconcileMs);
-    // Absent when the two transcripts agreed and the merge was skipped.
-    if (reconcile) rows.push({ label: t("app.stats.reconcile"), value: reconcile });
+    // Always present, reading 0 when the merge was skipped — the providers agreed,
+    // or one was dropped. An absent row was ambiguous: it could not be told apart
+    // from a merge that ran but reported no timing.
+    rows.push({
+      label: t("app.stats.reconcile"),
+      value: formatMs(dual.reconcileMs) ?? "0ms",
+    });
   } else {
     const transcription = formatMs(stats.transcriptionProcessingDurationMs);
     if (transcription) rows.push({ label: t("app.stats.transcription"), value: transcription });
