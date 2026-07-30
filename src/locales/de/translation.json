@@ -1431,7 +1431,9 @@
         "startPositionDescription": "Wo das Sprachrekorder-Panel auf dem Bildschirm erscheint",
         "bottomRight": "Unten rechts",
         "center": "Unten Mitte",
-        "bottomLeft": "Unten links"
+        "bottomLeft": "Unten links",
+        "autoHideDelay": "Verzögerung beim Ausblenden",
+        "autoHideDelayDescription": "Wie lange das Panel nach einem Diktat sichtbar bleibt, bevor es ausgeblendet wird."
       },
       "hotkey": {
         "activationMode": "Aktivierungsmodus",

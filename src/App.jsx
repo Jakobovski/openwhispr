@@ -93,6 +93,7 @@ export default function App() {
 
   // Floating icon auto-hide setting (read from store, synced via IPC)
   const floatingIconAutoHide = useSettingsStore((s) => s.floatingIconAutoHide);
+  const floatingIconAutoHideDelayMs = useSettingsStore((s) => s.floatingIconAutoHideDelayMs);
   const panelStartPosition = useSettingsStore((s) => s.panelStartPosition);
   const prevAutoHideRef = useRef(floatingIconAutoHide);
 
@@ -236,10 +237,14 @@ export default function App() {
     let hideTimeout;
 
     if (floatingIconAutoHide && !isRecording && !isProcessing && toastCount === 0 && !showStats) {
-      // Delay briefly so processing can start after recording stops without a flash
-      hideTimeout = setTimeout(() => {
-        window.electronAPI?.hideWindow?.();
-      }, 500);
+      // Delay so processing can start after recording stops without a flash, and
+      // so the panel does not vanish the instant a dictation lands.
+      hideTimeout = setTimeout(
+        () => {
+          window.electronAPI?.hideWindow?.();
+        },
+        Number.isFinite(floatingIconAutoHideDelayMs) ? floatingIconAutoHideDelayMs : 500
+      );
     } else if (!floatingIconAutoHide && prevAutoHideRef.current) {
       window.electronAPI?.showDictationPanel?.();
     }
@@ -249,7 +254,14 @@ export default function App() {
     // showStats gates this too: the readout appears exactly when isProcessing
     // goes false, so without it the panel hid 500ms in and took the stats with
     // it — the four-second timer was never the limiting factor.
-  }, [isRecording, isProcessing, floatingIconAutoHide, toastCount, showStats]);
+  }, [
+    isRecording,
+    isProcessing,
+    floatingIconAutoHide,
+    floatingIconAutoHideDelayMs,
+    toastCount,
+    showStats,
+  ]);
 
   const handleClose = () => {
     window.electronAPI.hideWindow();

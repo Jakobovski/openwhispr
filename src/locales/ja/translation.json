@@ -1431,7 +1431,9 @@
         "startPositionDescription": "音声レコーダーパネルが画面上に表示される位置",
         "bottomRight": "右下",
         "center": "下中央",
-        "bottomLeft": "左下"
+        "bottomLeft": "左下",
+        "autoHideDelay": "自動的に隠すまでの時間",
+        "autoHideDelayDescription": "音声入力後にパネルが表示され続ける時間。"
       },
       "hotkey": {
         "activationMode": "起動モード",

@@ -425,6 +425,8 @@ export interface SettingsState
   audioCuesEnabled: boolean;
   pauseMediaOnDictation: boolean;
   floatingIconAutoHide: boolean;
+  // How long the panel lingers after a dictation before auto-hide takes it away.
+  floatingIconAutoHideDelayMs: number;
   startMinimized: boolean;
   gcalAccounts: GoogleCalendarAccount[];
   gcalConnected: boolean;
@@ -703,6 +705,7 @@ export interface SettingsState
   setAudioCuesEnabled: (value: boolean) => void;
   setPauseMediaOnDictation: (value: boolean) => void;
   setFloatingIconAutoHide: (enabled: boolean) => void;
+  setFloatingIconAutoHideDelayMs: (value: number) => void;
   setStartMinimized: (enabled: boolean) => void;
   setGcalAccounts: (accounts: GoogleCalendarAccount[]) => void;
   setNotificationsEnabled: (value: boolean) => void;
@@ -1066,6 +1069,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   audioCuesEnabled: readBoolean("audioCuesEnabled", true),
   pauseMediaOnDictation: readBoolean("pauseMediaOnDictation", false),
   floatingIconAutoHide: readBoolean("floatingIconAutoHide", false),
+  floatingIconAutoHideDelayMs: readNumber("floatingIconAutoHideDelayMs", 500),
   startMinimized: readBoolean("startMinimized", false),
   notificationsEnabled: readBoolean("notificationsEnabled", true),
   notifyMeetingDetection: readBoolean("notifyMeetingDetection", true),
@@ -1688,6 +1692,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setAudioCuesEnabled: createBooleanSetter("audioCuesEnabled"),
   setPauseMediaOnDictation: createBooleanSetter("pauseMediaOnDictation"),
 
+  setFloatingIconAutoHideDelayMs: createNumberSetter("floatingIconAutoHideDelayMs"),
   setFloatingIconAutoHide: (enabled: boolean) => {
     if (get().floatingIconAutoHide === enabled) return;
     if (isBrowser) localStorage.setItem("floatingIconAutoHide", String(enabled));

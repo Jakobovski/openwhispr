@@ -1426,7 +1426,9 @@
         "startPositionDescription": "语音录制面板在屏幕上的显示位置",
         "bottomRight": "右下角",
         "center": "底部居中",
-        "bottomLeft": "左下角"
+        "bottomLeft": "左下角",
+        "autoHideDelay": "自动隐藏延迟",
+        "autoHideDelayDescription": "听写结束后面板保持可见的时长。"
       },
       "hotkey": {
         "activationMode": "激活模式",

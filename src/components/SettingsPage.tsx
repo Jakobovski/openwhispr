@@ -846,6 +846,8 @@ export default function SettingsPage({
     keepTranscriptionInClipboard,
     setKeepTranscriptionInClipboard,
     floatingIconAutoHide,
+    floatingIconAutoHideDelayMs,
+    setFloatingIconAutoHideDelayMs,
     setFloatingIconAutoHide,
     startMinimized,
     setStartMinimized,
@@ -2711,6 +2713,30 @@ export default function SettingsPage({
                     <Toggle checked={floatingIconAutoHide} onChange={setFloatingIconAutoHide} />
                   </SettingsRow>
                 </SettingsPanelRow>
+                {floatingIconAutoHide && (
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.general.floatingIcon.autoHideDelay")}
+                      description={t("settingsPage.general.floatingIcon.autoHideDelayDescription")}
+                    >
+                      <Select
+                        value={String(floatingIconAutoHideDelayMs)}
+                        onValueChange={(value) => setFloatingIconAutoHideDelayMs(Number(value))}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[500, 1000, 2000, 3000, 5000, 10000].map((ms) => (
+                            <SelectItem key={ms} value={String(ms)}>
+                              {ms < 1000 ? `${ms}ms` : `${ms / 1000}s`}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                )}
                 <SettingsPanelRow>
                   <SettingsRow
                     label={t("settingsPage.general.floatingIcon.startPosition")}

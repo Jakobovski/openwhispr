@@ -1410,7 +1410,9 @@
         "startPositionDescription": "Onde o painel de gravação de voz aparece na tela",
         "bottomRight": "Inferior direito",
         "center": "Inferior central",
-        "bottomLeft": "Inferior esquerdo"
+        "bottomLeft": "Inferior esquerdo",
+        "autoHideDelay": "Atraso para ocultar",
+        "autoHideDelayDescription": "Quanto tempo o painel permanece visível após um ditado antes de ocultar."
       },
       "hotkey": {
         "activationMode": "Modo de ativação",

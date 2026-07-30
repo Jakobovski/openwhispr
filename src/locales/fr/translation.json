@@ -1479,7 +1479,9 @@
         "startPositionDescription": "Emplacement du panneau d'enregistrement vocal à l'écran",
         "bottomRight": "En bas à droite",
         "center": "En bas au centre",
-        "bottomLeft": "En bas à gauche"
+        "bottomLeft": "En bas à gauche",
+        "autoHideDelay": "Délai de masquage",
+        "autoHideDelayDescription": "Durée pendant laquelle le panneau reste visible après une dictée avant de se masquer."
       },
       "hotkey": {
         "activationMode": "Mode d'activation",

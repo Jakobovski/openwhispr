@@ -1426,7 +1426,9 @@
         "startPositionDescription": "語音錄製面板在螢幕上的顯示位置",
         "bottomRight": "右下角",
         "center": "底部置中",
-        "bottomLeft": "左下角"
+        "bottomLeft": "左下角",
+        "autoHideDelay": "自動隱藏延遲",
+        "autoHideDelayDescription": "聽寫結束後面板保持可見的時長。"
       },
       "hotkey": {
         "activationMode": "啟用模式",

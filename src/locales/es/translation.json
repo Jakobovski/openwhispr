@@ -1479,7 +1479,9 @@
         "startPositionDescription": "Dónde aparece el panel de grabación de voz en la pantalla",
         "bottomRight": "Inferior derecha",
         "center": "Inferior centro",
-        "bottomLeft": "Inferior izquierda"
+        "bottomLeft": "Inferior izquierda",
+        "autoHideDelay": "Retardo de ocultación",
+        "autoHideDelayDescription": "Cuánto tiempo permanece visible el panel tras un dictado antes de ocultarse."
       },
       "hotkey": {
         "activationMode": "Modo de activación",

@@ -1604,7 +1604,9 @@
         "center": "Bottom Center",
         "bottomLeft": "Bottom Left",
         "description": "Control when the dictation icon is visible on your screen",
-        "title": "Floating Icon"
+        "title": "Floating Icon",
+        "autoHideDelay": "Auto-hide delay",
+        "autoHideDelayDescription": "How long the panel stays visible after a dictation before hiding."
       },
       "hotkey": {
         "activationMode": "Activation Mode",

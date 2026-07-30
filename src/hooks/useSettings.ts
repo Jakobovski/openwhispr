@@ -331,6 +331,8 @@ function useSettingsInternal() {
     pauseMediaOnDictation: store.pauseMediaOnDictation,
     setPauseMediaOnDictation: store.setPauseMediaOnDictation,
     floatingIconAutoHide: store.floatingIconAutoHide,
+    floatingIconAutoHideDelayMs: store.floatingIconAutoHideDelayMs,
+    setFloatingIconAutoHideDelayMs: store.setFloatingIconAutoHideDelayMs,
     setFloatingIconAutoHide: store.setFloatingIconAutoHide,
     startMinimized: store.startMinimized,
     setStartMinimized: store.setStartMinimized,
