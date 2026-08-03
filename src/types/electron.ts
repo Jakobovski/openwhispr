@@ -49,10 +49,15 @@ export interface ModelLatencyStat {
   kind: string;
   provider: string | null;
   model: string | null;
+  /** Successful samples; every timing below is computed over these alone. */
   n: number;
-  min_ms: number;
-  median_ms: number;
-  max_ms: number;
+  /** Calls the backend errored on. */
+  failed: number;
+  /** Calls abandoned for exceeding the dual wait budget. */
+  dropped: number;
+  min_ms: number | null;
+  median_ms: number | null;
+  max_ms: number | null;
 }
 
 export interface NoteItem {
@@ -605,7 +610,8 @@ declare global {
         kind: string;
         provider?: string | null;
         model?: string | null;
-        ms: number;
+        ms?: number | null;
+        outcome?: "ok" | "failed" | "dropped";
       }) => Promise<{ success: boolean }>;
       getModelLatencyStats?: () => Promise<{ success: boolean; stats: ModelLatencyStat[] }>;
       clearModelLatency?: () => Promise<{ success: boolean }>;

@@ -3078,6 +3078,8 @@
     "min": "最小",
     "median": "中央値",
     "max": "最大",
+    "failRate": "失敗",
+    "dropRate": "破棄",
     "kinds": {
       "transcription": "文字起こし",
       "reconcile": "統合（デュアルモード）"

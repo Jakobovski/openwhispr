@@ -3078,6 +3078,8 @@
     "min": "min",
     "median": "médiane",
     "max": "max",
+    "failRate": "échecs",
+    "dropRate": "abandons",
     "kinds": {
       "transcription": "Transcription",
       "reconcile": "Fusion (mode double)"

@@ -3078,6 +3078,8 @@
     "min": "Min",
     "median": "Median",
     "max": "Max",
+    "failRate": "Fehler",
+    "dropRate": "verworfen",
     "kinds": {
       "transcription": "Transkription",
       "reconcile": "Zusammenführung (Dual-Modus)"

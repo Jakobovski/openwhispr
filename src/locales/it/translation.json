@@ -3078,6 +3078,8 @@
     "min": "min",
     "median": "mediana",
     "max": "max",
+    "failRate": "errori",
+    "dropRate": "scartati",
     "kinds": {
       "transcription": "Trascrizione",
       "reconcile": "Unione (modalità doppia)"

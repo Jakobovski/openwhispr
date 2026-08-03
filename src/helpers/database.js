@@ -115,6 +115,15 @@ class DatabaseManager {
       this.db.exec(
         "CREATE INDEX IF NOT EXISTS idx_model_latency_group ON model_latency (kind, provider, model)"
       );
+      // "ok" | "failed" (the backend errored) | "dropped" (abandoned for exceeding the
+      // dual wait budget). Failures and drops store ms 0 — their elapsed time says
+      // nothing about the provider's speed — so every timing below is computed over
+      // outcome = "ok" alone while the counts remain available for the rates.
+      try {
+        this.db.exec("ALTER TABLE model_latency ADD COLUMN outcome TEXT NOT NULL DEFAULT 'ok'");
+      } catch (err) {
+        if (!err.message.includes("duplicate column")) throw err;
+      }
 
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS custom_dictionary (
@@ -713,15 +722,18 @@ class DatabaseManager {
       .run(MODEL_LATENCY_MAX_ROWS);
   }
 
-  recordModelLatency({ kind, provider = null, model = null, ms }) {
+  recordModelLatency({ kind, provider = null, model = null, ms, outcome = "ok" }) {
     try {
       if (!this.db) throw new Error("Database not initialized");
-      if (!kind || typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) {
-        return { success: false };
-      }
+      if (!kind) return { success: false };
+      // A timing is required of a successful call and meaningless for the others.
+      const timed = typeof ms === "number" && Number.isFinite(ms) && ms >= 0;
+      if (outcome === "ok" && !timed) return { success: false };
       this.db
-        .prepare("INSERT INTO model_latency (kind, provider, model, ms) VALUES (?, ?, ?, ?)")
-        .run(kind, provider, model, Math.round(ms));
+        .prepare(
+          "INSERT INTO model_latency (kind, provider, model, ms, outcome) VALUES (?, ?, ?, ?, ?)"
+        )
+        .run(kind, provider, model, timed ? Math.round(ms) : 0, outcome);
       // Cheap enough to check every insert, and it keeps the table from growing without
       // bound for someone who dictates all day.
       if (Math.random() < 0.02) this._pruneModelLatency();
@@ -743,7 +755,7 @@ class DatabaseManager {
     try {
       if (!this.db) throw new Error("Database not initialized");
       const rows = this.db
-        .prepare("SELECT kind, provider, model, ms FROM model_latency ORDER BY ms ASC")
+        .prepare("SELECT kind, provider, model, ms, outcome FROM model_latency ORDER BY ms ASC")
         .all();
 
       const groups = new Map();
@@ -755,26 +767,39 @@ class DatabaseManager {
             provider: row.provider,
             model: row.model,
             samples: [],
+            failed: 0,
+            dropped: 0,
           });
         }
-        groups.get(key).samples.push(row.ms);
+        const group = groups.get(key);
+        if (row.outcome === "failed") group.failed += 1;
+        else if (row.outcome === "dropped") group.dropped += 1;
+        else group.samples.push(row.ms);
       }
 
-      const stats = [...groups.values()].map(({ kind, provider, model, samples }) => {
-        const mid = Math.floor(samples.length / 2);
-        return {
-          kind,
-          provider,
-          model,
-          n: samples.length,
-          min_ms: samples[0],
-          max_ms: samples[samples.length - 1],
-          median_ms:
-            samples.length % 2 === 0
-              ? Math.round((samples[mid - 1] + samples[mid]) / 2)
-              : samples[mid],
-        };
-      });
+      // A group can hold nothing but failures. A provider that never answers is the
+      // most interesting row on the page, so it is reported with null timings rather
+      // than left out of the list.
+      const stats = [...groups.values()].map(
+        ({ kind, provider, model, samples, failed, dropped }) => {
+          const mid = Math.floor(samples.length / 2);
+          return {
+            kind,
+            provider,
+            model,
+            n: samples.length,
+            failed,
+            dropped,
+            min_ms: samples.length ? samples[0] : null,
+            max_ms: samples.length ? samples[samples.length - 1] : null,
+            median_ms: !samples.length
+              ? null
+              : samples.length % 2 === 0
+                ? Math.round((samples[mid - 1] + samples[mid]) / 2)
+                : samples[mid],
+          };
+        }
+      );
 
       return { success: true, stats };
     } catch (error) {

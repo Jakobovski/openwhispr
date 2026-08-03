@@ -1535,6 +1535,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           messageKey: error.messageKey,
         });
 
+        // Counts against that provider's failure rate: a single-provider failure is the
+        // same event as a dual side failing, and dual mode is not the only place worth
+        // knowing a backend is unreliable.
+        this.recordModelLatency(
+          "transcription",
+          resolveActiveTranscriptionProvider(getSettings()),
+          this.lastAudioMetadata?.model || null,
+          null,
+          "failed"
+        );
+
         // Save failed transcription with audio so the user can retry later
         if (this.lastAudioBlob) {
           this.saveFailedTranscription(error.message, error.code || null, metadata);
@@ -3158,13 +3169,21 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     });
     timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
-    // Only sides that answered are sampled: a dropped side's timing is the budget, not
-    // the provider's speed, and a failed side has no timing at all.
-    if (dual.statusA === "ok") {
-      this.recordModelLatency("transcription", dual.providerA, dual.modelA, dual.msA);
-    }
-    if (dual.statusB === "ok") {
-      this.recordModelLatency("transcription", dual.providerB, dual.modelB, dual.msB);
+    // Each side is recorded whatever became of it, but only an answer carries a timing:
+    // a dropped side's elapsed time is the wait budget and a failed side has none, so
+    // both are counted for the rates instead of averaged into the median.
+    for (const side of [
+      { provider: dual.providerA, model: dual.modelA, ms: dual.msA, status: dual.statusA },
+      { provider: dual.providerB, model: dual.modelB, ms: dual.msB, status: dual.statusB },
+    ]) {
+      if (!side.provider) continue;
+      this.recordModelLatency(
+        "transcription",
+        side.provider,
+        side.model,
+        side.ms,
+        side.status === "ok" ? "ok" : side.status === "failed" ? "failed" : "dropped"
+      );
     }
     if (dual.reconciled && dual.reconcileMs != null) {
       const settingsNow = getSettings();
@@ -3626,9 +3645,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   // Fire-and-forget: a latency sample is never worth failing or delaying a dictation
   // for, and the stats page treats a missing sample as simply not measured.
-  recordModelLatency(kind, provider, model, ms) {
-    if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return;
-    window.electronAPI?.recordModelLatency?.({ kind, provider, model, ms }).catch(() => {});
+  recordModelLatency(kind, provider, model, ms, outcome = "ok") {
+    if (outcome === "ok" && (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0)) return;
+    window.electronAPI
+      ?.recordModelLatency?.({ kind, provider, model, ms, outcome })
+      .catch(() => {});
   }
 
   async saveTranscription(text, rawText = null, { clientTranscriptionId, dual = null } = {}) {

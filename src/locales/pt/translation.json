@@ -3078,6 +3078,8 @@
     "min": "mín",
     "median": "mediana",
     "max": "máx",
+    "failRate": "falhas",
+    "dropRate": "descartados",
     "kinds": {
       "transcription": "Transcrição",
       "reconcile": "Combinação (modo duplo)"

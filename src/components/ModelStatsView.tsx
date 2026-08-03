@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { RotateCcw, Trash2 } from "lucide-react";
 import { getProviderDisplayName } from "../models/ModelRegistry";
+import { cn } from "./lib/utils";
 import type { ModelLatencyStat } from "../types/electron";
 
 // Transcription and reconciliation are different jobs with different budgets, so they
@@ -10,8 +11,24 @@ import type { ModelLatencyStat } from "../types/electron";
 // next to a 600ms transcription as if they were comparable.
 const KINDS = ["transcription", "reconcile"] as const;
 
-function formatMs(ms: number): string {
+function formatMs(ms: number | null): string {
+  if (ms == null) return "—";
   return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+// Rates rather than counts: n is already on the row, so a count would be the same
+// information twice, and a rate is what says whether a provider is worth keeping.
+// Rounded to whole percent below 10% so a single failure in 40 calls reads as 3%
+// rather than 2.5%, which invites more precision than one sample supports.
+function formatRate(count: number, total: number): string {
+  if (total === 0) return "—";
+  if (count === 0) return "0%";
+  return `${Math.round((count / total) * 100)}%`;
+}
+
+/** Everything that was attempted: successes plus both kinds of non-answer. */
+function attempts(row: ModelLatencyStat): number {
+  return row.n + row.failed + row.dropped;
 }
 
 export default function ModelStatsView() {
@@ -34,8 +51,10 @@ export default function ModelStatsView() {
     for (const kind of KINDS) {
       out[kind] = stats
         .filter((row) => row.kind === kind)
-        // Fastest first: the question this page answers is which model to pick.
-        .sort((a, b) => a.median_ms - b.median_ms);
+        // Fastest first: the question this page answers is which model to pick. A model
+        // with no successful sample has no median, so it sorts to the bottom instead of
+        // comparing null against a number.
+        .sort((a, b) => (a.median_ms ?? Infinity) - (b.median_ms ?? Infinity));
     }
     return out;
   }, [stats]);
@@ -45,7 +64,7 @@ export default function ModelStatsView() {
     load();
   };
 
-  const totalSamples = stats.reduce((sum, row) => sum + row.n, 0);
+  const totalSamples = stats.reduce((sum, row) => sum + attempts(row), 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -96,6 +115,8 @@ export default function ModelStatsView() {
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.min")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.median")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.max")}</th>
+                    <th className="text-right font-medium px-3 py-2">{t("modelStats.failRate")}</th>
+                    <th className="text-right font-medium px-3 py-2">{t("modelStats.dropRate")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -123,6 +144,24 @@ export default function ModelStatsView() {
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                         {formatMs(row.max_ms)}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-3 py-2 text-right tabular-nums",
+                          row.failed > 0 ? "text-warning" : "text-muted-foreground/40"
+                        )}
+                        title={`${row.failed}/${attempts(row)}`}
+                      >
+                        {formatRate(row.failed, attempts(row))}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-3 py-2 text-right tabular-nums",
+                          row.dropped > 0 ? "text-muted-foreground" : "text-muted-foreground/40"
+                        )}
+                        title={`${row.dropped}/${attempts(row)}`}
+                      >
+                        {formatRate(row.dropped, attempts(row))}
                       </td>
                     </tr>
                   ))}

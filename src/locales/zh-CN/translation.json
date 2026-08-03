@@ -3073,6 +3073,8 @@
     "min": "最小",
     "median": "中位数",
     "max": "最大",
+    "failRate": "失败",
+    "dropRate": "丢弃",
     "kinds": {
       "transcription": "转录",
       "reconcile": "合并（双重模式）"

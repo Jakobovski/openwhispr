@@ -1150,7 +1150,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   })(),
   showTranscriptionPreview: readBoolean("showTranscriptionPreview", false),
   autoPasteEnabled: readBoolean("autoPasteEnabled", true),
-  keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", false),
+  // On by default: the paste can land in the wrong window, get undone, or go into a
+  // field that rejects it, and the transcript is gone if the clipboard was restored.
+  keepTranscriptionInClipboard: readBoolean("keepTranscriptionInClipboard", true),
   noteFilesEnabled: readBoolean("noteFilesEnabled", false),
   noteFilesPath: readString("noteFilesPath", ""),
   isSignedIn: readBoolean("isSignedIn", false),
