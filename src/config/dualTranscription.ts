@@ -33,14 +33,20 @@ export const DUAL_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object.
 export const DEFAULT_DUAL_PROVIDER_A = "openai";
 export const DEFAULT_DUAL_PROVIDER_B = "xai";
 
-// Who merges the two transcripts when they disagree. Reconciling is a judgement
-// call about what was actually said, so it wants a strong model, and it sits in the
-// paste path, so it wants a fast one — Groq's gpt-oss-120b is both.
+// Who merges the two transcripts when they disagree. Reconciling is a judgement call
+// about what was actually said, so it wants a strong model, and it sits in the paste
+// path, so it wants a fast and predictable one.
+//
+// Benchmarked over the real reconcile prompt on 2026-08-03, three runs each: this
+// model returned in 600-660ms, the tightest spread of everything measured, against
+// 521-830ms for Groq's gpt-oss-120b and 5.2-6.4s for grok-4.5, whose reasoning tokens
+// make it unusable here even at reasoning_effort low. It is also the non-reasoning
+// variant, so it has no thinking budget to blow through on a hard disagreement.
 //
 // Same two-defaults hazard as the timeout below: the store seeds these and
 // audioManager falls back to them.
-export const DEFAULT_RECONCILE_PROVIDER = "groq";
-export const DEFAULT_RECONCILE_MODEL = "openai/gpt-oss-120b";
+export const DEFAULT_RECONCILE_PROVIDER = "xai";
+export const DEFAULT_RECONCILE_MODEL = "grok-4.20-0309-non-reasoning";
 
 // Providers offered for reconciliation. Limited to the ones whose model list the
 // static registry knows, so the model picker beside it can be a closed choice

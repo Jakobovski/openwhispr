@@ -3357,9 +3357,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         getEffectiveReconcileModel(),
         null,
         {
-          // Both configurable in Settings → Speech-to-Text; the defaults are Groq
-          // and gpt-oss-120b for latency, since this sits in the paste path, after
-          // the user has stopped speaking, so the reconcile is felt directly.
+          // Both configurable in Settings → Speech-to-Text. The defaults are chosen
+          // for latency and consistency (see dualTranscription.ts), since this sits in
+          // the paste path, after the user has stopped speaking, so the reconcile is
+          // felt directly.
           provider: settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
           // The app's own cleanup prompt, adapted for two candidate transcripts:
           // keeps its localisation, {{agentName}} handling, custom dictionary

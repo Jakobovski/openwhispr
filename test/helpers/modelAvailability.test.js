@@ -123,9 +123,13 @@ test("the default reconcile model is one its provider still offers", () => {
   const shipped = buildProviderModelIndex(registry.cloudProviders);
 
   // Mirrors DEFAULT_RECONCILE_PROVIDER / DEFAULT_RECONCILE_MODEL in
-  // src/config/dualTranscription.ts, which is TS and not loadable here.
-  assert.equal(resolveUsableModel("groq", "openai/gpt-oss-120b", shipped), "openai/gpt-oss-120b");
-  assert.ok(shipped.get("groq").includes("openai/gpt-oss-120b"));
+  // src/config/dualTranscription.ts, which is TS and not loadable here. Update both
+  // together: a default the registry does not list would be substituted away on every
+  // merge, silently running a model nobody chose.
+  const provider = "xai";
+  const model = "grok-4.20-0309-non-reasoning";
+  assert.equal(resolveUsableModel(provider, model, shipped), model);
+  assert.ok(shipped.get(provider).includes(model));
 });
 
 test("every provider offered for reconciliation has models in the registry", () => {
