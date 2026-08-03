@@ -986,7 +986,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   allowOpenAIFallback: readBoolean("allowOpenAIFallback", false),
   allowLocalFallback: readBoolean("allowLocalFallback", false),
   fallbackWhisperModel: readString("fallbackWhisperModel", "base"),
-  preferredLanguage: readString("preferredLanguage", "auto"),
+  // English rather than "auto": every provider here takes an optional language hint,
+  // and naming the language beats asking the recogniser to detect it — auto-detection
+  // is where short dictations get scored as the wrong language entirely. Anyone who
+  // dictates in another language sets it once in Settings.
+  preferredLanguage: readString("preferredLanguage", "en"),
   cloudTranscriptionProvider: readString("cloudTranscriptionProvider", "openai"),
   cloudTranscriptionModel: readString("cloudTranscriptionModel", "gpt-4o-mini-transcribe"),
   cloudTranscriptionBaseUrl: readString(
@@ -1003,7 +1007,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
   silenceTrimEnabled: readBoolean("silenceTrimEnabled", true),
   silenceTrimStrength: readString("silenceTrimStrength", "light"),
-  dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", false),
+  // On by default. It needs a BYOK key for each side, and isDualTranscriptionEnabled
+  // returns false without them, so a new user with one key silently gets the normal
+  // single-provider path rather than a broken one.
+  dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", true),
   dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_DUAL_PROVIDER_A),
   dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_DUAL_PROVIDER_B),
   dualTranscriptionModelA: readString("dualTranscriptionModelA", ""),

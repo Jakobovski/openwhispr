@@ -17,7 +17,7 @@ export interface DualTranscriptionProvider {
 
 // Order is the dropdown order, and the first two are the defaults below.
 export const DUAL_TRANSCRIPTION_PROVIDERS: DualTranscriptionProvider[] = [
-  { id: "openai", label: "OpenAI", model: "gpt-4o-mini-transcribe", apiKeyField: "openaiApiKey" },
+  { id: "openai", label: "OpenAI", model: "gpt-transcribe", apiKeyField: "openaiApiKey" },
   { id: "xai", label: "xAI", model: "grok-stt", apiKeyField: "xaiApiKey" },
   { id: "groq", label: "Groq", model: "whisper-large-v3-turbo", apiKeyField: "groqApiKey" },
 ];
