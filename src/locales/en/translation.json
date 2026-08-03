@@ -2152,6 +2152,7 @@
     "notes": "Notes",
     "upload": "Upload",
     "dictionary": "Dictionary",
+    "modelStats": "Model stats",
     "referral": "Get a free month",
     "settings": "Settings",
     "support": "Support",
@@ -3065,5 +3066,21 @@
     },
     "start": "Take notes",
     "join": "Join & transcribe"
+  },
+  "modelStats": {
+    "title": "Model stats",
+    "description": "Latency measured on your own dictations, per model. Transcription and merge are timed separately.",
+    "refresh": "Refresh",
+    "clear": "Clear",
+    "empty": "No samples yet. Stats appear here after your next dictation.",
+    "model": "Model",
+    "samples": "n",
+    "min": "min",
+    "median": "median",
+    "max": "max",
+    "kinds": {
+      "transcription": "Transcription",
+      "reconcile": "Merge (dual mode)"
+    }
   }
 }

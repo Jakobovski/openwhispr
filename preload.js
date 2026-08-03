@@ -58,6 +58,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("db-save-transcription", text, rawText, options),
   getTranscriptions: (limit, options) =>
     ipcRenderer.invoke("db-get-transcriptions", limit, options),
+  recordModelLatency: (sample) => ipcRenderer.invoke("db-record-model-latency", sample),
+  getModelLatencyStats: () => ipcRenderer.invoke("db-get-model-latency-stats"),
+  clearModelLatency: () => ipcRenderer.invoke("db-clear-model-latency"),
   clearTranscriptions: () => ipcRenderer.invoke("db-clear-transcriptions"),
   deleteTranscription: (id) => ipcRenderer.invoke("db-delete-transcription", id),
 

@@ -10,6 +10,10 @@ const { app } = require("electron");
 // trigger can't 400 the whole sync batch.
 const MAX_SNIPPET_TRIGGER_LENGTH = 100;
 
+// Latency samples kept for the stats page. At one or two rows per dictation this is
+// years of heavy use, and the table is only ever read in full by that one page.
+const MODEL_LATENCY_MAX_ROWS = 20000;
+
 class DatabaseManager {
   constructor() {
     this.db = null;
@@ -93,6 +97,24 @@ class DatabaseManager {
       } catch (err) {
         if (!err.message.includes("duplicate column")) throw err;
       }
+
+      // One row per model call that returned, so the stats page can report min/median/
+      // max and a sample count per model. Raw samples rather than running aggregates:
+      // a median cannot be updated incrementally, and the volume is one or two rows
+      // per dictation.
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS model_latency (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          kind TEXT NOT NULL,
+          provider TEXT,
+          model TEXT,
+          ms INTEGER NOT NULL
+        )
+      `);
+      this.db.exec(
+        "CREATE INDEX IF NOT EXISTS idx_model_latency_group ON model_latency (kind, provider, model)"
+      );
 
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS custom_dictionary (
@@ -679,6 +701,94 @@ class DatabaseManager {
     } catch (error) {
       debugLogger.error("Database initialization failed", { error: error.message }, "database");
       throw error;
+    }
+  }
+
+  /** Keeps the sample table bounded without needing a scheduled job. */
+  _pruneModelLatency() {
+    this.db
+      .prepare(
+        "DELETE FROM model_latency WHERE id NOT IN (SELECT id FROM model_latency ORDER BY id DESC LIMIT ?)"
+      )
+      .run(MODEL_LATENCY_MAX_ROWS);
+  }
+
+  recordModelLatency({ kind, provider = null, model = null, ms }) {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      if (!kind || typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) {
+        return { success: false };
+      }
+      this.db
+        .prepare("INSERT INTO model_latency (kind, provider, model, ms) VALUES (?, ?, ?, ?)")
+        .run(kind, provider, model, Math.round(ms));
+      // Cheap enough to check every insert, and it keeps the table from growing without
+      // bound for someone who dictates all day.
+      if (Math.random() < 0.02) this._pruneModelLatency();
+      return { success: true };
+    } catch (error) {
+      debugLogger.error("Error recording model latency", { error: error.message }, "database");
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * min / median / max / n per (kind, provider, model).
+   *
+   * Median is computed here rather than in SQL: SQLite has no percentile function, and
+   * the correlated subquery that emulates one is slower than reducing a few thousand
+   * rows in JS.
+   */
+  getModelLatencyStats() {
+    try {
+      if (!this.db) throw new Error("Database not initialized");
+      const rows = this.db
+        .prepare("SELECT kind, provider, model, ms FROM model_latency ORDER BY ms ASC")
+        .all();
+
+      const groups = new Map();
+      for (const row of rows) {
+        const key = `${row.kind}\u0000${row.provider ?? ""}\u0000${row.model ?? ""}`;
+        if (!groups.has(key)) {
+          groups.set(key, {
+            kind: row.kind,
+            provider: row.provider,
+            model: row.model,
+            samples: [],
+          });
+        }
+        groups.get(key).samples.push(row.ms);
+      }
+
+      const stats = [...groups.values()].map(({ kind, provider, model, samples }) => {
+        const mid = Math.floor(samples.length / 2);
+        return {
+          kind,
+          provider,
+          model,
+          n: samples.length,
+          min_ms: samples[0],
+          max_ms: samples[samples.length - 1],
+          median_ms:
+            samples.length % 2 === 0
+              ? Math.round((samples[mid - 1] + samples[mid]) / 2)
+              : samples[mid],
+        };
+      });
+
+      return { success: true, stats };
+    } catch (error) {
+      debugLogger.error("Error reading model latency", { error: error.message }, "database");
+      return { success: false, stats: [] };
+    }
+  }
+
+  clearModelLatency() {
+    try {
+      this.db.exec("DELETE FROM model_latency");
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
   }
 

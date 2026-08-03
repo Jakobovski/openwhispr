@@ -2462,6 +2462,7 @@
     "notes": "筆記",
     "upload": "上傳",
     "dictionary": "字典",
+    "modelStats": "模型統計",
     "referral": "獲得一個月免費",
     "settings": "設定",
     "support": "支援",
@@ -3060,5 +3061,21 @@
     },
     "start": "開始記錄",
     "join": "加入並轉錄"
+  },
+  "modelStats": {
+    "title": "模型統計",
+    "description": "根據你自己的聽寫測得的各模型延遲。轉錄與合併分別計時。",
+    "refresh": "重新載入",
+    "clear": "清除",
+    "empty": "尚無樣本。下次聽寫後會顯示在這裡。",
+    "model": "模型",
+    "samples": "n",
+    "min": "最小",
+    "median": "中位數",
+    "max": "最大",
+    "kinds": {
+      "transcription": "轉錄",
+      "reconcile": "合併（雙重模式）"
+    }
   }
 }

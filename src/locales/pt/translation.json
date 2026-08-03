@@ -2467,6 +2467,7 @@
     "notes": "Notas",
     "upload": "Enviar",
     "dictionary": "Dicionário",
+    "modelStats": "Estatísticas de modelos",
     "referral": "Ganhe um mês grátis",
     "settings": "Configurações",
     "support": "Suporte",
@@ -3065,5 +3066,21 @@
     },
     "start": "Fazer anotações",
     "join": "Entrar e transcrever"
+  },
+  "modelStats": {
+    "title": "Estatísticas de modelos",
+    "description": "Latência medida nos seus próprios ditados, por modelo. Transcrição e combinação são medidas separadamente.",
+    "refresh": "Atualizar",
+    "clear": "Limpar",
+    "empty": "Ainda sem amostras. Elas aparecem após o próximo ditado.",
+    "model": "Modelo",
+    "samples": "n",
+    "min": "mín",
+    "median": "mediana",
+    "max": "máx",
+    "kinds": {
+      "transcription": "Transcrição",
+      "reconcile": "Combinação (modo duplo)"
+    }
   }
 }

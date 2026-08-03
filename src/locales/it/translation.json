@@ -2467,6 +2467,7 @@
     "notes": "Note",
     "upload": "Carica",
     "dictionary": "Dizionario",
+    "modelStats": "Statistiche modelli",
     "referral": "Ottieni un mese gratis",
     "settings": "Impostazioni",
     "support": "Assistenza",
@@ -3065,5 +3066,21 @@
     },
     "start": "Prendi appunti",
     "join": "Partecipa e trascrivi"
+  },
+  "modelStats": {
+    "title": "Statistiche modelli",
+    "description": "Latenza misurata sulle tue dettature, per modello. Trascrizione e unione sono misurate separatamente.",
+    "refresh": "Aggiorna",
+    "clear": "Cancella",
+    "empty": "Nessun campione ancora. Compariranno dopo la prossima dettatura.",
+    "model": "Modello",
+    "samples": "n",
+    "min": "min",
+    "median": "mediana",
+    "max": "max",
+    "kinds": {
+      "transcription": "Trascrizione",
+      "reconcile": "Unione (modalità doppia)"
+    }
   }
 }

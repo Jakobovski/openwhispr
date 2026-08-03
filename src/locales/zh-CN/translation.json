@@ -2462,6 +2462,7 @@
     "notes": "笔记",
     "upload": "上传",
     "dictionary": "词典",
+    "modelStats": "模型统计",
     "referral": "获取免费一个月",
     "settings": "设置",
     "support": "支持",
@@ -3060,5 +3061,21 @@
     },
     "start": "开始记录",
     "join": "加入并转录"
+  },
+  "modelStats": {
+    "title": "模型统计",
+    "description": "基于你自己的听写测得的各模型延迟。转录与合并分别计时。",
+    "refresh": "刷新",
+    "clear": "清除",
+    "empty": "暂无样本。下次听写后会显示在这里。",
+    "model": "模型",
+    "samples": "n",
+    "min": "最小",
+    "median": "中位数",
+    "max": "最大",
+    "kinds": {
+      "transcription": "转录",
+      "reconcile": "合并（双重模式）"
+    }
   }
 }

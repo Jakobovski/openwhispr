@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Gauge,
   Home,
   BookOpen,
   Sliders,
@@ -44,7 +45,8 @@ const rowButtonClass =
 //
 // The settings sections are views like any other: settings renders inline in the
 // panel rather than in a modal, so each of its panes is a sidebar destination.
-export type ControlPanelView = "home" | "dictionary" | "personal-notes" | SettingsSectionType;
+export type ControlPanelView =
+  "home" | "dictionary" | "modelStats" | "personal-notes" | SettingsSectionType;
 
 interface ControlPanelSidebarProps {
   activeView: ControlPanelView;
@@ -150,6 +152,7 @@ export default function ControlPanelSidebar({
       items: [
         { id: "home", label: t("sidebar.history"), icon: Home },
         { id: "dictionary", label: t("sidebar.dictionary"), icon: BookOpen },
+        { id: "modelStats", label: t("sidebar.modelStats"), icon: Gauge },
       ],
     },
   ];

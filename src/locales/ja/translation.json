@@ -2467,6 +2467,7 @@
     "notes": "ノート",
     "upload": "アップロード",
     "dictionary": "辞書",
+    "modelStats": "モデル統計",
     "referral": "1か月無料を取得",
     "settings": "設定",
     "support": "サポート",
@@ -3065,5 +3066,21 @@
     },
     "start": "メモを取る",
     "join": "参加して文字起こし"
+  },
+  "modelStats": {
+    "title": "モデル統計",
+    "description": "自分のディクテーションから計測したモデルごとのレイテンシ。文字起こしと統合は別々に計測されます。",
+    "refresh": "更新",
+    "clear": "消去",
+    "empty": "まだサンプルがありません。次のディクテーション後に表示されます。",
+    "model": "モデル",
+    "samples": "n",
+    "min": "最小",
+    "median": "中央値",
+    "max": "最大",
+    "kinds": {
+      "transcription": "文字起こし",
+      "reconcile": "統合（デュアルモード）"
+    }
   }
 }

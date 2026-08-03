@@ -1474,6 +1474,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           provider: activeModel === "dual" ? null : resolveActiveTranscriptionProvider(settings),
           ...(result.timings || {}),
         };
+
+        // Dual records a sample per side inside transcribeDual, where the per-provider
+        // timings live; every other path has exactly one leg to record here.
+        if (activeModel !== "dual") {
+          this.recordModelLatency(
+            "transcription",
+            resolveActiveTranscriptionProvider(settings),
+            activeModel || null,
+            result.timings?.transcriptionProcessingDurationMs
+          );
+        }
       }
 
       this.onTranscriptionComplete?.(result);
@@ -3147,6 +3158,24 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     });
     timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
+    // Only sides that answered are sampled: a dropped side's timing is the budget, not
+    // the provider's speed, and a failed side has no timing at all.
+    if (dual.statusA === "ok") {
+      this.recordModelLatency("transcription", dual.providerA, dual.modelA, dual.msA);
+    }
+    if (dual.statusB === "ok") {
+      this.recordModelLatency("transcription", dual.providerB, dual.modelB, dual.msB);
+    }
+    if (dual.reconciled && dual.reconcileMs != null) {
+      const settingsNow = getSettings();
+      this.recordModelLatency(
+        "reconcile",
+        settingsNow.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
+        getEffectiveReconcileModel(),
+        dual.reconcileMs
+      );
+    }
+
     const source = (await this.isReasoningAvailable()) ? "dual-reasoned" : "dual";
     // Kept alongside the transcript so history can show what each provider actually
     // heard, which is the only place the disagreement the merge resolved is visible.
@@ -3593,6 +3622,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       });
       return false;
     }
+  }
+
+  // Fire-and-forget: a latency sample is never worth failing or delaying a dictation
+  // for, and the stats page treats a missing sample as simply not measured.
+  recordModelLatency(kind, provider, model, ms) {
+    if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return;
+    window.electronAPI?.recordModelLatency?.({ kind, provider, model, ms }).catch(() => {});
   }
 
   async saveTranscription(text, rawText = null, { clientTranscriptionId, dual = null } = {}) {

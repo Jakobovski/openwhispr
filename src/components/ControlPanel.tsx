@@ -37,6 +37,7 @@ import {
   useMeetingRecordingStore,
 } from "../stores/meetingRecordingStore";
 import ControlPanelSidebar, { type ControlPanelView } from "./ControlPanelSidebar";
+import ModelStatsView from "./ModelStatsView";
 import {
   isSettingsSection,
   resolveSettingsSection,
@@ -1021,6 +1022,12 @@ export default function ControlPanel({ initialSettingsSection }: ControlPanelPro
                 <DictionaryView />
               </Suspense>
             )}
+            {activeView === "modelStats" && (
+              <Suspense fallback={null}>
+                <ModelStatsView />
+              </Suspense>
+            )}
+
             {isSettingsSection(activeView) && (
               <Suspense fallback={null}>
                 {/* SettingsPage reads isCompact from this context to lay its rows

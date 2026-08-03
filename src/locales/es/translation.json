@@ -2515,6 +2515,7 @@
     "notes": "Notas",
     "upload": "Subir",
     "dictionary": "Diccionario",
+    "modelStats": "Estadísticas de modelos",
     "referral": "Obtener un mes gratis",
     "settings": "Configuración",
     "support": "Soporte",
@@ -3065,5 +3066,21 @@
     },
     "start": "Tomar notas",
     "join": "Unirse y transcribir"
+  },
+  "modelStats": {
+    "title": "Estadísticas de modelos",
+    "description": "Latencia medida en tus propios dictados, por modelo. La transcripción y la combinación se miden por separado.",
+    "refresh": "Actualizar",
+    "clear": "Borrar",
+    "empty": "Aún no hay muestras. Aparecerán tras tu próximo dictado.",
+    "model": "Modelo",
+    "samples": "n",
+    "min": "mín",
+    "median": "mediana",
+    "max": "máx",
+    "kinds": {
+      "transcription": "Transcripción",
+      "reconcile": "Combinación (modo doble)"
+    }
   }
 }

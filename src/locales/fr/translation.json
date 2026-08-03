@@ -2112,6 +2112,7 @@
     "notes": "Notes",
     "upload": "Importer",
     "dictionary": "Dictionnaire",
+    "modelStats": "Stats des modèles",
     "referral": "Obtenir un mois gratuit",
     "settings": "Paramètres",
     "support": "Assistance",
@@ -3065,5 +3066,21 @@
     },
     "start": "Prendre des notes",
     "join": "Rejoindre et transcrire"
+  },
+  "modelStats": {
+    "title": "Stats des modèles",
+    "description": "Latence mesurée sur vos propres dictées, par modèle. La transcription et la fusion sont chronométrées séparément.",
+    "refresh": "Rafraîchir",
+    "clear": "Effacer",
+    "empty": "Aucune mesure pour l'instant. Elles apparaîtront après votre prochaine dictée.",
+    "model": "Modèle",
+    "samples": "n",
+    "min": "min",
+    "median": "médiane",
+    "max": "max",
+    "kinds": {
+      "transcription": "Transcription",
+      "reconcile": "Fusion (mode double)"
+    }
   }
 }

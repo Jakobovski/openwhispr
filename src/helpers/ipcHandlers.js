@@ -990,6 +990,18 @@ class IPCHandlers {
       return result;
     });
 
+    ipcMain.handle("db-record-model-latency", async (event, sample) => {
+      return this.databaseManager.recordModelLatency(sample || {});
+    });
+
+    ipcMain.handle("db-get-model-latency-stats", async () => {
+      return this.databaseManager.getModelLatencyStats();
+    });
+
+    ipcMain.handle("db-clear-model-latency", async () => {
+      return this.databaseManager.clearModelLatency();
+    });
+
     ipcMain.handle("db-get-transcriptions", async (event, limit = 50, options = {}) => {
       return this.databaseManager.getTranscriptions(limit, options);
     });

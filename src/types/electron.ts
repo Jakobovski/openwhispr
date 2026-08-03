@@ -45,6 +45,16 @@ export interface TranscriptionItem {
   deleted_at: string | null;
 }
 
+export interface ModelLatencyStat {
+  kind: string;
+  provider: string | null;
+  model: string | null;
+  n: number;
+  min_ms: number;
+  median_ms: number;
+  max_ms: number;
+}
+
 export interface NoteItem {
   id: number;
   title: string;
@@ -591,6 +601,14 @@ declare global {
           clientTranscriptionId?: string;
         }
       ) => Promise<{ id: number; success: boolean; transcription?: TranscriptionItem }>;
+      recordModelLatency?: (sample: {
+        kind: string;
+        provider?: string | null;
+        model?: string | null;
+        ms: number;
+      }) => Promise<{ success: boolean }>;
+      getModelLatencyStats?: () => Promise<{ success: boolean; stats: ModelLatencyStat[] }>;
+      clearModelLatency?: () => Promise<{ success: boolean }>;
       getTranscriptions: (
         limit?: number,
         options?: { includeDiscarded?: boolean }

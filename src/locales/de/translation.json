@@ -2467,6 +2467,7 @@
     "notes": "Notizen",
     "upload": "Hochladen",
     "dictionary": "Wörterbuch",
+    "modelStats": "Modell-Statistiken",
     "referral": "Gratis-Monat erhalten",
     "settings": "Einstellungen",
     "support": "Support",
@@ -3065,5 +3066,21 @@
     },
     "start": "Notizen aufnehmen",
     "join": "Beitreten & transkribieren"
+  },
+  "modelStats": {
+    "title": "Modell-Statistiken",
+    "description": "Latenz aus deinen eigenen Diktaten, pro Modell. Transkription und Zusammenführung werden getrennt gemessen.",
+    "refresh": "Aktualisieren",
+    "clear": "Leeren",
+    "empty": "Noch keine Messwerte. Sie erscheinen nach dem nächsten Diktat.",
+    "model": "Modell",
+    "samples": "n",
+    "min": "Min",
+    "median": "Median",
+    "max": "Max",
+    "kinds": {
+      "transcription": "Transkription",
+      "reconcile": "Zusammenführung (Dual-Modus)"
+    }
   }
 }
