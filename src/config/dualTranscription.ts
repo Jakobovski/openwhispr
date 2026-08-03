@@ -15,10 +15,11 @@ export interface DualTranscriptionProvider {
   apiKeyField: "groqApiKey" | "xaiApiKey" | "openaiApiKey";
 }
 
+// Order is the dropdown order, and the first two are the defaults below.
 export const DUAL_TRANSCRIPTION_PROVIDERS: DualTranscriptionProvider[] = [
-  { id: "groq", label: "Groq", model: "whisper-large-v3-turbo", apiKeyField: "groqApiKey" },
-  { id: "xai", label: "xAI", model: "grok-stt", apiKeyField: "xaiApiKey" },
   { id: "openai", label: "OpenAI", model: "gpt-4o-mini-transcribe", apiKeyField: "openaiApiKey" },
+  { id: "xai", label: "xAI", model: "grok-stt", apiKeyField: "xaiApiKey" },
+  { id: "groq", label: "Groq", model: "whisper-large-v3-turbo", apiKeyField: "groqApiKey" },
 ];
 
 export const DUAL_TRANSCRIPTION_MODELS: Record<string, string> = Object.fromEntries(
@@ -29,8 +30,22 @@ export const DUAL_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object.
   DUAL_TRANSCRIPTION_PROVIDERS.map((provider) => [provider.id, provider.apiKeyField])
 );
 
-export const DEFAULT_DUAL_PROVIDER_A = "groq";
+export const DEFAULT_DUAL_PROVIDER_A = "openai";
 export const DEFAULT_DUAL_PROVIDER_B = "xai";
+
+// Who merges the two transcripts when they disagree. Reconciling is a judgement
+// call about what was actually said, so it wants a strong model, and it sits in the
+// paste path, so it wants a fast one — Groq's gpt-oss-120b is both.
+//
+// Same two-defaults hazard as the timeout below: the store seeds these and
+// audioManager falls back to them.
+export const DEFAULT_RECONCILE_PROVIDER = "groq";
+export const DEFAULT_RECONCILE_MODEL = "openai/gpt-oss-120b";
+
+// Providers offered for reconciliation. Limited to the ones whose model list the
+// static registry knows, so the model picker beside it can be a closed choice
+// rather than free text — tinfoil and corti fetch theirs at runtime.
+export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "gemini"];
 
 // How long the second provider gets *after* the first has answered. Past this the
 // slow side is abandoned and the result already in hand is used, so this is exactly

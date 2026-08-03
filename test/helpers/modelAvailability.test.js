@@ -103,3 +103,29 @@ test("a cleanup scope with no model configured stays empty", () => {
   assert.equal(resolveUsableModel("groq", "", shipped), "");
   assert.equal(resolveUsableModel("openai", "", shipped), "");
 });
+
+test("the default reconcile model is one its provider still offers", () => {
+  // The reconcile model is user-configurable, so it can go stale the way the
+  // cleanup model did. getEffectiveReconcileModel heals a dead stored id; this
+  // guards the shipped default itself, which no substitution would rescue if the
+  // provider it names stopped listing it.
+  const registry = require("../../src/models/modelRegistryData.json");
+  const shipped = buildProviderModelIndex(registry.cloudProviders);
+
+  // Mirrors DEFAULT_RECONCILE_PROVIDER / DEFAULT_RECONCILE_MODEL in
+  // src/config/dualTranscription.ts, which is TS and not loadable here.
+  assert.equal(resolveUsableModel("groq", "openai/gpt-oss-120b", shipped), "openai/gpt-oss-120b");
+  assert.ok(shipped.get("groq").includes("openai/gpt-oss-120b"));
+});
+
+test("every provider offered for reconciliation has models in the registry", () => {
+  // RECONCILE_PROVIDER_IDS drives a closed dropdown; a provider with no static
+  // models would render an empty model picker.
+  const registry = require("../../src/models/modelRegistryData.json");
+  const shipped = buildProviderModelIndex(registry.cloudProviders);
+
+  for (const provider of ["groq", "xai", "openai", "anthropic", "gemini"]) {
+    const models = shipped.get(provider);
+    assert.ok(models && models.length > 0, `${provider} must offer models to be selectable`);
+  }
+});

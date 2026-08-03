@@ -22,6 +22,7 @@ import { shouldSaveDiscardedRecording } from "./discardedRecording";
 import {
   getSettings,
   getEffectiveCleanupModel,
+  getEffectiveReconcileModel,
   isCloudCleanupMode,
   isCloudDictationAgentMode,
   isCloudTranslationMode,
@@ -36,6 +37,7 @@ import {
   DEFAULT_DUAL_PROVIDER_A,
   DEFAULT_DUAL_PROVIDER_B,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
+  DEFAULT_RECONCILE_PROVIDER,
 } from "../config/dualTranscription";
 
 import {
@@ -216,6 +218,17 @@ const isValidApiKey = (key, provider = "openai") => {
 // Dual mode requires an explicit opt-in, BYOK credentials, and a key for each
 // selected provider — a half-configured pair would silently degrade to whichever
 // side happened to work, which is worse than staying on the single-provider path.
+// The provider id doing the transcribing right now, or null when it cannot be
+// named. Deliberately derived from the mode plus the stored selection rather than
+// from a list of known providers, so nothing here needs touching when one is added.
+function resolveActiveTranscriptionProvider(settings) {
+  if (!settings) return null;
+  if (settings.useLocalWhisper) return settings.localTranscriptionProvider || "whisper";
+  if (settings.transcriptionMode === "openwhispr") return "openwhispr";
+  if (settings.transcriptionMode === "self-hosted") return "lan";
+  return settings.cloudTranscriptionProvider || null;
+}
+
 function isDualTranscriptionEnabled(settings) {
   if (!settings?.dualTranscriptionEnabled) return false;
   if (settings.useLocalWhisper) return false;
@@ -225,8 +238,6 @@ function isDualTranscriptionEnabled(settings) {
   const b = settings.dualTranscriptionProviderB || DEFAULT_DUAL_PROVIDER_B;
   return a !== b && !!keyFor(a) && !!keyFor(b);
 }
-
-const DEFAULT_RECONCILE_MODEL = "openai/gpt-oss-120b";
 
 // Minimal 16-bit PCM WAV writer. The trimmed audio only exists as samples, and
 // every provider here accepts WAV, so re-encoding to the original codec would be
@@ -1455,6 +1466,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           // Absent when nothing was trimmed, so the row only appears when it
           // actually says something.
           trimmedPercent: this._lastTrim?.percentRemoved ?? null,
+          // Whichever provider actually transcribed, so the readout can name it
+          // instead of saying "Transcription". Read from the same settings the
+          // pickers write, so a provider added to the registry labels itself.
+          // Null for dual, which reports a provider per side of the pair.
+          provider: activeModel === "dual" ? null : resolveActiveTranscriptionProvider(settings),
           ...(result.timings || {}),
         };
       }
@@ -3235,12 +3251,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     try {
       const merged = await ReasoningService.processText(
         wrapReconcileVersions(textA, textB),
-        settings.dualTranscriptionReconcileModel || DEFAULT_RECONCILE_MODEL,
+        getEffectiveReconcileModel(),
         null,
         {
-          // Groq for latency: this sits in the paste path, after the user has
-          // stopped speaking, so the reconcile is felt directly.
-          provider: settings.dualTranscriptionReconcileProvider || "groq",
+          // Both configurable in Settings → Speech-to-Text; the defaults are Groq
+          // and gpt-oss-120b for latency, since this sits in the paste path, after
+          // the user has stopped speaking, so the reconcile is felt directly.
+          provider: settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
           // The app's own cleanup prompt, adapted for two candidate transcripts:
           // keeps its localisation, {{agentName}} handling, custom dictionary
           // suffix, prompt-injection resistance and few-shot examples.

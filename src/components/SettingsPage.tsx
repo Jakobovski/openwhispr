@@ -47,8 +47,10 @@ import TranscriptionModelPicker from "./TranscriptionModelPicker";
 import SelfHostedPanel from "./SelfHostedPanel";
 import {
   DUAL_TRANSCRIPTION_PROVIDERS,
+  RECONCILE_PROVIDER_IDS,
   getDualTranscriptionProvider,
 } from "../config/dualTranscription";
+import { REASONING_PROVIDERS } from "../models/ModelRegistry";
 import {
   ConfirmDialog,
   AlertDialog,
@@ -376,6 +378,31 @@ function TranscriptionSection({
     (provider) => provider && !dualApiKeys[provider.apiKeyField]?.trim()
   );
 
+  const dualSecondTimeoutMs = useSettingsStore((s) => s.dualTranscriptionSecondTimeoutMs);
+  const setDualSecondTimeoutMs = useSettingsStore((s) => s.setDualTranscriptionSecondTimeoutMs);
+  const DUAL_TIMEOUT_CHOICES = [500, 1000, 1500, 2000, 3000];
+
+  const dualReconcileProvider = useSettingsStore((s) => s.dualTranscriptionReconcileProvider);
+  const setDualReconcileProvider = useSettingsStore((s) => s.setDualTranscriptionReconcileProvider);
+  const dualReconcileModel = useSettingsStore((s) => s.dualTranscriptionReconcileModel);
+  const setDualReconcileModel = useSettingsStore((s) => s.setDualTranscriptionReconcileModel);
+
+  const reconcileProviders = RECONCILE_PROVIDER_IDS.map((id) => ({
+    id,
+    name: REASONING_PROVIDERS[id]?.name ?? id,
+    models: REASONING_PROVIDERS[id]?.models ?? [],
+  })).filter((provider) => provider.models.length > 0);
+  const reconcileModels =
+    reconcileProviders.find((provider) => provider.id === dualReconcileProvider)?.models ?? [];
+
+  // Switching provider has to move the model with it, or the request carries one
+  // provider's id to another's endpoint and 404s.
+  const handleReconcileProviderChange = (providerId: string) => {
+    setDualReconcileProvider(providerId);
+    const first = reconcileProviders.find((provider) => provider.id === providerId)?.models[0];
+    if (first) setDualReconcileModel(first.value);
+  };
+
   const renderSilenceTrim = () => (
     <SettingsPanel>
       <SettingsPanelRow>
@@ -472,6 +499,67 @@ function TranscriptionSection({
                   ).map((provider) => (
                     <SelectItem key={provider.id} value={provider.id}>
                       {provider.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          <SettingsPanelRow>
+            <SettingsRow
+              label={t("settingsPage.transcription.dualSecondTimeout")}
+              description={t("settingsPage.transcription.dualSecondTimeoutDescription")}
+            >
+              <Select
+                value={String(dualSecondTimeoutMs)}
+                onValueChange={(value) => setDualSecondTimeoutMs(Number(value))}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DUAL_TIMEOUT_CHOICES.map((ms) => (
+                    <SelectItem key={ms} value={String(ms)}>
+                      {t("settingsPage.transcription.dualSecondTimeoutValue", {
+                        seconds: (ms / 1000).toFixed(1),
+                      })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          {/* Only consulted when the two transcripts disagree — when they match, or
+              one side is dropped, nothing is merged and this model is never called. */}
+          <SettingsPanelRow>
+            <SettingsRow
+              label={t("settingsPage.transcription.dualReconcileProvider")}
+              description={t("settingsPage.transcription.dualReconcileDescription")}
+            >
+              <Select value={dualReconcileProvider} onValueChange={handleReconcileProviderChange}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {reconcileProviders.map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          <SettingsPanelRow>
+            <SettingsRow label={t("settingsPage.transcription.dualReconcileModel")}>
+              <Select value={dualReconcileModel} onValueChange={setDualReconcileModel}>
+                <SelectTrigger className="w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {reconcileModels.map((model) => (
+                    <SelectItem key={model.value} value={model.value}>
+                      {model.label}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -186,6 +186,13 @@
           "streaming": true
         },
         {
+          "id": "gpt-transcribe",
+          "name": "GPT Transcribe",
+          "description": "Highest accuracy, keyword and language hints",
+          "descriptionKey": "models.descriptions.transcription.openai_gpt_transcribe",
+          "streaming": true
+        },
+        {
           "id": "gpt-4o-transcribe",
           "name": "GPT-4o Transcribe",
           "description": "Most accurate transcription",

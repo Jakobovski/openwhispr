@@ -325,11 +325,26 @@ export function getReasoningModelLabel(modelId: string): string {
 const NON_REGISTRY_PROVIDER_NAMES: Record<string, string> = {
   openrouter: "OpenRouter",
   custom: "Custom",
+  lan: "Self-hosted",
+  openwhispr: "OpenWhispr Cloud",
 };
 
+/**
+ * Brand name for a provider id, from wherever the registry defines it.
+ *
+ * Every section is consulted because callers do not all deal in the same kind of
+ * provider: the reasoning scopes use cloudProviders, dictation stats and the
+ * transcription picker use transcriptionProviders (mistral and corti live only
+ * there), and local model pickers use localProviders. Anything unknown returns the
+ * id unchanged, so a provider added to the registry alone still displays sanely
+ * instead of needing a second table updated in step.
+ */
 export function getProviderDisplayName(provider: string): string {
+  if (!provider) return "";
   return (
     REASONING_PROVIDERS[provider as keyof typeof REASONING_PROVIDERS]?.name ??
+    modelRegistry.getTranscriptionProviders().find((p) => p.id === provider)?.name ??
+    modelRegistry.getAllProviders().find((p) => p.id === provider)?.name ??
     NON_REGISTRY_PROVIDER_NAMES[provider] ??
     provider
   );

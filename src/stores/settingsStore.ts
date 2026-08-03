@@ -21,6 +21,8 @@ import {
   DEFAULT_DUAL_PROVIDER_A,
   DEFAULT_DUAL_PROVIDER_B,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
+  DEFAULT_RECONCILE_PROVIDER,
+  DEFAULT_RECONCILE_MODEL,
 } from "../config/dualTranscription";
 import {
   INFERENCE_SCOPES,
@@ -999,10 +1001,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", false),
   dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_DUAL_PROVIDER_A),
   dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_DUAL_PROVIDER_B),
-  dualTranscriptionReconcileProvider: readString("dualTranscriptionReconcileProvider", "groq"),
+  dualTranscriptionReconcileProvider: readString(
+    "dualTranscriptionReconcileProvider",
+    DEFAULT_RECONCILE_PROVIDER
+  ),
   dualTranscriptionReconcileModel: readString(
     "dualTranscriptionReconcileModel",
-    "openai/gpt-oss-120b"
+    DEFAULT_RECONCILE_MODEL
   ),
   dualTranscriptionSecondTimeoutMs: readNumber(
     "dualTranscriptionSecondTimeoutMs",
@@ -2283,6 +2288,20 @@ export function getEffectiveCleanupModel() {
   // single recording and the raw transcript is pasted — the exact quiet failure
   // resolveUsableModel exists to prevent.
   return usableModel(state.cleanupProvider, state.cleanupModel);
+}
+
+/**
+ * The model dual transcription reconciles with, healed the same way the cleanup
+ * model is. Now that this is user-configurable it can go stale exactly as
+ * qwen/qwen3-32b did, and a dead id here fails quietly: the reconcile call throws,
+ * provider A's unmerged text is used, and dual keeps reporting success.
+ */
+export function getEffectiveReconcileModel() {
+  const state = useSettingsStore.getState();
+  return usableModel(
+    state.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
+    state.dualTranscriptionReconcileModel || DEFAULT_RECONCILE_MODEL
+  );
 }
 
 export function isCloudCleanupMode() {

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { getProviderDisplayName } from "../models/ModelRegistry";
 
 export interface DictationStatsData {
   recordedSeconds?: number | null;
@@ -6,6 +7,8 @@ export interface DictationStatsData {
   latencyMs?: number | null;
   transcriptionProcessingDurationMs?: number | null;
   reconcileDurationMs?: number | null;
+  /** Provider that transcribed, for the single-provider case. Dual reports its own. */
+  provider?: string | null;
   dual?: {
     providerA?: string;
     providerB?: string;
@@ -18,15 +21,12 @@ export interface DictationStatsData {
 }
 
 // Provider ids are brand names, so they are shown verbatim rather than translated.
-const PROVIDER_LABELS: Record<string, string> = {
-  groq: "Groq",
-  xai: "xAI",
-  openai: "OpenAI",
-};
-
+// The names come from the registry, which is the same place the pickers read them
+// from — a local table here went stale the moment a provider was added, and only
+// ever knew groq, xai and openai.
 function providerLabel(id?: string | null, fallback = ""): string {
   if (!id) return fallback;
-  return PROVIDER_LABELS[id] || id;
+  return getProviderDisplayName(id) || fallback || id;
 }
 
 // Sub-second values read better as milliseconds, longer ones as seconds, so a
@@ -93,7 +93,15 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
     });
   } else {
     const transcription = formatMs(stats.transcriptionProcessingDurationMs);
-    if (transcription) rows.push({ label: t("app.stats.transcription"), value: transcription });
+    // Named with the provider that did the work, so the readout says the same kind
+    // of thing in single mode as in dual. Falls back to the generic label when the
+    // provider is unknown — a self-hosted endpoint, say.
+    if (transcription) {
+      rows.push({
+        label: providerLabel(stats.provider, t("app.stats.transcription")),
+        value: transcription,
+      });
+    }
   }
 
   const total = formatMs(stats.latencyMs);
