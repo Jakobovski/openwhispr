@@ -396,6 +396,10 @@
       "dualMerged": "Risultato unito",
       "dualNotMerged": "Risultato (unione non necessaria)",
       "dualNoText": "nessun testo restituito",
+      "dualMergedShort": "unito",
+      "dualNoMergeShort": "unione non necessaria",
+      "dualDisagreement": "{{percent}}% di differenza",
+      "dualPunctuationOnly": "solo punteggiatura",
       "discarded": {
         "show": "Mostra scartate",
         "hide": "Nascondi scartate",

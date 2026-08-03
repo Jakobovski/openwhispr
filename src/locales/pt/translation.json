@@ -375,6 +375,10 @@
       "dualMerged": "Resultado combinado",
       "dualNotMerged": "Resultado (sem necessidade de combinar)",
       "dualNoText": "nenhum texto retornado",
+      "dualMergedShort": "combinado",
+      "dualNoMergeShort": "sem combinar",
+      "dualDisagreement": "{{percent}}% de diferença",
+      "dualPunctuationOnly": "apenas pontuação",
       "discarded": {
         "show": "Mostrar descartadas",
         "hide": "Ocultar descartadas",

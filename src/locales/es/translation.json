@@ -404,7 +404,11 @@
       "rawTranscript": "Transcripción sin procesar",
       "dualMerged": "Resultado combinado",
       "dualNotMerged": "Resultado (sin necesidad de combinar)",
-      "dualNoText": "no devolvió texto"
+      "dualNoText": "no devolvió texto",
+      "dualMergedShort": "combinado",
+      "dualNoMergeShort": "sin combinar",
+      "dualDisagreement": "{{percent}}% de diferencia",
+      "dualPunctuationOnly": "solo puntuación"
     },
     "cloudMigration": {
       "title": "Bienvenido a OpenWhispr Cloud",

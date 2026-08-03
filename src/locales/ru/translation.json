@@ -396,6 +396,10 @@
       "dualMerged": "Объединённый результат",
       "dualNotMerged": "Результат (объединение не требовалось)",
       "dualNoText": "текст не получен",
+      "dualMergedShort": "объединено",
+      "dualNoMergeShort": "объединение не требовалось",
+      "dualDisagreement": "расхождение {{percent}}%",
+      "dualPunctuationOnly": "только пунктуация",
       "discarded": {
         "show": "Показать отменённые",
         "hide": "Скрыть отменённые",

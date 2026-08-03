@@ -396,6 +396,10 @@
       "dualMerged": "Résultat fusionné",
       "dualNotMerged": "Résultat (fusion inutile)",
       "dualNoText": "aucun texte renvoyé",
+      "dualMergedShort": "fusionné",
+      "dualNoMergeShort": "fusion inutile",
+      "dualDisagreement": "{{percent}}% de différence",
+      "dualPunctuationOnly": "ponctuation seulement",
       "discarded": {
         "show": "Afficher les abandonnées",
         "hide": "Masquer les abandonnées",

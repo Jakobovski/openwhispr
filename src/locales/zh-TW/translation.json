@@ -396,6 +396,10 @@
       "dualMerged": "合併結果",
       "dualNotMerged": "結果（無需合併）",
       "dualNoText": "未回傳文字",
+      "dualMergedShort": "已合併",
+      "dualNoMergeShort": "無需合併",
+      "dualDisagreement": "{{percent}}% 不同",
+      "dualPunctuationOnly": "僅標點不同",
       "discarded": {
         "show": "顯示已捨棄",
         "hide": "隱藏已捨棄",

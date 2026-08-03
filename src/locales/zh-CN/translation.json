@@ -396,6 +396,10 @@
       "dualMerged": "合并结果",
       "dualNotMerged": "结果（无需合并）",
       "dualNoText": "未返回文本",
+      "dualMergedShort": "已合并",
+      "dualNoMergeShort": "无需合并",
+      "dualDisagreement": "{{percent}}% 不同",
+      "dualPunctuationOnly": "仅标点不同",
       "discarded": {
         "show": "显示已放弃",
         "hide": "隐藏已放弃",

@@ -396,6 +396,10 @@
       "dualMerged": "Zusammengeführtes Ergebnis",
       "dualNotMerged": "Ergebnis (keine Zusammenführung nötig)",
       "dualNoText": "kein Text zurückgegeben",
+      "dualMergedShort": "zusammengeführt",
+      "dualNoMergeShort": "keine Zusammenführung nötig",
+      "dualDisagreement": "{{percent}}% abweichend",
+      "dualPunctuationOnly": "nur Satzzeichen",
       "discarded": {
         "show": "Verworfene anzeigen",
         "hide": "Verworfene ausblenden",
