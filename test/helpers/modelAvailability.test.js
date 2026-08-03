@@ -71,7 +71,17 @@ test("the shipped registry no longer offers the models Groq retired", () => {
   const ids = (groq?.models || []).map((m) => m.id);
 
   assert.ok(ids.length > 0, "groq provider still present");
-  for (const dead of ["qwen/qwen3-32b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"]) {
+  for (const dead of [
+    "qwen/qwen3-32b",
+    "llama-3.3-70b-versatile",
+    "llama-3.1-8b-instant",
+    // Both 404 "does not exist or you do not have access to it" as of 2026-08-03,
+    // found by benchmarking every registry model against the live API. Being listed
+    // meant resolveUsableModel could not heal them: a substitution only fires for
+    // ids the registry does not know.
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "moonshotai/kimi-k2-instruct-0905",
+  ]) {
     assert.ok(!ids.includes(dead), `${dead} was shut down by Groq and must not be offered`);
   }
   assert.equal(ids[0], "openai/gpt-oss-120b", "the auto-picked default is a live model");

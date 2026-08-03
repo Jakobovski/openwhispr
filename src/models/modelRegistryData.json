@@ -492,12 +492,6 @@
           "descriptionKey": "models.descriptions.cloud.groq_openai_gpt_oss_20b"
         },
         {
-          "id": "meta-llama/llama-4-scout-17b-16e-instruct",
-          "name": "Llama 4 Scout",
-          "description": "Meta's efficient multimodal, 750 T/sec",
-          "descriptionKey": "models.descriptions.cloud.groq_llama_4_scout"
-        },
-        {
           "id": "groq/compound",
           "name": "Compound",
           "description": "Groq's compound system, 450 T/sec",
@@ -508,12 +502,6 @@
           "name": "Compound Mini",
           "description": "Fast compound system, 3x lower latency",
           "descriptionKey": "models.descriptions.cloud.groq_compound_mini"
-        },
-        {
-          "id": "moonshotai/kimi-k2-instruct-0905",
-          "name": "Kimi K2 0905",
-          "description": "Moonshot AI's 1T MoE, 256K context",
-          "descriptionKey": "models.descriptions.cloud.groq_kimi_k2_0905"
         }
       ]
     },
