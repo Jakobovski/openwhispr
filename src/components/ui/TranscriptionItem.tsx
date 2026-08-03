@@ -19,8 +19,54 @@ import type {
 import { cn } from "../lib/utils";
 import { getCachedPlatform } from "../../utils/platform";
 import { formatMmSs } from "../../utils/formatDuration";
+import { getProviderDisplayName } from "../../models/ModelRegistry";
 
 const platform = getCachedPlatform();
+
+interface DualSide {
+  provider?: string | null;
+  model?: string | null;
+  text?: string | null;
+  status?: string | null;
+  ms?: number | null;
+}
+
+interface DualDetail {
+  sides: DualSide[];
+  reconciled: boolean;
+  reconcileMs?: number | null;
+  mergedText?: string | null;
+}
+
+/**
+ * The per-side detail stored for a dual-provider dictation, or null for every other
+ * row. Parsed defensively: it is opaque JSON written by whichever version of the app
+ * recorded the row, so a shape change must not take the history list down with it.
+ */
+function parseDual(raw?: string | null): DualDetail | null {
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw);
+    const sides: DualSide[] = [
+      { provider: d.providerA, model: d.modelA, text: d.textA, status: d.statusA, ms: d.msA },
+      { provider: d.providerB, model: d.modelB, text: d.textB, status: d.statusB, ms: d.msB },
+    ].filter((side) => side.provider);
+    if (sides.length === 0) return null;
+    return {
+      sides,
+      reconciled: !!d.reconciled,
+      reconcileMs: d.reconcileMs ?? null,
+      mergedText: d.mergedText ?? null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function formatMs(ms?: number | null): string | null {
+  if (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0) return null;
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
 
 function getShowInFolderKey(): string {
   if (platform === "win32") return "controlPanel.history.showInFolderWindows";
@@ -76,9 +122,13 @@ export default function TranscriptionItem({
       ? formatMmSs(Math.round(item.audio_duration_ms / 1000))
       : null;
   const rawText = item.raw_text;
+  const dual = parseDual(item.dual_json);
   const hasRawText = rawText !== null;
   const hasAudio = item.has_audio === 1;
-  const showUtilityGroup = hasRawText || hasAudio;
+  // The dual breakdown lives in the same expandable panel, so a dual row with no raw
+  // text still needs the toggle.
+  const hasExpandable = hasRawText || !!dual;
+  const showUtilityGroup = hasExpandable || hasAudio;
 
   const errorCode = item.error_code as TranscriptionErrorCode;
   const isConfigError =
@@ -223,7 +273,7 @@ export default function TranscriptionItem({
               </Button>
             </Tooltip>
           )}
-          {!isFailed && !isDiscarded && hasRawText && (
+          {!isFailed && !isDiscarded && hasExpandable && (
             <Tooltip content={t("controlPanel.history.viewRawTranscript")}>
               <Button
                 size="icon"
@@ -299,7 +349,7 @@ export default function TranscriptionItem({
         </div>
       </div>
 
-      {!isFailed && !isDiscarded && rawText !== null && (
+      {!isFailed && !isDiscarded && hasExpandable && (
         <div
           inert={!isExpanded}
           className={cn(
@@ -308,29 +358,108 @@ export default function TranscriptionItem({
           )}
         >
           <div className="min-h-0 overflow-hidden">
-            <div className="border-t border-border/20 mt-2 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                  {t("controlPanel.history.rawTranscript")}
-                </span>
-                <Tooltip content={t("controlPanel.history.copyRawTranscript")}>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => onCopy(rawText)}
-                    className="h-5 w-5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-foreground/10"
-                  >
-                    <Copy size={10} />
-                  </Button>
-                </Tooltip>
+            {dual && (
+              <div className="border-t border-border/20 mt-2 pt-2 space-y-2">
+                {dual.sides.map((side, index) => {
+                  const time = formatMs(side.ms);
+                  const state =
+                    side.status && side.status !== "ok"
+                      ? t(`app.stats.${side.status === "failed" ? "failed" : "dropped"}`)
+                      : null;
+                  return (
+                    <div key={`${index}-${side.provider}`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                          {getProviderDisplayName(side.provider || "")}
+                          {side.model ? (
+                            <span className="ml-1 normal-case text-muted-foreground/50">
+                              {side.model}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="flex items-center gap-1.5 shrink-0">
+                          {(state || time) && (
+                            <span
+                              className={cn(
+                                "text-[10px] tabular-nums",
+                                state
+                                  ? "text-muted-foreground/50 italic"
+                                  : "text-muted-foreground/60"
+                              )}
+                            >
+                              {state ?? time}
+                            </span>
+                          )}
+                          {side.text ? (
+                            <Tooltip content={t("controlPanel.history.copyRawTranscript")}>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => onCopy(side.text as string)}
+                                className="h-5 w-5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-foreground/10"
+                              >
+                                <Copy size={10} />
+                              </Button>
+                            </Tooltip>
+                          ) : null}
+                        </span>
+                      </div>
+                      {/* A side that failed or was dropped has no text of its own; saying so
+                          beats an empty block that reads like a transcription of silence. */}
+                      <p className="text-xs text-muted-foreground/80 leading-relaxed mt-1">
+                        {side.text || (
+                          <span className="italic text-muted-foreground/50">
+                            {t("controlPanel.history.dualNoText")}
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  );
+                })}
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-medium text-primary/70 uppercase tracking-wider">
+                      {dual.reconciled
+                        ? t("controlPanel.history.dualMerged")
+                        : t("controlPanel.history.dualNotMerged")}
+                    </span>
+                    {formatMs(dual.reconcileMs) && (
+                      <span className="text-[10px] tabular-nums text-muted-foreground/60">
+                        {formatMs(dual.reconcileMs)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground/80 leading-relaxed mt-1">
+                    {dual.mergedText ?? rawText}
+                  </p>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground/80 leading-relaxed mt-1">{rawText}</p>
-              {rawText === item.text && (
-                <p className="text-[10px] text-muted-foreground/50 italic mt-1">
-                  {t("controlPanel.history.noAiProcessing")}
-                </p>
-              )}
-            </div>
+            )}
+            {rawText !== null && (
+              <div className="border-t border-border/20 mt-2 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    {t("controlPanel.history.rawTranscript")}
+                  </span>
+                  <Tooltip content={t("controlPanel.history.copyRawTranscript")}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => onCopy(rawText)}
+                      className="h-5 w-5 rounded-sm text-muted-foreground hover:text-foreground hover:bg-foreground/10"
+                    >
+                      <Copy size={10} />
+                    </Button>
+                  </Tooltip>
+                </div>
+                <p className="text-xs text-muted-foreground/80 leading-relaxed mt-1">{rawText}</p>
+                {rawText === item.text && (
+                  <p className="text-[10px] text-muted-foreground/50 italic mt-1">
+                    {t("controlPanel.history.noAiProcessing")}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

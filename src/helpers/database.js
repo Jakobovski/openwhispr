@@ -84,6 +84,15 @@ class DatabaseManager {
       } catch (err) {
         if (!err.message.includes("duplicate column")) throw err;
       }
+      // What each side of a dual-provider dictation returned, as JSON: the provider,
+      // model, timing and text per side, plus whether they were merged. One column
+      // rather than ten, because it is opaque to every query — the history view is
+      // the only reader, and dual runs are the only rows that have it.
+      try {
+        this.db.exec("ALTER TABLE transcriptions ADD COLUMN dual_json TEXT");
+      } catch (err) {
+        if (!err.message.includes("duplicate column")) throw err;
+      }
 
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS custom_dictionary (
@@ -681,6 +690,7 @@ class DatabaseManager {
       errorMessage = null,
       errorCode = null,
       routeKind = null,
+      dualJson = null,
       clientTranscriptionId = randomUUID(),
     } = {}
   ) {
@@ -689,7 +699,7 @@ class DatabaseManager {
         throw new Error("Database not initialized");
       }
       const stmt = this.db.prepare(
-        "INSERT INTO transcriptions (text, raw_text, status, error_message, error_code, route_kind, client_transcription_id) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO transcriptions (text, raw_text, status, error_message, error_code, route_kind, dual_json, client_transcription_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       );
       const result = stmt.run(
         text,
@@ -698,6 +708,7 @@ class DatabaseManager {
         errorMessage,
         errorCode,
         routeKind,
+        dualJson,
         clientTranscriptionId
       );
 

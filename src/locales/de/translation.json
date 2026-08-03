@@ -393,6 +393,9 @@
       "audioNotFound": "Audiodatei nicht gefunden oder abgelaufen",
       "noAiProcessing": "Auf diese Transkription wurde keine KI-Verarbeitung angewendet",
       "rawTranscript": "Rohtranskript",
+      "dualMerged": "Zusammengeführtes Ergebnis",
+      "dualNotMerged": "Ergebnis (keine Zusammenführung nötig)",
+      "dualNoText": "kein Text zurückgegeben",
       "discarded": {
         "show": "Verworfene anzeigen",
         "hide": "Verworfene ausblenden",

@@ -3148,7 +3148,25 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
     const source = (await this.isReasoningAvailable()) ? "dual-reasoned" : "dual";
-    return { success: true, text, rawText: dual.text, source, timings };
+    // Kept alongside the transcript so history can show what each provider actually
+    // heard, which is the only place the disagreement the merge resolved is visible.
+    const dualDetail = {
+      providerA: dual.providerA,
+      providerB: dual.providerB,
+      modelA: dual.modelA ?? null,
+      modelB: dual.modelB ?? null,
+      textA: dual.textA ?? null,
+      textB: dual.textB ?? null,
+      statusA: dual.statusA ?? null,
+      statusB: dual.statusB ?? null,
+      msA: dual.msA ?? null,
+      msB: dual.msB ?? null,
+      reconciled: !!dual.reconciled,
+      reconcileMs: dual.reconcileMs ?? null,
+      droppedProvider: dual.droppedProvider ?? null,
+      mergedText: dual.text ?? null,
+    };
+    return { success: true, text, rawText: dual.text, source, timings, dual: dualDetail };
   }
 
   // Runs two providers over the same audio and has an LLM combine the results.
@@ -3577,7 +3595,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async saveTranscription(text, rawText = null, { clientTranscriptionId } = {}) {
+  async saveTranscription(text, rawText = null, { clientTranscriptionId, dual = null } = {}) {
     if (!getSettings().dataRetentionEnabled) {
       logger.debug("Skipping transcription save — data retention disabled", {}, "audio");
       this.lastAudioBlob = null;
@@ -3589,6 +3607,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const result = await window.electronAPI.saveTranscription(text, rawText, {
         clientTranscriptionId,
         routeKind: this.translationRequested ? "translation" : null,
+        dualJson: dual ? JSON.stringify(dual) : null,
       });
       if (result?.id) syncService.debouncedPush("transcription", result.id);
 

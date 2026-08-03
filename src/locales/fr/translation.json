@@ -393,6 +393,9 @@
       "audioNotFound": "Fichier audio introuvable ou expiré",
       "noAiProcessing": "Aucun traitement IA n'a été appliqué à cette transcription",
       "rawTranscript": "Transcription brute",
+      "dualMerged": "Résultat fusionné",
+      "dualNotMerged": "Résultat (fusion inutile)",
+      "dualNoText": "aucun texte renvoyé",
       "discarded": {
         "show": "Afficher les abandonnées",
         "hide": "Masquer les abandonnées",

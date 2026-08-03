@@ -401,7 +401,10 @@
       "retryError": "Error al volver a transcribir",
       "audioNotFound": "Archivo de audio no encontrado o expirado",
       "noAiProcessing": "No se aplicó procesamiento de IA a esta transcripción",
-      "rawTranscript": "Transcripción sin procesar"
+      "rawTranscript": "Transcripción sin procesar",
+      "dualMerged": "Resultado combinado",
+      "dualNotMerged": "Resultado (sin necesidad de combinar)",
+      "dualNoText": "no devolvió texto"
     },
     "cloudMigration": {
       "title": "Bienvenido a OpenWhispr Cloud",

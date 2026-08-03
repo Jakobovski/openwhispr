@@ -37,6 +37,8 @@ export interface TranscriptionItem {
   error_message: string | null;
   error_code: TranscriptionErrorCode;
   route_kind?: string | null;
+  /** JSON per-side detail for dual-provider dictations; null for every other row. */
+  dual_json?: string | null;
   client_transcription_id: string;
   cloud_id: string | null;
   sync_status: "synced" | "pending" | "error";
