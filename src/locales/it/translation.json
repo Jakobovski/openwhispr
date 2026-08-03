@@ -1811,6 +1811,7 @@
       "dualTranscriptionDescription": "Invia l'audio a due provider e lascia che un LLM combini i risultati. Più accurato, più lento, ed entrambi i provider addebitano.",
       "dualProviderA": "Primo provider",
       "dualProviderB": "Secondo provider",
+      "dualProviderModel": "Modello {{provider}}",
       "dualReconcileProvider": "Provider di unione",
       "dualReconcileModel": "Modello di unione",
       "dualReconcileDescription": "Quale modello unisce le due trascrizioni. Usato solo quando differiscono.",

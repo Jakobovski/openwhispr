@@ -60,3 +60,17 @@ export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1000;
 export function getDualTranscriptionProvider(id: string): DualTranscriptionProvider | undefined {
   return DUAL_TRANSCRIPTION_PROVIDERS.find((provider) => provider.id === id);
 }
+
+/**
+ * The model a dual side actually runs: the user's choice when they made one, and
+ * otherwise the provider's default from the table above.
+ *
+ * Stored empty rather than pre-filled so a provider change does not leave the other
+ * provider's model id behind, and so changing a default here reaches everyone who
+ * never picked a model.
+ */
+export function resolveDualTranscriptionModel(providerId: string, storedModel?: string): string {
+  const chosen = storedModel?.trim();
+  if (chosen) return chosen;
+  return getDualTranscriptionProvider(providerId)?.model ?? "";
+}

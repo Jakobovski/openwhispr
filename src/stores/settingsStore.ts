@@ -655,6 +655,9 @@ export interface SettingsState
   dualTranscriptionEnabled: boolean;
   dualTranscriptionProviderA: string;
   dualTranscriptionProviderB: string;
+  // Empty means "the provider's default", from DUAL_TRANSCRIPTION_PROVIDERS.
+  dualTranscriptionModelA: string;
+  dualTranscriptionModelB: string;
   dualTranscriptionReconcileProvider: string;
   dualTranscriptionReconcileModel: string;
   // How long the second provider gets after the first answers, before it is
@@ -663,6 +666,8 @@ export interface SettingsState
   setDualTranscriptionEnabled: (value: boolean) => void;
   setDualTranscriptionProviderA: (value: string) => void;
   setDualTranscriptionProviderB: (value: string) => void;
+  setDualTranscriptionModelA: (value: string) => void;
+  setDualTranscriptionModelB: (value: string) => void;
   setDualTranscriptionReconcileProvider: (value: string) => void;
   setDualTranscriptionReconcileModel: (value: string) => void;
   setDualTranscriptionSecondTimeoutMs: (value: number) => void;
@@ -1001,6 +1006,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", false),
   dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_DUAL_PROVIDER_A),
   dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_DUAL_PROVIDER_B),
+  dualTranscriptionModelA: readString("dualTranscriptionModelA", ""),
+  dualTranscriptionModelB: readString("dualTranscriptionModelB", ""),
   dualTranscriptionReconcileProvider: readString(
     "dualTranscriptionReconcileProvider",
     DEFAULT_RECONCILE_PROVIDER
@@ -1548,6 +1555,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionEnabled: createBooleanSetter("dualTranscriptionEnabled"),
   setDualTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),
   setDualTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),
+  setDualTranscriptionModelA: createStringSetter("dualTranscriptionModelA"),
+  setDualTranscriptionModelB: createStringSetter("dualTranscriptionModelB"),
   setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
   setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
   setDualTranscriptionSecondTimeoutMs: createNumberSetter("dualTranscriptionSecondTimeoutMs"),

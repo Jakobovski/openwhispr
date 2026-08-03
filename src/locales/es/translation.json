@@ -1859,6 +1859,7 @@
       "dualTranscriptionDescription": "Envía el audio a dos proveedores y deja que un LLM combine los resultados. Más preciso, más lento y cobran ambos proveedores.",
       "dualProviderA": "Primer proveedor",
       "dualProviderB": "Segundo proveedor",
+      "dualProviderModel": "Modelo de {{provider}}",
       "dualReconcileProvider": "Proveedor de combinación",
       "dualReconcileModel": "Modelo de combinación",
       "dualReconcileDescription": "Qué modelo combina las dos transcripciones. Solo se usa cuando difieren.",

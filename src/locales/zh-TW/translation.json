@@ -1806,6 +1806,7 @@
       "dualTranscriptionDescription": "將音訊傳送給兩個供應商，並由 LLM 合併結果。更準確、更慢，且兩個供應商都會計費。",
       "dualProviderA": "第一個供應商",
       "dualProviderB": "第二個供應商",
+      "dualProviderModel": "{{provider}} 模型",
       "dualReconcileProvider": "合併供應商",
       "dualReconcileModel": "合併模型",
       "dualReconcileDescription": "由哪個模型合併兩份轉錄。僅在兩者不一致時使用。",

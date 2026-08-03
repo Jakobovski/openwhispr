@@ -1813,6 +1813,7 @@
       "dualTranscriptionDescription": "Отправляет аудио двум провайдерам, а LLM объединяет результаты. Точнее, медленнее, и оплачиваются оба провайдера.",
       "dualProviderA": "Первый провайдер",
       "dualProviderB": "Второй провайдер",
+      "dualProviderModel": "Модель {{provider}}",
       "dualReconcileProvider": "Провайдер объединения",
       "dualReconcileModel": "Модель объединения",
       "dualReconcileDescription": "Какая модель объединяет две расшифровки. Используется только при расхождениях.",

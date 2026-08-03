@@ -1984,6 +1984,7 @@
       "dualTranscriptionDescription": "Send audio to two providers and have an LLM combine the results. More accurate, slower, and costs both providers.",
       "dualProviderA": "First provider",
       "dualProviderB": "Second provider",
+      "dualProviderModel": "{{provider}} model",
       "dualReconcileProvider": "Merge provider",
       "dualReconcileModel": "Merge model",
       "dualReconcileDescription": "Which model combines the two transcripts. Only used when they disagree.",

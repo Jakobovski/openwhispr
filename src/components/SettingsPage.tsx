@@ -49,8 +49,9 @@ import {
   DUAL_TRANSCRIPTION_PROVIDERS,
   RECONCILE_PROVIDER_IDS,
   getDualTranscriptionProvider,
+  resolveDualTranscriptionModel,
 } from "../config/dualTranscription";
-import { REASONING_PROVIDERS } from "../models/ModelRegistry";
+import { REASONING_PROVIDERS, getTranscriptionProviders } from "../models/ModelRegistry";
 import {
   ConfirmDialog,
   AlertDialog,
@@ -378,6 +379,26 @@ function TranscriptionSection({
     (provider) => provider && !dualApiKeys[provider.apiKeyField]?.trim()
   );
 
+  const dualModelA = useSettingsStore((s) => s.dualTranscriptionModelA);
+  const setDualModelA = useSettingsStore((s) => s.setDualTranscriptionModelA);
+  const dualModelB = useSettingsStore((s) => s.dualTranscriptionModelB);
+  const setDualModelB = useSettingsStore((s) => s.setDualTranscriptionModelB);
+
+  // Whatever the provider offers for transcription, so this list grows with the
+  // registry instead of being a second hardcoded table.
+  const dualModelOptions = (providerId: string) =>
+    getTranscriptionProviders().find((provider) => provider.id === providerId)?.models ?? [];
+
+  // A stored model belongs to the provider that was selected when it was picked, so
+  // switching provider clears it — the new provider's default takes over rather than
+  // sending the old provider's model id to a different endpoint.
+  const changeDualProvider =
+    (setProvider: (value: string) => void, setModel: (value: string) => void) =>
+    (providerId: string) => {
+      setProvider(providerId);
+      setModel("");
+    };
+
   const dualSecondTimeoutMs = useSettingsStore((s) => s.dualTranscriptionSecondTimeoutMs);
   const setDualSecondTimeoutMs = useSettingsStore((s) => s.setDualTranscriptionSecondTimeoutMs);
   const DUAL_TIMEOUT_CHOICES = [500, 1000, 1500, 2000, 3000];
@@ -450,13 +471,10 @@ function TranscriptionSection({
       {dualTranscriptionEnabled && (
         <>
           <SettingsPanelRow>
-            <SettingsRow
-              label={t("settingsPage.transcription.dualProviderA")}
-              description={dualProviderA?.model}
-            >
+            <SettingsRow label={t("settingsPage.transcription.dualProviderA")}>
               <Select
                 value={dualTranscriptionProviderA}
-                onValueChange={setDualTranscriptionProviderA}
+                onValueChange={changeDualProvider(setDualTranscriptionProviderA, setDualModelA)}
               >
                 <SelectTrigger className="w-40">
                   <SelectValue />
@@ -481,12 +499,32 @@ function TranscriptionSection({
           </SettingsPanelRow>
           <SettingsPanelRow>
             <SettingsRow
-              label={t("settingsPage.transcription.dualProviderB")}
-              description={dualProviderB?.model}
+              label={t("settingsPage.transcription.dualProviderModel", {
+                provider: dualProviderA?.label ?? dualTranscriptionProviderA,
+              })}
             >
               <Select
+                value={resolveDualTranscriptionModel(dualTranscriptionProviderA, dualModelA)}
+                onValueChange={setDualModelA}
+              >
+                <SelectTrigger className="w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {dualModelOptions(dualTranscriptionProviderA).map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          <SettingsPanelRow>
+            <SettingsRow label={t("settingsPage.transcription.dualProviderB")}>
+              <Select
                 value={dualTranscriptionProviderB}
-                onValueChange={setDualTranscriptionProviderB}
+                onValueChange={changeDualProvider(setDualTranscriptionProviderB, setDualModelB)}
               >
                 <SelectTrigger className="w-40">
                   <SelectValue />
@@ -499,6 +537,29 @@ function TranscriptionSection({
                   ).map((provider) => (
                     <SelectItem key={provider.id} value={provider.id}>
                       {provider.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          <SettingsPanelRow>
+            <SettingsRow
+              label={t("settingsPage.transcription.dualProviderModel", {
+                provider: dualProviderB?.label ?? dualTranscriptionProviderB,
+              })}
+            >
+              <Select
+                value={resolveDualTranscriptionModel(dualTranscriptionProviderB, dualModelB)}
+                onValueChange={setDualModelB}
+              >
+                <SelectTrigger className="w-56">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {dualModelOptions(dualTranscriptionProviderB).map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.name}
                     </SelectItem>
                   ))}
                 </SelectContent>

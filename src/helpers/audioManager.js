@@ -38,6 +38,7 @@ import {
   DEFAULT_DUAL_PROVIDER_B,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
+  resolveDualTranscriptionModel,
 } from "../config/dualTranscription";
 
 import {
@@ -3014,10 +3015,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // break in a mechanical refactor: Azure's api-key header, Groq's prompt cap,
   // SSE streaming, dictionary-echo detection, the local-whisper fallback.
   // Duplicating the two request shapes dual mode needs is the cheaper risk.
-  async transcribeRawWithProvider(audioBlob, provider, { language } = {}) {
+  async transcribeRawWithProvider(audioBlob, provider, { language, model: requestedModel } = {}) {
     const settings = getSettings();
     const startedAt = performance.now();
-    const model = DUAL_TRANSCRIPTION_MODELS[provider];
+    // The caller's per-side choice wins; the provider's default stands in when the
+    // user has not picked one.
+    const model = requestedModel?.trim() || DUAL_TRANSCRIPTION_MODELS[provider];
     if (!model) {
       throw new Error(`Provider ${provider} is not available for dual transcription`);
     }
@@ -3027,6 +3030,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (!window.electronAPI?.proxyXaiTranscription) {
         throw new Error("xAI transcription is unavailable in this window");
       }
+      // The xAI proxy takes no model: grok-stt is the only speech model xAI serves,
+      // so the picker offers exactly one option and there is nothing to pass on.
       const keyterms = this.getKeyterms()
         .map((term) => term.trim().slice(0, 50))
         .filter(Boolean)
@@ -3155,6 +3160,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const settings = getSettings();
     const providerA = settings.dualTranscriptionProviderA || DEFAULT_DUAL_PROVIDER_A;
     const providerB = settings.dualTranscriptionProviderB || DEFAULT_DUAL_PROVIDER_B;
+    const modelA = resolveDualTranscriptionModel(providerA, settings.dualTranscriptionModelA);
+    const modelB = resolveDualTranscriptionModel(providerB, settings.dualTranscriptionModelB);
 
     // Trimmed once, before the fan-out: both providers get the same shorter
     // audio, and the saving counts twice.
@@ -3162,6 +3169,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     const startedAt = performance.now();
     const providers = [providerA, providerB];
+    const models = [modelA, modelB];
     const settled = [null, null];
 
     // Deliberately not a deadline on the pair: that would drop both when the
@@ -3180,7 +3188,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
       );
     const tracked = providers.map((provider, index) =>
-      track(this.transcribeRawWithProvider(trimmedBlob, provider, { language }), index)
+      track(
+        this.transcribeRawWithProvider(trimmedBlob, provider, { language, model: models[index] }),
+        index
+      )
     );
 
     const firstIndex = await Promise.race(tracked);
@@ -3236,7 +3247,18 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
 
     const transcribeMs = Math.round(performance.now() - startedAt);
-    const base = { providerA, providerB, textA, textB, msA, msB, transcribeMs, droppedProvider };
+    const base = {
+      providerA,
+      providerB,
+      modelA,
+      modelB,
+      textA,
+      textB,
+      msA,
+      msB,
+      transcribeMs,
+      droppedProvider,
+    };
 
     // One side missing, or both sides identical: nothing for the LLM to decide.
     if (!textA || !textB) {

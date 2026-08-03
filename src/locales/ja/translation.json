@@ -1811,6 +1811,7 @@
       "dualTranscriptionDescription": "音声を2つのプロバイダーに送信し、LLM が結果を統合します。精度は上がりますが、遅くなり、両方のプロバイダーに料金が発生します。",
       "dualProviderA": "1つ目のプロバイダー",
       "dualProviderB": "2つ目のプロバイダー",
+      "dualProviderModel": "{{provider}} のモデル",
       "dualReconcileProvider": "統合プロバイダー",
       "dualReconcileModel": "統合モデル",
       "dualReconcileDescription": "2 つの文字起こしを統合するモデル。内容が異なる場合にのみ使用されます。",

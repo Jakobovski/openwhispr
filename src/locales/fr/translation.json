@@ -1859,6 +1859,7 @@
       "dualTranscriptionDescription": "Envoie l'audio à deux fournisseurs et laisse un LLM combiner les résultats. Plus précis, plus lent, et les deux fournisseurs sont facturés.",
       "dualProviderA": "Premier fournisseur",
       "dualProviderB": "Second fournisseur",
+      "dualProviderModel": "Modèle {{provider}}",
       "dualReconcileProvider": "Fournisseur de fusion",
       "dualReconcileModel": "Modèle de fusion",
       "dualReconcileDescription": "Le modèle qui fusionne les deux transcriptions. Utilisé uniquement en cas de divergence.",

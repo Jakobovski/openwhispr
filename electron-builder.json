@@ -155,6 +155,10 @@
       {
         "from": "src/assets/Assets.car",
         "to": "Assets.car"
+      },
+      {
+        "from": ".env.bundled",
+        "to": ".env"
       }
     ],
     "extendInfo": {
