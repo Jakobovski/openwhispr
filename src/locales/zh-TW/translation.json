@@ -2607,6 +2607,7 @@
       "reconcile": "合併",
       "total": "總計",
       "dropped": "已丟棄",
+      "failed": "失敗",
       "trimmed": "已裁剪"
     }
   },

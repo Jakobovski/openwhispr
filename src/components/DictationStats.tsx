@@ -14,6 +14,9 @@ export interface DictationStatsData {
     providerB?: string;
     msA?: number | null;
     msB?: number | null;
+    /** "ok" | "failed" | "dropped" — why a side has no timing. */
+    statusA?: string | null;
+    statusB?: string | null;
     reconcileMs?: number | null;
     reconciled?: boolean;
     droppedProvider?: string | null;
@@ -69,17 +72,29 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
 
   const dual = stats.dual;
   if (dual) {
-    const a = formatMs(dual.msA);
-    const b = formatMs(dual.msB);
-    if (a) rows.push({ label: providerLabel(dual.providerA, "A"), value: a });
-    if (b) rows.push({ label: providerLabel(dual.providerB, "B"), value: b });
+    // Every provider that took part gets a row, whatever became of it. A side that
+    // was dropped for being slow, or failed outright, has no timing to show — and
+    // omitting it made a pair look like a single provider, which is the opposite of
+    // what this readout is for. Its state goes in the value column instead.
+    const sides = [
+      { provider: dual.providerA, ms: dual.msA, status: dual.statusA, fallbackLabel: "A" },
+      { provider: dual.providerB, ms: dual.msB, status: dual.statusB, fallbackLabel: "B" },
+    ];
 
-    // A provider dropped for exceeding the wait budget has no timing of its own,
-    // so it is reported explicitly instead of silently vanishing from the list.
-    if (dual.droppedProvider) {
+    for (const side of sides) {
+      const time = formatMs(side.ms);
+      if (time) {
+        rows.push({ label: providerLabel(side.provider, side.fallbackLabel), value: time });
+        continue;
+      }
+      // Older payloads carry no per-side status, so fall back to the dropped
+      // provider's name to tell "slow" apart from "errored".
+      const failed =
+        side.status === "failed" ||
+        (!side.status && !!side.provider && dual.droppedProvider !== side.provider);
       rows.push({
-        label: providerLabel(dual.droppedProvider),
-        value: t("app.stats.dropped"),
+        label: providerLabel(side.provider, side.fallbackLabel),
+        value: failed ? t("app.stats.failed") : t("app.stats.dropped"),
         muted: true,
       });
     }
@@ -114,8 +129,10 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
       className="flex shrink-0 flex-col gap-1 rounded-xl bg-black/75 px-3 py-2.5 text-xs whitespace-nowrap text-white/90 tabular-nums shadow-lg backdrop-blur-sm animate-in fade-in duration-150"
       role="status"
     >
-      {rows.map((row) => (
-        <div key={row.label} className="flex items-baseline justify-between gap-4">
+      {/* Keyed by position, not label: two sides can legitimately carry the same
+          label, and a duplicate key drops a row from the readout. */}
+      {rows.map((row, index) => (
+        <div key={`${index}-${row.label}`} className="flex items-baseline justify-between gap-4">
           <span className={row.muted ? "text-white/35" : "text-white/55"}>{row.label}</span>
           <span className={row.muted ? "text-white/45 italic" : "font-semibold"}>{row.value}</span>
         </div>

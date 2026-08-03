@@ -2612,6 +2612,7 @@
       "reconcile": "unione",
       "total": "totale",
       "dropped": "ignorato",
+      "failed": "non riuscito",
       "trimmed": "tagliato"
     }
   },

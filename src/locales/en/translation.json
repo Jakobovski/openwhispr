@@ -2748,6 +2748,7 @@
       "reconcile": "merge",
       "total": "total",
       "dropped": "dropped",
+      "failed": "failed",
       "trimmed": "trimmed"
     }
   },

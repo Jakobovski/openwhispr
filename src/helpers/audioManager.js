@@ -3116,6 +3116,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       reconcileMs: dual.reconcileMs ?? null,
       reconciled: dual.reconciled,
       droppedProvider: dual.droppedProvider ?? null,
+      modelA: dual.modelA ?? null,
+      modelB: dual.modelB ?? null,
+      statusA: dual.statusA ?? null,
+      statusB: dual.statusB ?? null,
     };
 
     logger.info(
@@ -3246,12 +3250,23 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       throw resultA?.reason || resultB?.reason || new Error("Dual transcription produced no text");
     }
 
+    // Every side gets a status, because a side that produced no timing is exactly the
+    // one worth reporting: dropped for being slow, or failed outright. Without this
+    // the readout simply omitted it and the pair looked like a single provider.
+    const statusFor = (result) => {
+      if (result?.status === "fulfilled") return "ok";
+      if (result?.status === "rejected") return "failed";
+      return "dropped";
+    };
+
     const transcribeMs = Math.round(performance.now() - startedAt);
     const base = {
       providerA,
       providerB,
       modelA,
       modelB,
+      statusA: statusFor(resultA),
+      statusB: statusFor(resultB),
       textA,
       textB,
       msA,

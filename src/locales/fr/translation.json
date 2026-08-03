@@ -2660,6 +2660,7 @@
       "reconcile": "fusion",
       "total": "total",
       "dropped": "ignoré",
+      "failed": "échec",
       "trimmed": "rogné"
     }
   },

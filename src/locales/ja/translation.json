@@ -2612,6 +2612,7 @@
       "reconcile": "統合",
       "total": "合計",
       "dropped": "破棄",
+      "failed": "失敗",
       "trimmed": "除去"
     }
   },

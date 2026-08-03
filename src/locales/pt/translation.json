@@ -2612,6 +2612,7 @@
       "reconcile": "fusão",
       "total": "total",
       "dropped": "ignorado",
+      "failed": "falhou",
       "trimmed": "cortado"
     }
   },
