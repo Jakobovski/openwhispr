@@ -199,6 +199,11 @@ interface TranscriptionModelPickerProps {
   variant?: "onboarding" | "settings";
   mode?: "cloud" | "local";
   streamingOnly?: boolean;
+  // Something else is deciding which model transcribes (dual transcription), so the
+  // model list here would describe a selection that is not in effect. The provider
+  // tabs and credential fields stay — dual still needs the keys entered under them.
+  // The note replaces the list and must say what is transcribing instead.
+  modelSelectionNote?: string;
 }
 
 const CLOUD_PROVIDER_TABS = [
@@ -350,6 +355,7 @@ export default function TranscriptionModelPicker({
   variant = "settings",
   mode,
   streamingOnly = false,
+  modelSelectionNote,
 }: TranscriptionModelPickerProps) {
   const { t } = useTranslation();
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
@@ -997,12 +1003,16 @@ export default function TranscriptionModelPicker({
                   <label className="block text-xs font-medium text-foreground">
                     {t("common.model")}
                   </label>
-                  <Input
-                    value={selectedCloudModel}
-                    onChange={(e) => onCloudModelSelect(e.target.value)}
-                    placeholder="whisper-1"
-                    className="h-8 text-sm"
-                  />
+                  {modelSelectionNote ? (
+                    <p className="text-xs text-muted-foreground">{modelSelectionNote}</p>
+                  ) : (
+                    <Input
+                      value={selectedCloudModel}
+                      onChange={(e) => onCloudModelSelect(e.target.value)}
+                      placeholder="whisper-1"
+                      className="h-8 text-sm"
+                    />
+                  )}
                 </div>
 
                 {/azure\.com/i.test(cloudTranscriptionBaseUrl || "") && (
@@ -1061,13 +1071,17 @@ export default function TranscriptionModelPicker({
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-foreground">{t("common.model")}</label>
-                  <ModelCardList
-                    models={cloudModelOptions}
-                    selectedModel={selectedCloudModel}
-                    onModelSelect={onCloudModelSelect}
-                    colorScheme="purple"
-                  />
-                  {selectedCloudProvider === "tinfoil" && (
+                  {modelSelectionNote ? (
+                    <p className="text-xs text-muted-foreground">{modelSelectionNote}</p>
+                  ) : (
+                    <ModelCardList
+                      models={cloudModelOptions}
+                      selectedModel={selectedCloudModel}
+                      onModelSelect={onCloudModelSelect}
+                      colorScheme="purple"
+                    />
+                  )}
+                  {!modelSelectionNote && selectedCloudProvider === "tinfoil" && (
                     <p className="text-xs text-muted-foreground/70">
                       {t("transcription.tinfoil.transportNote")}{" "}
                       <a

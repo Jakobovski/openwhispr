@@ -18,6 +18,11 @@ import {
 import { findStaleLocalModelKeys } from "../helpers/localModelSelections";
 import { buildProviderModelIndex, resolveUsableModel } from "../helpers/modelAvailability";
 import {
+  DEFAULT_DUAL_PROVIDER_A,
+  DEFAULT_DUAL_PROVIDER_B,
+  DEFAULT_DUAL_SECOND_TIMEOUT_MS,
+} from "../config/dualTranscription";
+import {
   INFERENCE_SCOPES,
   type InferenceScope,
   type InferenceScopeDefinition,
@@ -992,14 +997,17 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   silenceTrimEnabled: readBoolean("silenceTrimEnabled", true),
   silenceTrimStrength: readString("silenceTrimStrength", "light"),
   dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", false),
-  dualTranscriptionProviderA: readString("dualTranscriptionProviderA", "groq"),
-  dualTranscriptionProviderB: readString("dualTranscriptionProviderB", "xai"),
+  dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_DUAL_PROVIDER_A),
+  dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_DUAL_PROVIDER_B),
   dualTranscriptionReconcileProvider: readString("dualTranscriptionReconcileProvider", "groq"),
   dualTranscriptionReconcileModel: readString(
     "dualTranscriptionReconcileModel",
     "openai/gpt-oss-120b"
   ),
-  dualTranscriptionSecondTimeoutMs: readNumber("dualTranscriptionSecondTimeoutMs", 1500),
+  dualTranscriptionSecondTimeoutMs: readNumber(
+    "dualTranscriptionSecondTimeoutMs",
+    DEFAULT_DUAL_SECOND_TIMEOUT_MS
+  ),
   customDictionary: readStringArray("customDictionary", []),
   snippets: (() => {
     try {
@@ -2269,7 +2277,12 @@ export function getEffectiveCleanupModel() {
   if (selectIsCloudCleanupMode(state)) {
     return "";
   }
-  return state.cleanupModel;
+  // The dictation path reads the cleanup model from here, not from
+  // selectResolvedLLMConfig, so this is the only place the substitution can be
+  // applied to it. Without it a retired id (Groq's qwen/qwen3-32b) 404s on every
+  // single recording and the raw transcript is pasted — the exact quiet failure
+  // resolveUsableModel exists to prevent.
+  return usableModel(state.cleanupProvider, state.cleanupModel);
 }
 
 export function isCloudCleanupMode() {

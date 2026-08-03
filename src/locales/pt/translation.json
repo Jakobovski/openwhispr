@@ -1790,6 +1790,9 @@
       "dualTranscriptionDescription": "Envia o áudio para dois provedores e deixa um LLM combinar os resultados. Mais preciso, mais lento e ambos os provedores cobram.",
       "dualProviderA": "Primeiro provedor",
       "dualProviderB": "Segundo provedor",
+      "dualOverridesModel": "A transcrição dupla está ativada, por isso o ditado usa {{providerA}} e {{providerB}} em vez de um modelo selecionado aqui.",
+      "dualMissingKeys": "Adicione uma chave de API para {{providers}} — a transcrição dupla continua desativada até que ambos os provedores tenham uma.",
+      "dualSameProvider": "Escolha dois provedores diferentes — a transcrição dupla continua desativada enquanto os dois lados forem iguais.",
       "silenceTrim": "Cortar silêncios",
       "silenceTrimDescription": "Remove silêncios antes do envio, para não pagar pelas pausas.",
       "silenceTrimStrength": "Intensidade",
@@ -1967,7 +1970,10 @@
         "corti_corti_s1_instant": "Modelo de saúde rápido, sem rastro de raciocínio",
         "corti_corti_s1": "Modelo clínico mais capaz com raciocínio",
         "corti_corti_s1_mini_instant": "Modelo de saúde compacto, o mais rápido e econômico",
-        "corti_corti_s1_mini": "Modelo clínico compacto com raciocínio pela metade do preço"
+        "corti_corti_s1_mini": "Modelo clínico compacto com raciocínio pela metade do preço",
+        "xai_grok_4_5": "O modelo principal da xAI, contexto de 500k",
+        "xai_grok_4_3": "Mais barato, contexto de 1M",
+        "xai_grok_4_20_0309_non_reasoning": "Sem tokens de raciocínio, latência mínima"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "O modelo Claude mais capaz. Ideal para as tarefas mais difíceis do Modo Agente.",

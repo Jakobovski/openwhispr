@@ -1806,6 +1806,9 @@
       "dualTranscriptionDescription": "将音频发送给两个提供商，并由 LLM 合并结果。更准确、更慢，且两个提供商都会计费。",
       "dualProviderA": "第一个提供商",
       "dualProviderB": "第二个提供商",
+      "dualOverridesModel": "双重转录已开启，因此听写将使用 {{providerA}} 和 {{providerB}}，而不是在此选择的模型。",
+      "dualMissingKeys": "请为 {{providers}} 添加 API 密钥 — 在两个提供商都有密钥之前，双重转录不会生效。",
+      "dualSameProvider": "请选择两个不同的提供商 — 两边相同时，双重转录不会生效。",
       "silenceTrim": "裁剪静音",
       "silenceTrimDescription": "上传前移除静音，避免为停顿付费。",
       "silenceTrimStrength": "裁剪强度",
@@ -1983,7 +1986,10 @@
         "corti_corti_s1_instant": "快速医疗模型，无推理过程",
         "corti_corti_s1": "功能最强的临床模型，带推理",
         "corti_corti_s1_mini_instant": "紧凑型医疗模型，最快且成本最低",
-        "corti_corti_s1_mini": "紧凑型临床模型，半价提供推理"
+        "corti_corti_s1_mini": "紧凑型临床模型，半价提供推理",
+        "xai_grok_4_5": "xAI 的旗舰模型，500k 上下文",
+        "xai_grok_4_3": "更便宜，1M 上下文",
+        "xai_grok_4_20_0309_non_reasoning": "无思考 token，延迟最低"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "最强大的 Claude 模型。最适合最具挑战性的智能助手模式任务。",

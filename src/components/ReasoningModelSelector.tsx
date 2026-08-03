@@ -43,6 +43,7 @@ const CLOUD_PROVIDER_IDS = [
   "anthropic",
   "gemini",
   "groq",
+  "xai",
   OPENROUTER_TAB,
   "tinfoil",
   "corti",
@@ -334,6 +335,9 @@ export default function ReasoningModelSelector({
   const setGeminiApiKey = useSettingsStore((s) => s.setGeminiApiKey);
   const groqApiKey = useSettingsStore((s) => s.groqApiKey);
   const setGroqApiKey = useSettingsStore((s) => s.setGroqApiKey);
+  // The same key the Grok STT provider uses — entering it in either place is enough.
+  const xaiApiKey = useSettingsStore((s) => s.xaiApiKey);
+  const setXaiApiKey = useSettingsStore((s) => s.setXaiApiKey);
   const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
   const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
   const tinfoilApiKey = useSettingsStore((s) => s.tinfoilApiKey);
@@ -630,6 +634,16 @@ export default function ReasoningModelSelector({
                       label=""
                       helpText=""
                     />
+                  </div>
+                )}
+
+                {selectedCloudProvider === "xai" && (
+                  <div className="space-y-2">
+                    <div className="flex items-baseline justify-between">
+                      <h4 className="font-medium text-foreground">{t("common.apiKey")}</h4>
+                      <GetApiKeyLink url="https://console.x.ai" />
+                    </div>
+                    <ApiKeyInput apiKey={xaiApiKey} setApiKey={setXaiApiKey} label="" helpText="" />
                   </div>
                 )}
 

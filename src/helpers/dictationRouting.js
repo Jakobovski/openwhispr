@@ -32,6 +32,14 @@ export function resolveDictationTranslationReachability({
 // always takes the agent path — no wake word needed — and never falls back to
 // cleanup. A translation recording degrades to cleanup instead: the transcript
 // is still a useful dictation without the translation step.
+//
+// `alreadyCleaned` means the text arrived cleaned: dual transcription's reconcile
+// prompt merges and cleans in one call, so cleaning again would re-clean clean
+// text. That is a second LLM call in the paste path for no change to the output,
+// and on a per-model token budget (Groq's TPM) the pair does not fit — the second
+// call 429s and the user gets the raw transcript plus a failure toast. It never
+// suppresses the agent or translation paths, which do something the reconcile
+// prompt does not.
 export function resolveDictationRouteKind({
   cleanupReachable,
   agentReachable,
@@ -39,10 +47,13 @@ export function resolveDictationRouteKind({
   voiceAgentRequested,
   translationRequested,
   translationReachable,
+  alreadyCleaned = false,
 }) {
+  const cleanupWorthRunning = cleanupReachable && !alreadyCleaned;
+
   if (translationRequested) {
     if (translationReachable) return "translation";
-    return cleanupReachable ? "cleanup" : "skip";
+    return cleanupWorthRunning ? "cleanup" : "skip";
   }
   if (voiceAgentRequested) {
     return agentReachable ? "agent" : "skip";
@@ -50,7 +61,7 @@ export function resolveDictationRouteKind({
   if (agentReachable && agentInvoked) {
     return "agent";
   }
-  if (cleanupReachable) {
+  if (cleanupWorthRunning) {
     return "cleanup";
   }
   return "skip";

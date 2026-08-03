@@ -172,3 +172,15 @@ test("detectEndpointDialect returns null for unparseable or missing input", asyn
   assert.equal(detectEndpointDialect(undefined), null);
   assert.equal(detectEndpointDialect(null), null);
 });
+
+test("xai gets reasoning_effort low, the lowest value its enum accepts", async () => {
+  const { suppressThinking } = await load();
+
+  const body = {};
+  suppressThinking(body, "xai", "grok-4.5");
+
+  // xAI's enum is low|medium|high with no "none", and chat_template_kwargs is not
+  // one of its parameters — the generic branch would send both and be rejected.
+  assert.deepEqual(body, { reasoning_effort: "low" });
+  assert.ok(!("chat_template_kwargs" in body), "xAI does not accept chat_template_kwargs");
+});

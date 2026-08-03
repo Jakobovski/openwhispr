@@ -1811,6 +1811,9 @@
       "dualTranscriptionDescription": "Sendet Audio an zwei Anbieter und lässt ein LLM die Ergebnisse kombinieren. Genauer, langsamer, und beide Anbieter berechnen Kosten.",
       "dualProviderA": "Erster Anbieter",
       "dualProviderB": "Zweiter Anbieter",
+      "dualOverridesModel": "Doppelte Transkription ist aktiv, daher verwendet das Diktat {{providerA}} und {{providerB}} statt eines hier ausgewählten Modells.",
+      "dualMissingKeys": "Füge einen API-Schlüssel für {{providers}} hinzu – die doppelte Transkription bleibt aus, bis beide Anbieter einen haben.",
+      "dualSameProvider": "Wähle zwei verschiedene Anbieter – die doppelte Transkription bleibt aus, solange beide Seiten identisch sind.",
       "silenceTrim": "Stille kürzen",
       "silenceTrimDescription": "Entfernt Stille vor dem Upload, damit Pausen nicht berechnet werden.",
       "silenceTrimStrength": "Stärke",
@@ -1988,7 +1991,10 @@
         "corti_corti_s1_instant": "Schnelles Gesundheitsmodell, ohne Reasoning-Spur",
         "corti_corti_s1": "Leistungsfähigstes klinisches Modell mit Reasoning",
         "corti_corti_s1_mini_instant": "Kompaktes Gesundheitsmodell, am schnellsten und günstigsten",
-        "corti_corti_s1_mini": "Kompaktes klinisches Modell mit Reasoning zum halben Preis"
+        "corti_corti_s1_mini": "Kompaktes klinisches Modell mit Reasoning zum halben Preis",
+        "xai_grok_4_5": "Flaggschiff von xAI, 500k Kontext",
+        "xai_grok_4_3": "Günstiger, 1M Kontext",
+        "xai_grok_4_20_0309_non_reasoning": "Keine Denk-Tokens, niedrigste Latenz"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "Leistungsstärkstes Claude-Modell. Ideal für die schwierigsten Agent-Modus-Aufgaben.",

@@ -1984,6 +1984,9 @@
       "dualTranscriptionDescription": "Send audio to two providers and have an LLM combine the results. More accurate, slower, and costs both providers.",
       "dualProviderA": "First provider",
       "dualProviderB": "Second provider",
+      "dualOverridesModel": "Dual transcription is on, so dictation uses {{providerA}} and {{providerB}} instead of a model selected here.",
+      "dualMissingKeys": "Add an API key for {{providers}} — dual transcription stays off until both providers have one.",
+      "dualSameProvider": "Pick two different providers — dual transcription stays off while both sides are the same.",
       "silenceTrim": "Trim silence",
       "silenceTrimDescription": "Remove silence before uploading, so you are not billed for pauses.",
       "silenceTrimStrength": "Trim strength",
@@ -2080,7 +2083,10 @@
         "corti_corti_s1_instant": "Fast healthcare model, no reasoning trace",
         "corti_corti_s1": "Most capable clinical model with reasoning",
         "corti_corti_s1_mini_instant": "Compact healthcare model, fastest and lowest cost",
-        "corti_corti_s1_mini": "Compact clinical model with reasoning at half the price"
+        "corti_corti_s1_mini": "Compact clinical model with reasoning at half the price",
+        "xai_grok_4_5": "xAI's flagship, 500k context",
+        "xai_grok_4_3": "Cheaper, 1M context",
+        "xai_grok_4_20_0309_non_reasoning": "No thinking tokens, lowest latency"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "Most capable Claude model. Best for the hardest Agent Mode tasks.",

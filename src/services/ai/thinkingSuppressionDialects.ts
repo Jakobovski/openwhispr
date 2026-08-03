@@ -58,6 +58,15 @@ export function suppressThinking(
     return;
   }
 
+  // xAI's reasoning_effort enum is low|medium|high (default high) — there is no
+  // "none", and chat_template_kwargs is not a parameter it accepts, so the generic
+  // branch below would be rejected. Low is the floor, the same compromise gpt-oss
+  // gets. Models the registry marks as non-reasoning never reach here.
+  if (providerKey === "xai") {
+    requestBody.reasoning_effort = "low";
+    return;
+  }
+
   // Mistral rejects unknown fields with a 422; reasoning_effort is its native switch.
   if (providerKey === "mistral") {
     // Legacy magistral models reason natively and may reject reasoning_effort.

@@ -511,6 +511,33 @@
       ]
     },
     {
+      "id": "xai",
+      "name": "xAI",
+      "models": [
+        {
+          "id": "grok-4.5",
+          "name": "Grok 4.5",
+          "description": "xAI's flagship, 500k context",
+          "supportsThinking": true,
+          "descriptionKey": "models.descriptions.cloud.xai_grok_4_5"
+        },
+        {
+          "id": "grok-4.3",
+          "name": "Grok 4.3",
+          "description": "Cheaper, 1M context",
+          "supportsThinking": true,
+          "descriptionKey": "models.descriptions.cloud.xai_grok_4_3"
+        },
+        {
+          "id": "grok-4.20-0309-non-reasoning",
+          "name": "Grok 4.20 (non-reasoning)",
+          "description": "No thinking tokens, lowest latency",
+          "supportsThinking": false,
+          "descriptionKey": "models.descriptions.cloud.xai_grok_4_20_0309_non_reasoning"
+        }
+      ]
+    },
+    {
       "id": "tinfoil",
       "name": "Tinfoil",
       "models": [

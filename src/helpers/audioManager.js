@@ -30,6 +30,13 @@ import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree } from "../utils/transcriptReconcile";
 import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/prompts";
+import {
+  DUAL_TRANSCRIPTION_MODELS,
+  DUAL_TRANSCRIPTION_API_KEY_FIELDS,
+  DEFAULT_DUAL_PROVIDER_A,
+  DEFAULT_DUAL_PROVIDER_B,
+  DEFAULT_DUAL_SECOND_TIMEOUT_MS,
+} from "../config/dualTranscription";
 
 import {
   getBatchTranscriptionModel,
@@ -89,7 +96,8 @@ function resolveReasoningRoute(
   settings,
   agentName,
   voiceAgentRequested,
-  translationRequested
+  translationRequested,
+  alreadyCleaned = false
 ) {
   const cleanupReachable =
     !!settings.useCleanupModel && (!!settings.cleanupModel?.trim() || isCloudCleanupMode());
@@ -115,6 +123,7 @@ function resolveReasoningRoute(
     voiceAgentRequested,
     translationRequested,
     translationReachable,
+    alreadyCleaned,
   });
   if (translationRequested && kind !== "translation") {
     logger.warn(
@@ -211,22 +220,13 @@ function isDualTranscriptionEnabled(settings) {
   if (!settings?.dualTranscriptionEnabled) return false;
   if (settings.useLocalWhisper) return false;
   if (settings.cloudTranscriptionMode !== "byok") return false;
-  const keyFor = {
-    groq: settings.groqApiKey,
-    xai: settings.xaiApiKey,
-    openai: settings.openaiApiKey,
-  };
-  const a = settings.dualTranscriptionProviderA || "groq";
-  const b = settings.dualTranscriptionProviderB || "xai";
-  return a !== b && !!keyFor[a] && !!keyFor[b];
+  const keyFor = (provider) => settings[DUAL_TRANSCRIPTION_API_KEY_FIELDS[provider]];
+  const a = settings.dualTranscriptionProviderA || DEFAULT_DUAL_PROVIDER_A;
+  const b = settings.dualTranscriptionProviderB || DEFAULT_DUAL_PROVIDER_B;
+  return a !== b && !!keyFor(a) && !!keyFor(b);
 }
 
 const DEFAULT_RECONCILE_MODEL = "openai/gpt-oss-120b";
-
-// How long the second provider gets once the first has answered. Past this the
-// slow one is abandoned and dual mode degrades to the result already in hand,
-// capping the tail latency dual costs over single mode.
-const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1500;
 
 // Minimal 16-bit PCM WAV writer. The trimmed audio only exists as samples, and
 // every provider here accepts WAV, so re-encoding to the original codec would be
@@ -261,12 +261,6 @@ function encodeWavPcm16(samples, sampleRate) {
   }
   return new Blob([buffer], { type: "audio/wav" });
 }
-
-const DUAL_TRANSCRIPTION_MODELS = {
-  groq: "whisper-large-v3-turbo",
-  xai: "grok-stt",
-  openai: "gpt-4o-mini-transcribe",
-};
 
 const STREAMING_PROVIDERS = {
   deepgram: {
@@ -2045,7 +2039,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return text;
   }
 
-  async processTranscription(text, source) {
+  async processTranscription(text, source, { alreadyCleaned = false } = {}) {
     await this.reportScreenContext(text, source);
     const normalizedText = typeof text === "string" ? text.trim() : "";
 
@@ -2110,12 +2104,21 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           settings,
           agentName,
           this.voiceAgentRequested,
-          this.translationRequested
+          this.translationRequested,
+          alreadyCleaned
         );
         if (this.translationRequested && route.kind !== "translation") {
           this.notifyTranslationFallback("unreachable");
         }
-        if (route.kind === "skip") return normalizedText;
+        if (route.kind === "skip") {
+          if (alreadyCleaned) {
+            logger.logReasoning("CLEANUP_SKIPPED_ALREADY_CLEANED", {
+              source,
+              reason: "Reconcile already cleaned this transcript",
+            });
+          }
+          return normalizedText;
+        }
 
         if (route.kind === "translation") {
           const { text: translatedText } = await this.runTranslationChain({
@@ -3109,7 +3112,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     );
 
     const reasoningStart = performance.now();
-    const text = await this.processTranscription(dual.text, "dual");
+    // A reconciled transcript has already been through the cleanup rules (the
+    // reconcile prompt merges *and* cleans), so cleaning it again changes nothing
+    // and costs a second LLM call in the paste path. Providers that agreed, or a
+    // dropped/failed side, leave reconciled false — those are raw and still get
+    // cleaned.
+    const text = await this.processTranscription(dual.text, "dual", {
+      alreadyCleaned: dual.reconciled,
+    });
     timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
     const source = (await this.isReasoningAvailable()) ? "dual-reasoned" : "dual";
@@ -3127,8 +3137,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // stands. Only both providers failing is an error.
   async transcribeDual(audioBlob, { language } = {}) {
     const settings = getSettings();
-    const providerA = settings.dualTranscriptionProviderA || "groq";
-    const providerB = settings.dualTranscriptionProviderB || "xai";
+    const providerA = settings.dualTranscriptionProviderA || DEFAULT_DUAL_PROVIDER_A;
+    const providerB = settings.dualTranscriptionProviderB || DEFAULT_DUAL_PROVIDER_B;
 
     // Trimmed once, before the fan-out: both providers get the same shorter
     // audio, and the saving counts twice.

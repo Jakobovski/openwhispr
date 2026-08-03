@@ -76,3 +76,30 @@ test("the shipped registry no longer offers the models Groq retired", () => {
   }
   assert.equal(ids[0], "openai/gpt-oss-120b", "the auto-picked default is a live model");
 });
+
+// getEffectiveCleanupModel() runs these same two arguments through resolveUsableModel.
+// It reads the store, so it cannot be exercised under `node --test` directly; these
+// cover the resolution it delegates to, against the registry the app actually ships.
+test("a stored cleanup model that a provider retired resolves to a live one", () => {
+  // What was really in localStorage while every cleanup 404'd: cleanupProvider
+  // "groq", cleanupModel "qwen/qwen3-32b".
+  const registry = require("../../src/models/modelRegistryData.json");
+  const shipped = buildProviderModelIndex(registry.cloudProviders);
+  const resolved = resolveUsableModel("groq", "qwen/qwen3-32b", shipped);
+
+  assert.notEqual(resolved, "qwen/qwen3-32b", "the dead id must not reach the provider");
+  assert.ok(
+    shipped.get("groq").includes(resolved),
+    `${resolved} must be a model groq still offers`
+  );
+});
+
+test("a cleanup scope with no model configured stays empty", () => {
+  // getEffectiveCleanupModel() returns "" for cloud cleanup, and an unset BYOK
+  // scope reads "" — neither may be turned into a model the user never chose.
+  const registry = require("../../src/models/modelRegistryData.json");
+  const shipped = buildProviderModelIndex(registry.cloudProviders);
+
+  assert.equal(resolveUsableModel("groq", "", shipped), "");
+  assert.equal(resolveUsableModel("openai", "", shipped), "");
+});

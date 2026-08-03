@@ -46,6 +46,10 @@ import NixOsPasteInfo from "./ui/NixOsPasteInfo";
 import TranscriptionModelPicker from "./TranscriptionModelPicker";
 import SelfHostedPanel from "./SelfHostedPanel";
 import {
+  DUAL_TRANSCRIPTION_PROVIDERS,
+  getDualTranscriptionProvider,
+} from "../config/dualTranscription";
+import {
   ConfirmDialog,
   AlertDialog,
   Dialog,
@@ -353,11 +357,24 @@ function TranscriptionSection({
   const dualTranscriptionProviderB = useSettingsStore((s) => s.dualTranscriptionProviderB);
   const setDualTranscriptionProviderB = useSettingsStore((s) => s.setDualTranscriptionProviderB);
 
-  const DUAL_PROVIDER_OPTIONS = [
-    { value: "groq", label: "Groq" },
-    { value: "xai", label: "xAI" },
-    { value: "openai", label: "OpenAI" },
-  ];
+  const groqApiKey = useSettingsStore((s) => s.groqApiKey);
+  const xaiApiKey = useSettingsStore((s) => s.xaiApiKey);
+  const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
+
+  const dualProviderA = getDualTranscriptionProvider(dualTranscriptionProviderA);
+  const dualProviderB = getDualTranscriptionProvider(dualTranscriptionProviderB);
+
+  // Dual mode needs a key for each side, and stays off without them (see
+  // isDualTranscriptionEnabled). Silently reverting to one provider while the toggle
+  // reads "on" is the confusing part, so name whichever key is missing.
+  const dualApiKeys: Record<string, string> = {
+    groqApiKey,
+    xaiApiKey,
+    openaiApiKey,
+  };
+  const dualProvidersMissingKeys = [dualProviderA, dualProviderB].filter(
+    (provider) => provider && !dualApiKeys[provider.apiKeyField]?.trim()
+  );
 
   const renderSilenceTrim = () => (
     <SettingsPanel>
@@ -406,7 +423,10 @@ function TranscriptionSection({
       {dualTranscriptionEnabled && (
         <>
           <SettingsPanelRow>
-            <SettingsRow label={t("settingsPage.transcription.dualProviderA")}>
+            <SettingsRow
+              label={t("settingsPage.transcription.dualProviderA")}
+              description={dualProviderA?.model}
+            >
               <Select
                 value={dualTranscriptionProviderA}
                 onValueChange={setDualTranscriptionProviderA}
@@ -415,9 +435,17 @@ function TranscriptionSection({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DUAL_PROVIDER_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {DUAL_TRANSCRIPTION_PROVIDERS.filter(
+                    // The other side's provider is not offered here — two of the same
+                    // is not a pair, and dual quietly stays off. Kept when it is also
+                    // this side's stored value, so a pre-existing same-same selection
+                    // still renders instead of showing an empty trigger.
+                    (provider) =>
+                      provider.id !== dualTranscriptionProviderB ||
+                      provider.id === dualTranscriptionProviderA
+                  ).map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -425,7 +453,10 @@ function TranscriptionSection({
             </SettingsRow>
           </SettingsPanelRow>
           <SettingsPanelRow>
-            <SettingsRow label={t("settingsPage.transcription.dualProviderB")}>
+            <SettingsRow
+              label={t("settingsPage.transcription.dualProviderB")}
+              description={dualProviderB?.model}
+            >
               <Select
                 value={dualTranscriptionProviderB}
                 onValueChange={setDualTranscriptionProviderB}
@@ -434,15 +465,35 @@ function TranscriptionSection({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DUAL_PROVIDER_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {DUAL_TRANSCRIPTION_PROVIDERS.filter(
+                    (provider) =>
+                      provider.id !== dualTranscriptionProviderA ||
+                      provider.id === dualTranscriptionProviderB
+                  ).map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </SettingsRow>
           </SettingsPanelRow>
+          {dualTranscriptionProviderA === dualTranscriptionProviderB && (
+            <SettingsPanelRow>
+              <p className="text-xs text-warning">
+                {t("settingsPage.transcription.dualSameProvider")}
+              </p>
+            </SettingsPanelRow>
+          )}
+          {dualProvidersMissingKeys.length > 0 && (
+            <SettingsPanelRow>
+              <p className="text-xs text-warning">
+                {t("settingsPage.transcription.dualMissingKeys", {
+                  providers: dualProvidersMissingKeys.map((provider) => provider!.label).join(", "),
+                })}
+              </p>
+            </SettingsPanelRow>
+          )}
         </>
       )}
     </SettingsPanel>
@@ -472,6 +523,14 @@ function TranscriptionSection({
       cloudTranscriptionBaseUrl={cloudTranscriptionBaseUrl}
       setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
       variant="settings"
+      modelSelectionNote={
+        mode === "cloud" && dualTranscriptionEnabled
+          ? t("settingsPage.transcription.dualOverridesModel", {
+              providerA: dualProviderA?.label ?? dualTranscriptionProviderA,
+              providerB: dualProviderB?.label ?? dualTranscriptionProviderB,
+            })
+          : undefined
+      }
     />
   );
 
@@ -485,9 +544,11 @@ function TranscriptionSection({
 
       {transcriptionMode === "providers" && (
         <>
+          {/* Dual comes first: it decides whether the provider/model picker below it
+              applies at all, so reading it second is what made the page confusing. */}
+          {renderDualTranscription()}
           {renderTranscriptionPicker("cloud")}
           {renderSilenceTrim()}
-          {renderDualTranscription()}
         </>
       )}
       {transcriptionMode === "local" && (

@@ -1811,6 +1811,9 @@
       "dualTranscriptionDescription": "音声を2つのプロバイダーに送信し、LLM が結果を統合します。精度は上がりますが、遅くなり、両方のプロバイダーに料金が発生します。",
       "dualProviderA": "1つ目のプロバイダー",
       "dualProviderB": "2つ目のプロバイダー",
+      "dualOverridesModel": "デュアル文字起こしが有効なため、ディクテーションはここで選択したモデルではなく {{providerA}} と {{providerB}} を使用します。",
+      "dualMissingKeys": "{{providers}} の API キーを追加してください。両方のプロバイダーにキーがそろうまで、デュアル文字起こしは無効のままです。",
+      "dualSameProvider": "異なるプロバイダーを2つ選んでください。両方が同じ間、デュアル文字起こしは無効のままです。",
       "silenceTrim": "無音を除去",
       "silenceTrimDescription": "アップロード前に無音を除去し、間の時間に課金されないようにします。",
       "silenceTrimStrength": "除去の強さ",
@@ -1988,7 +1991,10 @@
         "corti_corti_s1_instant": "高速なヘルスケアモデル、推論トレースなし",
         "corti_corti_s1": "推論対応の最も高性能な臨床モデル",
         "corti_corti_s1_mini_instant": "コンパクトなヘルスケアモデル、最速かつ最も低コスト",
-        "corti_corti_s1_mini": "推論対応のコンパクトな臨床モデルを半額で"
+        "corti_corti_s1_mini": "推論対応のコンパクトな臨床モデルを半額で",
+        "xai_grok_4_5": "xAI のフラッグシップ、500k コンテキスト",
+        "xai_grok_4_3": "低価格、1M コンテキスト",
+        "xai_grok_4_20_0309_non_reasoning": "思考トークンなし、最小レイテンシ"
       },
       "enterprise": {
         "bedrock_claude_fable_5": "最も高性能な Claude モデル。最も難しいエージェントモードのタスクに最適です。",

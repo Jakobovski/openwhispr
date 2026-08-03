@@ -341,3 +341,92 @@ test("translation needs a model on model-required providers", async () => {
     true
   );
 });
+
+test("a reconciled transcript skips the cleanup pass", async () => {
+  const { resolveDictationRouteKind } = await load();
+
+  // Dual transcription's reconcile prompt cleans while it merges, so a second
+  // cleanup call would re-clean clean text — and on Groq's per-model TPM budget
+  // the pair does not fit, which 429s and pastes the raw transcript instead.
+  assert.equal(
+    resolveDictationRouteKind({
+      cleanupReachable: true,
+      agentReachable: false,
+      agentInvoked: false,
+      voiceAgentRequested: false,
+      alreadyCleaned: true,
+    }),
+    "skip"
+  );
+});
+
+test("an unreconciled dual transcript is still cleaned", async () => {
+  const { resolveDictationRouteKind } = await load();
+
+  // Providers agreeing, or one side dropped/failed, leaves the text raw.
+  assert.equal(
+    resolveDictationRouteKind({
+      cleanupReachable: true,
+      agentReachable: false,
+      agentInvoked: false,
+      voiceAgentRequested: false,
+      alreadyCleaned: false,
+    }),
+    "cleanup"
+  );
+  // Omitting the flag entirely must behave like the single-provider path.
+  assert.equal(
+    resolveDictationRouteKind({
+      cleanupReachable: true,
+      agentReachable: false,
+      agentInvoked: false,
+      voiceAgentRequested: false,
+    }),
+    "cleanup"
+  );
+});
+
+test("already-cleaned text still reaches the agent and translation paths", async () => {
+  const { resolveDictationRouteKind } = await load();
+
+  // The reconcile prompt cleans; it does not answer an agent command or translate.
+  assert.equal(
+    resolveDictationRouteKind({
+      cleanupReachable: true,
+      agentReachable: true,
+      agentInvoked: true,
+      voiceAgentRequested: false,
+      alreadyCleaned: true,
+    }),
+    "agent"
+  );
+  assert.equal(
+    resolveDictationRouteKind({
+      cleanupReachable: true,
+      agentReachable: false,
+      agentInvoked: false,
+      voiceAgentRequested: false,
+      translationRequested: true,
+      translationReachable: true,
+      alreadyCleaned: true,
+    }),
+    "translation"
+  );
+});
+
+test("an unreachable translation on cleaned text skips instead of re-cleaning", async () => {
+  const { resolveDictationRouteKind } = await load();
+
+  assert.equal(
+    resolveDictationRouteKind({
+      cleanupReachable: true,
+      agentReachable: false,
+      agentInvoked: false,
+      voiceAgentRequested: false,
+      translationRequested: true,
+      translationReachable: false,
+      alreadyCleaned: true,
+    }),
+    "skip"
+  );
+});
