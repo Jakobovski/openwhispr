@@ -87,6 +87,12 @@ const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"])
 // recording to finish, so anything still running here is stuck, and a stuck
 // capture must cost the paste path milliseconds rather than seconds.
 const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
+// How many candidate terms a history row keeps. The matcher considers up to
+// MAX_TERMS (400); persisting all of them on every dictation would grow the
+// database faster than the transcripts do, and the point of showing them is to
+// judge whether the right window was read — which the most frequent terms answer.
+// The full count is stored alongside, so a truncated list says so.
+const PERSISTED_SCREEN_TERMS = 200;
 
 function dictationAgentReachable(settings) {
   return resolveDictationAgentInference(settings, { isCloudAgent: isCloudDictationAgentMode() })
@@ -689,6 +695,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     onPartialTranscript,
     onStreamingCommit,
     onTranslationFallback,
+    onScreenContextBlocked,
   }) {
     this.onStateChange = onStateChange;
     this.onError = onError;
@@ -696,6 +703,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     this.onPartialTranscript = onPartialTranscript;
     this.onStreamingCommit = onStreamingCommit;
     this.onTranslationFallback = onTranslationFallback;
+    this.onScreenContextBlocked = onScreenContextBlocked;
   }
 
   // Fail-open: translation degraded/failed but raw text is still pasted. Surface why.
@@ -2227,9 +2235,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    *
    * Both tiers apply: an exact case-insensitive hit adopts the screen's casing,
    * and a phonetically equivalent near-miss of a distinctive on-screen term is
-   * substituted. Every replacement is recorded on the transcription so a wrong
-   * one shows up in history as a specific word rather than as an unexplained
-   * difference between what the user said and what they read back.
+   * substituted.
+   *
+   * What gets recorded is the whole candidate vocabulary, not only the words that
+   * changed — a run that corrected nothing is the common case, and seeing which
+   * terms *were* on offer is the only way to tell "there was nothing to fix" apart
+   * from "it read the wrong window" or "it never read anything". Rows are written
+   * whenever a capture succeeded, for the same reason.
    *
    * Returns the original text unchanged on any failure — no context is a normal
    * outcome, not an error.
@@ -2240,17 +2252,39 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     try {
       const capture = await this.collectScreenContext();
-      if (!capture?.text) return text;
+      if (!capture?.text) {
+        await this.warnIfScreenContextBlocked();
+        return text;
+      }
 
       const { extractScreenTerms, applyScreenTermCorrections } =
         await import("../utils/screenTermMatcher.js");
       const terms = extractScreenTerms(capture.text);
       const { text: corrected, replacements } = applyScreenTermCorrections(text, terms);
-      if (replacements.length === 0) return text;
 
-      this._lastScreenContext = { window: capture.window || "", replacements };
+      // Keep the most frequent terms, but never drop one that was actually used:
+      // a correction can be drawn from anywhere in the list, and a used term
+      // missing from the stored slice would render as an unexplained edit whose
+      // source is nowhere to be seen.
+      const kept = terms.slice(0, PERSISTED_SCREEN_TERMS);
+      const keptLower = new Set(kept.map((term) => term.toLowerCase()));
+      for (const { to } of replacements) {
+        if (!keptLower.has(to.toLowerCase())) {
+          kept.push(to);
+          keptLower.add(to.toLowerCase());
+        }
+      }
+
+      this._lastScreenContext = {
+        window: capture.window || "",
+        replacements,
+        terms: kept,
+        termCount: terms.length,
+      };
       logger.info(
-        "Screen context corrected the transcript",
+        replacements.length > 0
+          ? "Screen context corrected the transcript"
+          : "Screen context found nothing to correct",
         {
           source,
           window: capture.window,
@@ -2260,7 +2294,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         },
         "window-ocr"
       );
-      return corrected;
+      return replacements.length > 0 ? corrected : text;
     } catch (error) {
       logger.debug(
         "Screen context failed, keeping the transcript",
@@ -2269,6 +2303,35 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       );
       return text;
     }
+  }
+
+  /**
+   * Screen context is on but produced nothing. Say so if the reason is a missing
+   * Screen Recording grant.
+   *
+   * A feature the user switched on that quietly does nothing is worse than one
+   * that is off: there is no symptom to notice and nothing to act on. The grant is
+   * checked rather than inferred from the sidecar's failure, so this fires only
+   * when the machine could capture and simply is not allowed to — not when the
+   * sidecar is missing, timed out, or found no window.
+   *
+   * Once per app run: the persistent version of this warning lives in Settings,
+   * next to the toggle and in the permissions list. This one exists to connect it
+   * to the dictation that just came back uncorrected.
+   */
+  async warnIfScreenContextBlocked() {
+    if (this._screenContextPermissionWarned) return;
+
+    const access = await window.electronAPI?.checkScreenRecordingPermission?.();
+    if (!access?.supported || access.granted) return;
+
+    this._screenContextPermissionWarned = true;
+    logger.warn(
+      "Screen context is on but Screen Recording is not granted",
+      { status: access.status },
+      "window-ocr"
+    );
+    this.onScreenContextBlocked?.({ status: access.status });
   }
 
   async processTranscription(text, source, { alreadyCleaned = false } = {}) {

@@ -414,7 +414,11 @@
       "screenContextTitle": "来自屏幕",
       "screenContextCount": "根据屏幕更正了 {{words}} 处",
       "screenContextSubstitute": "听错",
-      "screenContextRecase": "大小写"
+      "screenContextRecase": "大小写",
+      "screenContextRead": "从屏幕读取了 {{words}} 个词",
+      "screenContextNoCorrections": "没有需要更正的内容",
+      "screenContextTerms": "从屏幕读取的词（{{words}}）",
+      "screenContextTermsTruncated": "显示 {{total}} 个中最常见的 {{shown}} 个"
     },
     "cloudMigration": {
       "title": "欢迎使用 OpenWhispr 云端",
@@ -606,6 +610,11 @@
         "offline": "你目前离线。云端转录需要互联网连接。",
         "dailyLimitReached": "已达今日转录上限。请明天再试或升级你的套餐。",
         "providerRateLimited": "你的转录服务商限制了请求频率。请稍候再试。"
+      },
+      "screenContextBlocked": {
+        "title": "屏幕上下文未生效",
+        "description": "OpenWhispr 需要「屏幕录制」权限才能读取你正在输入的窗口。本次转录已按原样粘贴，未做更正。",
+        "action": "打开设置"
       }
     },
     "clipboard": {

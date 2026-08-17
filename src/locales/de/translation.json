@@ -414,7 +414,11 @@
       "screenContextTitle": "Vom Bildschirm",
       "screenContextCount": "{{words}} vom Bildschirm korrigiert",
       "screenContextSubstitute": "falsch gehört",
-      "screenContextRecase": "Großschreibung"
+      "screenContextRecase": "Großschreibung",
+      "screenContextRead": "{{words}} Begriffe vom Bildschirm gelesen",
+      "screenContextNoCorrections": "Es gab nichts zu korrigieren",
+      "screenContextTerms": "Vom Bildschirm gelesene Begriffe ({{words}})",
+      "screenContextTermsTruncated": "Zeigt die {{shown}} häufigsten von {{total}}"
     },
     "cloudMigration": {
       "title": "Willkommen bei OpenWhispr Cloud",
@@ -606,6 +610,11 @@
         "offline": "Du bist offline. Die Cloud-Transkription benötigt eine Internetverbindung.",
         "dailyLimitReached": "Du hast dein heutiges Transkriptionslimit erreicht. Versuch es morgen erneut oder upgrade deinen Plan.",
         "providerRateLimited": "Dein Transkriptionsanbieter hat die Anfrage begrenzt. Warte kurz und versuch es erneut."
+      },
+      "screenContextBlocked": {
+        "title": "Bildschirmkontext funktioniert nicht",
+        "description": "OpenWhispr benötigt die Berechtigung zur Bildschirmaufnahme, um das Fenster zu lesen, in das du diktierst. Dein Transkript wurde unkorrigiert eingefügt.",
+        "action": "Einstellungen öffnen"
       }
     },
     "clipboard": {

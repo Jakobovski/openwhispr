@@ -91,6 +91,7 @@ export default function AgentOverlay() {
       },
       onStreamingCommit: undefined,
       onTranslationFallback: undefined,
+      onScreenContextBlocked: undefined,
     });
     audioManagerRef.current = am;
     return () => {

@@ -88,6 +88,10 @@ interface ScreenReplacement {
 interface ScreenContextDetail {
   window: string;
   replacements: ScreenReplacement[];
+  /** The candidate vocabulary the matcher had to work with, most frequent first. */
+  terms: string[];
+  /** How many were extracted, which may exceed the number persisted. */
+  termCount: number;
 }
 
 /**
@@ -110,8 +114,18 @@ function parseScreenContext(raw?: string | null): ScreenContextDetail | null {
             kind: entry.kind === "substitute" ? "substitute" : "recase",
           }))
       : [];
-    if (replacements.length === 0) return null;
-    return { window: typeof parsed.window === "string" ? parsed.window : "", replacements };
+    const terms: string[] = Array.isArray(parsed.terms)
+      ? parsed.terms.filter((term: unknown) => typeof term === "string" && term.trim())
+      : [];
+    // A row with neither is a row screen context did not touch. Rows written before
+    // terms were recorded still have replacements, so they keep rendering.
+    if (replacements.length === 0 && terms.length === 0) return null;
+    return {
+      window: typeof parsed.window === "string" ? parsed.window : "",
+      replacements,
+      terms,
+      termCount: typeof parsed.termCount === "number" ? parsed.termCount : terms.length,
+    };
   } catch {
     return null;
   }
@@ -189,6 +203,12 @@ export default function TranscriptionItem({
   const rawText = item.raw_text;
   const dual = parseDual(item.dual_json);
   const screenContext = parseScreenContext(item.screen_context_json);
+  // Which of the candidate terms actually landed in the transcript, so the list
+  // below distinguishes "was available" from "was used".
+  const usedTerms = useMemo(
+    () => new Set((screenContext?.replacements ?? []).map((r) => r.to.toLowerCase())),
+    [screenContext]
+  );
   const hasRawText = rawText !== null;
   const hasAudio = item.has_audio === 1;
   // The dual breakdown lives in the same expandable panel, so a dual row with no raw
@@ -415,9 +435,13 @@ export default function TranscriptionItem({
               >
                 <ScanText size={10} />
                 <span className="whitespace-nowrap">
-                  {t("controlPanel.history.screenContextCount", {
-                    words: screenContext.replacements.length,
-                  })}
+                  {screenContext.replacements.length > 0
+                    ? t("controlPanel.history.screenContextCount", {
+                        words: screenContext.replacements.length,
+                      })
+                    : t("controlPanel.history.screenContextRead", {
+                        words: screenContext.termCount,
+                      })}
                 </span>
                 {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
               </button>
@@ -674,27 +698,73 @@ export default function TranscriptionItem({
                     </span>
                   )}
                 </div>
-                <ul className="mt-1 space-y-0.5">
-                  {screenContext.replacements.map((replacement, index) => (
-                    <li
-                      key={`${index}-${replacement.from}`}
-                      className="flex items-baseline gap-1.5 text-xs"
-                    >
-                      <span className="text-muted-foreground/60 line-through">
-                        {replacement.from}
-                      </span>
-                      <span className="text-muted-foreground/40">&rarr;</span>
-                      <mark className="rounded-[2px] bg-primary/15 px-[1px] font-semibold text-foreground">
-                        {replacement.to}
-                      </mark>
-                      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/50">
-                        {replacement.kind === "substitute"
-                          ? t("controlPanel.history.screenContextSubstitute")
-                          : t("controlPanel.history.screenContextRecase")}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {screenContext.replacements.length > 0 ? (
+                  <ul className="mt-1 space-y-0.5">
+                    {screenContext.replacements.map((replacement, index) => (
+                      <li
+                        key={`${index}-${replacement.from}`}
+                        className="flex items-baseline gap-1.5 text-xs"
+                      >
+                        <span className="text-muted-foreground/60 line-through">
+                          {replacement.from}
+                        </span>
+                        <span className="text-muted-foreground/40">&rarr;</span>
+                        <mark className="rounded-[2px] bg-primary/15 px-[1px] font-semibold text-foreground">
+                          {replacement.to}
+                        </mark>
+                        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/50">
+                          {replacement.kind === "substitute"
+                            ? t("controlPanel.history.screenContextSubstitute")
+                            : t("controlPanel.history.screenContextRecase")}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-1 text-xs italic text-muted-foreground/50">
+                    {t("controlPanel.history.screenContextNoCorrections")}
+                  </p>
+                )}
+
+                {/* The vocabulary that was on offer, whether or not any of it was
+                    used. Without this a row that corrected nothing is unreadable:
+                    there is no way to tell a window with nothing worth fixing from
+                    the wrong window, or from a capture that read no text at all. */}
+                {screenContext.terms.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                      {t("controlPanel.history.screenContextTerms", {
+                        words: screenContext.termCount,
+                      })}
+                    </span>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {screenContext.terms.map((term, index) => {
+                        const used = usedTerms.has(term.toLowerCase());
+                        return (
+                          <span
+                            key={`${index}-${term}`}
+                            className={cn(
+                              "rounded-sm px-1 py-px text-[10px] leading-relaxed",
+                              used
+                                ? "bg-primary/15 font-semibold text-foreground"
+                                : "bg-foreground/5 text-muted-foreground/70"
+                            )}
+                          >
+                            {term}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {screenContext.termCount > screenContext.terms.length && (
+                      <p className="mt-1 text-[10px] text-muted-foreground/50">
+                        {t("controlPanel.history.screenContextTermsTruncated", {
+                          shown: screenContext.terms.length,
+                          total: screenContext.termCount,
+                        })}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             {rawText !== null && (

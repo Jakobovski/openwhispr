@@ -414,7 +414,11 @@
       "screenContextTitle": "From screen",
       "screenContextCount": "{{words}} corrected from screen",
       "screenContextSubstitute": "misheard",
-      "screenContextRecase": "capitalisation"
+      "screenContextRecase": "capitalisation",
+      "screenContextRead": "{{words}} terms read from screen",
+      "screenContextNoCorrections": "Nothing needed correcting",
+      "screenContextTerms": "Terms read from screen ({{words}})",
+      "screenContextTermsTruncated": "Showing the {{shown}} most frequent of {{total}}"
     },
     "cloudMigration": {
       "title": "Welcome to OpenWhispr Cloud",
@@ -606,6 +610,11 @@
         "offline": "You're offline. Cloud transcription requires an internet connection.",
         "dailyLimitReached": "You've reached today's transcription limit. Try again tomorrow or upgrade your plan.",
         "providerRateLimited": "Your transcription provider rate-limited the request. Wait a moment and try again."
+      },
+      "screenContextBlocked": {
+        "title": "Screen context isn’t working",
+        "description": "OpenWhispr needs Screen Recording permission to read the window you’re dictating into. Your transcript was pasted uncorrected.",
+        "action": "Open Settings"
       }
     },
     "clipboard": {

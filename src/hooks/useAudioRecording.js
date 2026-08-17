@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, createElement } from "react";
 import { useTranslation } from "react-i18next";
 import AudioManager from "../helpers/audioManager";
 import logger from "../utils/logger";
@@ -270,6 +270,28 @@ export const useAudioRecording = (toast, options = {}) => {
               ? t("hooks.audioRecording.translationFallback.unreachableDescription")
               : t("hooks.audioRecording.translationFallback.failedDescription"),
           variant: "default",
+        });
+      },
+      onScreenContextBlocked: () => {
+        // Screen context is on and did nothing, because macOS has not granted
+        // Screen Recording. Destructive and long-lived on purpose: this is a
+        // feature the user turned on that is silently inert, and the fix is one
+        // click away in a settings pane they would otherwise have to find.
+        toast({
+          title: t("hooks.audioRecording.screenContextBlocked.title"),
+          description: t("hooks.audioRecording.screenContextBlocked.description"),
+          variant: "destructive",
+          duration: 15000,
+          action: createElement(
+            "button",
+            {
+              type: "button",
+              onClick: () => window.electronAPI?.openScreenRecordingSettings?.(),
+              className:
+                "shrink-0 rounded-md border border-white/30 px-2.5 py-1 text-xs font-medium hover:bg-white/10",
+            },
+            t("hooks.audioRecording.screenContextBlocked.action")
+          ),
         });
       },
     });

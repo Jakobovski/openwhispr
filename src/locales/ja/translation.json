@@ -414,7 +414,11 @@
       "screenContextTitle": "画面から",
       "screenContextCount": "画面をもとに {{words}} 件を修正",
       "screenContextSubstitute": "聞き間違い",
-      "screenContextRecase": "大文字小文字"
+      "screenContextRecase": "大文字小文字",
+      "screenContextRead": "画面から {{words}} 語を読み取り",
+      "screenContextNoCorrections": "修正の必要はありませんでした",
+      "screenContextTerms": "画面から読み取った語 ({{words}})",
+      "screenContextTermsTruncated": "{{total}} 件のうち頻出 {{shown}} 件を表示"
     },
     "cloudMigration": {
       "title": "OpenWhispr Cloud へようこそ",
@@ -606,6 +610,11 @@
         "offline": "オフラインです。クラウド文字起こしにはインターネット接続が必要です。",
         "dailyLimitReached": "本日の文字起こし上限に達しました。明日もう一度お試しいただくか、プランをアップグレードしてください。",
         "providerRateLimited": "文字起こしプロバイダーがリクエストを制限しました。しばらく待ってからもう一度お試しください。"
+      },
+      "screenContextBlocked": {
+        "title": "画面コンテキストが機能していません",
+        "description": "入力先のウィンドウを読み取るには、OpenWhispr に画面収録の許可が必要です。文字起こしは未修正のまま貼り付けられました。",
+        "action": "設定を開く"
       }
     },
     "clipboard": {

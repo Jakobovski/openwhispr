@@ -128,6 +128,29 @@ test("multiple corrections in one transcript are all reported", () => {
   );
 });
 
+test("every replacement's new word is one of the supplied screen terms", () => {
+  // The history view marks which candidate terms were actually used by matching
+  // each replacement's `to` against the term list. That only works because a
+  // replacement can never introduce a word from outside the list — it either
+  // recases an exact hit or swaps in a phonetic match, both drawn from the terms.
+  const terms = extractScreenTerms(`
+    OpenWhispr/openwhispr Kubernetes api_key Sinead Terraform
+  `);
+  const { replacements } = applyScreenTermCorrections(
+    "push to openwhispr and ping Shunade about kubernetes",
+    terms
+  );
+
+  assert.ok(replacements.length > 0, "expected this transcript to be corrected");
+  const lowered = new Set(terms.map((term) => term.toLowerCase()));
+  for (const replacement of replacements) {
+    assert.ok(
+      lowered.has(replacement.to.toLowerCase()),
+      `"${replacement.to}" is not one of the screen terms`
+    );
+  }
+});
+
 test("end to end: OCR text drives the correction", () => {
   const ocr = `
     Pull Requests · OpenWhispr/openwhispr

@@ -414,7 +414,11 @@
       "screenContextTitle": "С экрана",
       "screenContextCount": "Исправлено с экрана: {{words}}",
       "screenContextSubstitute": "ослышка",
-      "screenContextRecase": "регистр"
+      "screenContextRecase": "регистр",
+      "screenContextRead": "Считано с экрана терминов: {{words}}",
+      "screenContextNoCorrections": "Исправлять было нечего",
+      "screenContextTerms": "Термины, считанные с экрана ({{words}})",
+      "screenContextTermsTruncated": "Показаны {{shown}} самых частых из {{total}}"
     },
     "cloudMigration": {
       "title": "Добро пожаловать в OpenWhispr Cloud",
@@ -606,6 +610,11 @@
         "offline": "Вы офлайн. Облачная транскрипция требует подключения к интернету.",
         "dailyLimitReached": "Достигнут дневной лимит транскрипций. Попробуйте завтра или обновите тариф.",
         "providerRateLimited": "Ваш провайдер транскрипции ограничил запрос. Подождите немного и попробуйте снова."
+      },
+      "screenContextBlocked": {
+        "title": "Контекст экрана не работает",
+        "description": "OpenWhispr нужно разрешение на запись экрана, чтобы читать окно, в которое вы диктуете. Расшифровка вставлена без исправлений.",
+        "action": "Открыть настройки"
       }
     },
     "clipboard": {

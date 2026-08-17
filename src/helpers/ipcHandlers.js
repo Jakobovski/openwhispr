@@ -8694,8 +8694,19 @@ class IPCHandlers {
       this.windowOcr?.cancel();
     });
 
+    // `supported` means "this machine could capture if it were allowed to", so a
+    // caller can tell a missing grant apart from a missing sidecar. Without that
+    // distinction a dev build with no compiled binary would report a permission
+    // problem and send the user to a settings pane that cannot fix it.
     ipcMain.handle("check-screen-recording-permission", () => {
       if (process.platform !== "darwin") {
+        return { granted: false, status: "unsupported", supported: false };
+      }
+      if (!this.windowOcr) {
+        const WindowOcrManager = require("./windowOcrManager");
+        this.windowOcr = new WindowOcrManager();
+      }
+      if (!this.windowOcr.isSupported()) {
         return { granted: false, status: "unsupported", supported: false };
       }
       const status = systemPreferences.getMediaAccessStatus("screen");

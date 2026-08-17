@@ -414,7 +414,11 @@
       "screenContextTitle": "來自螢幕",
       "screenContextCount": "根據螢幕更正了 {{words}} 處",
       "screenContextSubstitute": "聽錯",
-      "screenContextRecase": "大小寫"
+      "screenContextRecase": "大小寫",
+      "screenContextRead": "從螢幕讀取了 {{words}} 個詞",
+      "screenContextNoCorrections": "沒有需要更正的內容",
+      "screenContextTerms": "從螢幕讀取的詞（{{words}}）",
+      "screenContextTermsTruncated": "顯示 {{total}} 個中最常見的 {{shown}} 個"
     },
     "cloudMigration": {
       "title": "歡迎使用 OpenWhispr Cloud",
@@ -606,6 +610,11 @@
         "offline": "你目前離線。雲端轉錄需要網際網路連線。",
         "dailyLimitReached": "已達今日的轉錄上限。請明天再試或升級你的方案。",
         "providerRateLimited": "你的轉錄服務商限制了請求頻率。請稍候再試。"
+      },
+      "screenContextBlocked": {
+        "title": "螢幕內容未生效",
+        "description": "OpenWhispr 需要「螢幕錄製」權限才能讀取你正在輸入的視窗。本次轉錄已按原樣貼上，未做更正。",
+        "action": "打開設定"
       }
     },
     "clipboard": {

@@ -414,7 +414,11 @@
       "screenContextTitle": "De la pantalla",
       "screenContextCount": "{{words}} corregidas desde la pantalla",
       "screenContextSubstitute": "mal escuchada",
-      "screenContextRecase": "mayúsculas"
+      "screenContextRecase": "mayúsculas",
+      "screenContextRead": "{{words}} términos leídos de la pantalla",
+      "screenContextNoCorrections": "No hubo nada que corregir",
+      "screenContextTerms": "Términos leídos de la pantalla ({{words}})",
+      "screenContextTermsTruncated": "Mostrando los {{shown}} más frecuentes de {{total}}"
     },
     "cloudMigration": {
       "title": "Bienvenido a OpenWhispr Cloud",
@@ -606,6 +610,11 @@
         "offline": "Estás sin conexión. La transcripción en la nube requiere conexión a Internet.",
         "dailyLimitReached": "Has alcanzado el límite de transcripción de hoy. Inténtalo mañana o mejora tu plan.",
         "providerRateLimited": "Tu proveedor de transcripción limitó la solicitud. Espera un momento e inténtalo de nuevo."
+      },
+      "screenContextBlocked": {
+        "title": "El contexto de pantalla no funciona",
+        "description": "OpenWhispr necesita permiso de Grabación de pantalla para leer la ventana en la que dictas. Tu transcripción se pegó sin corregir.",
+        "action": "Abrir Ajustes"
       }
     },
     "clipboard": {
