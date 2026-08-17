@@ -31,6 +31,7 @@ import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree } from "../utils/transcriptReconcile";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
+import { concatFrames } from "../utils/pcmAudio";
 import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/prompts";
 import {
   DUAL_TRANSCRIPTION_MODELS,
@@ -401,6 +402,7 @@ const STREAMING_PROVIDERS = {
 class AudioManager {
   constructor() {
     this.mediaRecorder = null;
+    this._batchPcm = [];
     this.audioChunks = [];
     this.isRecording = false;
     this.isProcessing = false;
@@ -554,28 +556,55 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    * The bytes do go up for the untrimmed case (Opus is far smaller than PCM), but the
    * measurements say that costs nothing: 16 kHz WAV beat Opus on OpenAI and tied on xAI.
    */
-  async prepareAudioForUpload(audioBlob) {
+  /**
+   * The samples this dictation captured, when they are safe to use in place of decoding.
+   *
+   * Rotation across a mic change leaves several segments; concatenating them is only
+   * correct when every one came back at the same rate, which is why the rate is carried
+   * per segment rather than assumed.
+   */
+  capturedPcmForUpload() {
+    const segments = (this._batchPcm || []).filter((entry) => entry?.samples?.length);
+    if (segments.length === 0) return null;
+    const sampleRate = segments[0].sampleRate;
+    if (segments.some((entry) => entry.sampleRate !== sampleRate)) return null;
+    return { samples: concatFrames(segments.map((entry) => entry.samples)), sampleRate };
+  }
+
+  async prepareAudioForUpload(audioBlob, capturedPcm = null) {
     this._lastTrim = null;
     if (!audioBlob?.size) return audioBlob;
     const trimSettings = getSettings();
     try {
-      const context = new AudioContext();
-      let decoded;
-      try {
-        decoded = await context.decodeAudioData(await audioBlob.arrayBuffer());
-      } finally {
-        context.close().catch(() => {});
-      }
+      let mono;
+      let sourceRate;
+      if (capturedPcm?.samples?.length) {
+        // Straight from the microphone: already mono at 16 kHz, so no decode and no
+        // resample. Decoding the encoded blob instead would round-trip the audio through
+        // the hardware rate for nothing.
+        mono = capturedPcm.samples;
+        sourceRate = capturedPcm.sampleRate;
+      } else {
+        const context = new AudioContext();
+        let decoded;
+        try {
+          decoded = await context.decodeAudioData(await audioBlob.arrayBuffer());
+        } finally {
+          context.close().catch(() => {});
+        }
 
-      // Mono: every provider here transcribes a single channel, and mixing down first
-      // means the trim plan is computed on what is actually uploaded.
-      const channels = decoded.numberOfChannels;
-      const length = decoded.length;
-      const mono = new Float32Array(length);
-      for (let c = 0; c < channels; c++) {
-        const data = decoded.getChannelData(c);
-        for (let i = 0; i < length; i++) mono[i] += data[i] / channels;
+        // Mono: every provider here transcribes a single channel, and mixing down first
+        // means the trim plan is computed on what is actually uploaded.
+        const channels = decoded.numberOfChannels;
+        mono = new Float32Array(decoded.length);
+        for (let c = 0; c < channels; c++) {
+          const data = decoded.getChannelData(c);
+          for (let i = 0; i < decoded.length; i++) mono[i] += data[i] / channels;
+        }
+        sourceRate = decoded.sampleRate;
       }
+      const length = mono.length;
+      const decoded = { sampleRate: sourceRate };
 
       // Trimming is the user's setting; the resample is not, so a disabled trim still
       // gets the smaller, consistent upload.
@@ -1151,9 +1180,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     this.mediaRecorder = recorder;
     this.audioChunks = [];
     this.recordingMimeType = "audio/wav";
+    if (!this._rotatingBatchRecorder) this._batchPcm = [];
 
-    recorder.onstop = async ({ blob }) => {
+    recorder.onstop = async ({ blob, samples, sampleRate }) => {
       const segment = blob;
+      // Kept so the upload path can trim these samples directly. Decoding the WAV back
+      // would upsample it to the hardware rate — decodeAudioData resamples to its
+      // context — and then it would have to be downsampled again to reach 16 kHz.
+      this._batchPcm.push({ samples, sampleRate });
       const rotating = this._rotatingBatchRecorder === recorder;
       // A dying mic used to stop MediaRecorder on its own; the PCM recorder has to be
       // stopped explicitly, which micRecovery does. Either way, while recovery is armed a
@@ -2671,7 +2705,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       );
 
       const apiKey = await this.getAPIKey();
-      const optimizedAudio = await this.prepareAudioForUpload(audioBlob);
+      const optimizedAudio = await this.prepareAudioForUpload(
+        audioBlob,
+        this.capturedPcmForUpload()
+      );
 
       // Dispatch before endpoint resolution (which defaults to OpenAI and would leak
       // the key). Self-hosted wins, so a leftover "tinfoil" provider isn't diverted here.
@@ -3313,7 +3350,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     // Trimmed once, before the fan-out: every provider gets the same shorter audio, and
     // the saving counts once per lane.
-    const trimmedBlob = await this.prepareAudioForUpload(audioBlob);
+    const trimmedBlob = await this.prepareAudioForUpload(audioBlob, this.capturedPcmForUpload());
 
     const startedAt = performance.now();
     const settled = lanes.map(() => null);
