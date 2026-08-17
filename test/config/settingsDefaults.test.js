@@ -55,15 +55,29 @@ const FILES = sourceFiles().map((file) => ({
   source: fs.readFileSync(file, "utf8"),
 }));
 
-/** key -> default expression, as the store's initial state declares it. */
+/**
+ * key -> default expression, for every read the store performs.
+ *
+ * Matches the read itself rather than a `property: read…` pair, because some settings
+ * validate their stored value inside an IIFE and so are not adjacent to their property.
+ */
 function storeDefaults() {
   const defaults = new Map();
-  const pattern =
-    /(\w+):\s*read(?:String|Boolean|Number)\(\s*"(\w+)"\s*,\s*([^,)]+(?:\([^)]*\))?)\)/g;
+  const pattern = /read(?:String|Boolean|Number)\(\s*"(\w+)"\s*,\s*([^,)]+(?:\([^)]*\))?)\)/g;
   for (const match of storeSource.matchAll(pattern)) {
-    defaults.set(match[2], { property: match[1], expression: match[3].trim() });
+    defaults.set(match[1], { expression: match[2].trim() });
   }
   return defaults;
+}
+
+/** property name -> storage key, for the reads where the two sit together. */
+function storeProperties() {
+  const pairs = [];
+  const pattern = /(\w+):\s*read(?:String|Boolean|Number)\(\s*"(\w+)"/g;
+  for (const match of storeSource.matchAll(pattern)) {
+    pairs.push({ property: match[1], key: match[2] });
+  }
+  return pairs;
 }
 
 const DEFAULTS = storeDefaults();
@@ -91,9 +105,9 @@ const ALLOWED_LITERAL_COPIES = [
 test("the store's read helpers cannot disagree with the key they read", () => {
   // A copy-paste that leaves the property name pointing at another key's storage
   // slot makes the UI edit one setting and the runtime read another.
-  const mismatched = [...DEFAULTS.entries()]
-    .filter(([key, { property }]) => property !== key)
-    .map(([key, { property }]) => `${property} reads "${key}"`);
+  const mismatched = storeProperties()
+    .filter(({ property, key }) => property !== key)
+    .map(({ property, key }) => `${property} reads "${key}"`);
 
   assert.deepEqual(mismatched, []);
 });
@@ -214,5 +228,12 @@ test("a fresh install can actually reach multi transcription", () => {
   // any one of them silently drops every new install back to single-provider.
   assert.equal(DEFAULTS.get("multiTranscriptionEnabled")?.expression, "true");
   assert.equal(DEFAULTS.get("useLocalWhisper")?.expression, "false");
-  assert.equal(DEFAULTS.get("cloudTranscriptionMode")?.expression, '"byok"');
+  assert.equal(
+    DEFAULTS.get("cloudTranscriptionMode")?.expression,
+    "settingsDefaults.storeDefaults.cloudTranscriptionMode"
+  );
+  // What the Settings tab selects on. It used to default to openwhispr independently of
+  // the cloud mode above, so the two could — and did — disagree.
+  assert.equal(table.storeDefaults.cloudTranscriptionMode, "byok");
+  assert.equal(table.storeDefaults.transcriptionMode, "providers");
 });

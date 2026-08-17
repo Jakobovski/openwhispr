@@ -12,7 +12,12 @@
     "vertexLocation": "us-central1",
     "whisperModel": "base",
     "speakerDiarizationEnabled": true,
-    "preferredLanguage": "en"
+    "preferredLanguage": "en",
+    "cloudTranscriptionMode": "byok",
+    "transcriptionMode": "providers",
+    "cleanupMode": "providers",
+    "localTranscriptionProvider": "whisper",
+    "chatAgentMode": "openwhispr"
   },
   "resolutionDefaults": {
     "parakeetModel": "parakeet-tdt-0.6b-v3",

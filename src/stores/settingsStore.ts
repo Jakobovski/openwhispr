@@ -7,6 +7,7 @@ import { useStreamingProvidersStore } from "./streamingProvidersStore";
 import logger from "../utils/logger";
 import whisperVadConstants from "../constants/whisperVad.json";
 import settingsDefaults from "../config/settingsDefaults.json";
+import { deriveTranscriptionMode, hasNoStoredProviderSettings } from "../config/inferenceModes";
 import modelRegistryData from "../models/modelRegistryData.json";
 import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
 import type { GoogleCalendarAccount } from "../types/calendar";
@@ -229,24 +230,14 @@ function migrateMultiTranscriptionEnabled() {
 
 migrateMultiTranscriptionEnabled();
 
-// Map the underlying transcription fields to the InferenceMode the Settings
-// tabs select on. Single source of truth shared by the provider-settings
-// migration and the onboarding "use this provider everywhere" action.
-function deriveTranscriptionMode(
-  useLocalWhisper: boolean,
-  cloudTranscriptionMode: string | null,
-  cloudTranscriptionProvider: string | null
-): InferenceMode {
-  if (useLocalWhisper) return "local";
-  if (cloudTranscriptionMode === "byok") {
-    return cloudTranscriptionProvider === "custom" ? "self-hosted" : "providers";
-  }
-  return "openwhispr";
-}
-
 function migrateProviderSettings() {
   if (!isBrowser) return;
   if (localStorage.getItem("_providerSettingsMigrated") === "1") return;
+  // Nothing stored to convert: leave every key absent so the store's defaults decide.
+  if (hasNoStoredProviderSettings()) {
+    localStorage.setItem("_providerSettingsMigrated", "1");
+    return;
+  }
 
   const cloudMode = localStorage.getItem("cloudTranscriptionMode");
   const useLocal = localStorage.getItem("useLocalWhisper") === "true";
@@ -998,7 +989,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   uiLanguage: normalizeUiLanguage(isBrowser ? localStorage.getItem("uiLanguage") : null),
   useLocalWhisper: readBoolean("useLocalWhisper", false),
   whisperModel: readString("whisperModel", settingsDefaults.storeDefaults.whisperModel),
-  localTranscriptionProvider: (readString("localTranscriptionProvider", "whisper") === "nvidia"
+  localTranscriptionProvider: (readString(
+    "localTranscriptionProvider",
+    settingsDefaults.storeDefaults.localTranscriptionProvider
+  ) === "nvidia"
     ? "nvidia"
     : "whisper") as LocalTranscriptionProvider,
   parakeetModel: readString("parakeetModel", ""),
@@ -1029,7 +1023,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   // on any other mode), and OpenWhispr cloud mode needs a sign-in a fresh install has
   // not done. This used to be flipped to byok inside the onboarding wizard, which no
   // longer runs — the default has to be right on its own.
-  cloudTranscriptionMode: readString("cloudTranscriptionMode", "byok"),
+  cloudTranscriptionMode: readString(
+    "cloudTranscriptionMode",
+    settingsDefaults.storeDefaults.cloudTranscriptionMode
+  ),
   cleanupCloudMode: readString("cleanupCloudMode", settingsDefaults.storeDefaults.cleanupCloudMode),
   cleanupCloudBaseUrl: readString("cleanupCloudBaseUrl", API_ENDPOINTS.OPENAI_BASE),
   cortiEnvironment: readString("cortiEnvironment", settingsDefaults.storeDefaults.cortiEnvironment),
@@ -1200,9 +1197,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   isSignedIn: readBoolean("isSignedIn", false),
 
   transcriptionMode: (() => {
-    const v = readString("transcriptionMode", "openwhispr");
+    const fallback = settingsDefaults.storeDefaults.transcriptionMode as InferenceMode;
+    const v = readString("transcriptionMode", settingsDefaults.storeDefaults.transcriptionMode);
     if (v === "openwhispr" || v === "providers" || v === "local" || v === "self-hosted") return v;
-    return "openwhispr" as InferenceMode;
+    return fallback;
   })(),
   remoteTranscriptionType: (() => {
     const v = readString("remoteTranscriptionType", "lan");
@@ -1211,7 +1209,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   remoteTranscriptionUrl: readString("remoteTranscriptionUrl", ""),
   remoteTranscriptionModel: readString("remoteTranscriptionModel", ""),
   cleanupMode: (() => {
-    const v = readString("cleanupMode", "openwhispr");
+    const fallback = settingsDefaults.storeDefaults.cleanupMode as InferenceMode;
+    const v = readString("cleanupMode", settingsDefaults.storeDefaults.cleanupMode);
     if (
       v === "openwhispr" ||
       v === "providers" ||
@@ -1220,7 +1219,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       v === "enterprise"
     )
       return v;
-    return "openwhispr" as InferenceMode;
+    return fallback;
   })(),
   cleanupRemoteUrl: readString("cleanupRemoteUrl", ""),
 
@@ -1390,7 +1389,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   chatAgentKey: readString("chatAgentKey", ""),
   chatAgentCloudMode: readString("chatAgentCloudMode", "openwhispr"),
   chatAgentMode: (() => {
-    const v = readString("chatAgentMode", "openwhispr");
+    const v = readString("chatAgentMode", settingsDefaults.storeDefaults.chatAgentMode);
     if (
       v === "openwhispr" ||
       v === "providers" ||

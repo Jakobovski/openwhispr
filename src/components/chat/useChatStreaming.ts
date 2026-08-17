@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import settingsDefaults from "../../config/settingsDefaults.json";
 import { useTranslation } from "react-i18next";
 import ReasoningService, { type AgentStreamChunk } from "../../services/ReasoningService";
 import { isEnterpriseProvider } from "../../models/ModelRegistry";
@@ -95,7 +96,7 @@ export function useChatStreaming({
       setAgentState("thinking");
 
       const settings = getSettings();
-      const chatAgentMode = settings.chatAgentMode || "openwhispr";
+      const chatAgentMode = settings.chatAgentMode || settingsDefaults.storeDefaults.chatAgentMode;
       const isCloudAgent = chatAgentMode === "openwhispr" && settings.isSignedIn;
       const isLanAgent = chatAgentMode === "self-hosted" && !!settings.chatAgentRemoteUrl;
       const isCustomAgent =

@@ -230,7 +230,11 @@ const isValidApiKey = (key, provider = "openai") => {
 // from a list of known providers, so nothing here needs touching when one is added.
 function resolveActiveTranscriptionProvider(settings) {
   if (!settings) return null;
-  if (settings.useLocalWhisper) return settings.localTranscriptionProvider || "whisper";
+  if (settings.useLocalWhisper)
+    return (
+      settings.localTranscriptionProvider ||
+      settingsDefaults.storeDefaults.localTranscriptionProvider
+    );
   if (settings.transcriptionMode === "openwhispr") return "openwhispr";
   if (settings.transcriptionMode === "self-hosted") return "lan";
   return settings.cloudTranscriptionProvider || null;
@@ -764,7 +768,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // the UI-wide preferred language; "auto" keeps whisper auto-detection.
   getEffectiveSttLanguage(settings) {
     if (this.translationRequested) {
-      return settings.translationSourceLanguage || settingsDefaults.storeDefaults.translationSourceLanguage;
+      return (
+        settings.translationSourceLanguage ||
+        settingsDefaults.storeDefaults.translationSourceLanguage
+      );
     }
     return settings.preferredLanguage;
   }
@@ -1513,7 +1520,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const useLocalWhisper = settings.useLocalWhisper;
       const localProvider = settings.localTranscriptionProvider;
       const whisperModel = settings.whisperModel;
-      const parakeetModel = settings.parakeetModel || settingsDefaults.resolutionDefaults.parakeetModel;
+      const parakeetModel =
+        settings.parakeetModel || settingsDefaults.resolutionDefaults.parakeetModel;
 
       const cloudTranscriptionMode = settings.cloudTranscriptionMode;
       const isSignedIn = settings.isSignedIn;
@@ -1756,7 +1764,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async processWithLocalParakeet(audioBlob, model = settingsDefaults.resolutionDefaults.parakeetModel, metadata = {}) {
+  async processWithLocalParakeet(
+    audioBlob,
+    model = settingsDefaults.resolutionDefaults.parakeetModel,
+    metadata = {}
+  ) {
     const timings = {};
 
     try {
@@ -1848,7 +1860,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return null;
     }
 
-    const provider = s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
+    const provider =
+      s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
 
     // Check cache (invalidate if provider changed)
     if (this.cachedApiKey !== null && this.cachedApiKeyProvider === provider) {
@@ -2513,7 +2526,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const audioFormat = audioBlob.type;
     const opts = {};
     if (language) opts.language = language;
-    const cleanupCloudMode = settings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
+    const cleanupCloudMode =
+      settings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
     if (
       (settings.useCleanupModel && !this.skipReasoning && cleanupCloudMode === "openwhispr") ||
       (this.translationRequested &&
@@ -2558,7 +2572,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (this.translationRequested && route.kind !== "translation") {
         this.notifyTranslationFallback("unreachable");
       }
-      const cleanupCloudMode = settings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
+      const cleanupCloudMode =
+        settings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
 
       try {
         if (route.kind === "agent") {
@@ -2684,12 +2699,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const apiSettings = getSettings();
     const language = getBaseLanguageCode(this.getEffectiveSttLanguage(apiSettings));
     const allowLocalFallback = apiSettings.allowLocalFallback;
-    const fallbackModel = apiSettings.fallbackWhisperModel || settingsDefaults.storeDefaults.fallbackWhisperModel;
+    const fallbackModel =
+      apiSettings.fallbackWhisperModel || settingsDefaults.storeDefaults.fallbackWhisperModel;
 
     try {
       const durationSeconds = metadata.durationSeconds ?? null;
       const model = this.getTranscriptionModel();
-      const provider = apiSettings.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
+      const provider =
+        apiSettings.cloudTranscriptionProvider ||
+        settingsDefaults.storeDefaults.cloudTranscriptionProvider;
 
       logger.debug(
         "Transcription request starting",
@@ -2898,8 +2916,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           audioBuffer,
           // Corti requires a concrete primaryLanguage; default to English when auto-detecting
           language: language || "en",
-          environment: apiSettings.cortiEnvironment || settingsDefaults.storeDefaults.cortiEnvironment,
-          tenant: (apiSettings.cortiTenant || "").trim() || settingsDefaults.storeDefaults.cortiTenant,
+          environment:
+            apiSettings.cortiEnvironment || settingsDefaults.storeDefaults.cortiEnvironment,
+          tenant:
+            (apiSettings.cortiTenant || "").trim() || settingsDefaults.storeDefaults.cortiTenant,
         };
 
         const result = await window.electronAPI.proxyCortiTranscription(proxyData);
@@ -3522,7 +3542,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const s = getSettings();
       const selfHostedModel = resolveSelfHostedTranscriptionModel(s);
       if (selfHostedModel) return selfHostedModel;
-      const provider = s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
+      const provider =
+        s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
       const trimmedModel = (s.cloudTranscriptionModel || "").trim();
 
       // For custom provider, use whatever model is set (or fallback to whisper-1)
@@ -3569,7 +3590,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   getTranscriptionEndpoint(deploymentName = "") {
     const s = getSettings();
-    const currentProvider = s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
+    const currentProvider =
+      s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
 
     // Backstop against the OpenAI-default leak: Tinfoil goes through the main-process
     // proxy, never here — except self-hosted, which resolves its remote URL below.
@@ -3958,7 +3980,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     if (REALTIME_MODELS.has(s.cloudTranscriptionModel)) {
       // Realtime WS is OpenAI-only — other providers fall through to HTTP.
-      if ((s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider) !== "openai") return false;
+      if (
+        (s.cloudTranscriptionProvider ||
+          settingsDefaults.storeDefaults.cloudTranscriptionProvider) !== "openai"
+      )
+        return false;
       if (s.cloudTranscriptionMode === "byok") return !!s.openaiApiKey;
       if (s.cloudTranscriptionMode === "openwhispr") return !!(isSignedInOverride ?? s.isSignedIn);
       return false;
@@ -4560,7 +4586,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (this.translationRequested && route.kind !== "translation") {
         this.notifyTranslationFallback("unreachable");
       }
-      const cleanupCloudMode = stSettings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
+      const cleanupCloudMode =
+        stSettings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
 
       try {
         if (route.kind === "agent") {
