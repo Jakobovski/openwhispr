@@ -28,7 +28,6 @@ import {
   isCloudTranslationMode,
 } from "../stores/settingsStore";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
-import { recordScreenTerms } from "../stores/screenContextTerms";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree } from "../utils/transcriptReconcile";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
@@ -3922,18 +3921,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const screenContext = this._lastScreenContext;
     this._lastScreenContext = null;
 
-    // The OCR'd vocabulary stays in memory for the history view to show and is
-    // never written anywhere — it is the contents of whatever window the user was
-    // looking at, which is not about what they said. See screenContextTerms. Only
-    // the replacements are persisted below, and those words are already in the
-    // stored transcript, since the correction *is* the text that got pasted.
-    if (screenContext) {
-      recordScreenTerms(clientTranscriptionId, {
-        window: screenContext.window,
-        terms: screenContext.terms,
-        termCount: screenContext.termCount,
-      });
-    }
     const screenContextJson =
       screenContext && screenContext.replacements.length > 0
         ? JSON.stringify({ replacements: screenContext.replacements })
@@ -3954,6 +3941,21 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         screenContextJson,
       });
       if (result?.id) syncService.debouncedPush("transcription", result.id);
+
+      // The OCR'd vocabulary goes to the main process, keyed by the row id that was
+      // just minted — the only identifier this window and the control panel both
+      // know. It is held in memory there and never written anywhere: it is the
+      // contents of whatever window the user was looking at, which is not about
+      // what they said. Only the replacements above are persisted, and those words
+      // are already in the stored transcript, since the correction *is* the text
+      // that got pasted.
+      if (result?.id && screenContext) {
+        window.electronAPI?.recordScreenContextTerms?.(result.id, {
+          window: screenContext.window,
+          terms: screenContext.terms,
+          termCount: screenContext.termCount,
+        });
+      }
 
       // Save audio if we have a captured blob and the transcription was saved successfully
       if (result?.id && this.lastAudioBlob) {

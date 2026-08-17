@@ -22,6 +22,7 @@ const { createTinfoilRealtimeSocket } = require("./tinfoilSecureClient");
 const { getTinfoilChatModels } = require("./tinfoilCatalog");
 const { transcribeWithTinfoil } = require("./tinfoilTranscription");
 const AudioStorageManager = require("./audioStorage");
+const screenContextTermsStore = require("./screenContextTermsStore");
 
 // Tinfoil's only realtime STT model — fallback when the renderer omits one.
 const TINFOIL_REALTIME_MODEL = "voxtral-mini-4b-realtime";
@@ -1009,6 +1010,9 @@ class IPCHandlers {
 
     ipcMain.handle("db-clear-transcriptions", async (event) => {
       this.audioStorageManager.deleteAllAudio();
+      // Clearing history clears the screen terms with it: they are keyed by row id,
+      // and a new row reusing a stale id would inherit another dictation's terms.
+      screenContextTermsStore.clear();
       const result = this.databaseManager.clearTranscriptions();
       if (result?.success) {
         setImmediate(() => {
@@ -8694,6 +8698,16 @@ class IPCHandlers {
       this.windowOcr?.cancel();
     });
 
+    // The OCR'd vocabulary for recent dictations. Lives here rather than in the
+    // renderer that produces it because dictation and history are separate windows,
+    // and so separate renderer processes — the main process is the only memory both
+    // share. Never written to disk; see screenContextTermsStore.
+    ipcMain.on("screen-context-record-terms", (_event, transcriptionId, detail) => {
+      screenContextTermsStore.record(transcriptionId, detail);
+    });
+
+    ipcMain.handle("screen-context-get-terms", () => screenContextTermsStore.getAll());
+
     // `supported` means "this machine could capture if it were allowed to", so a
     // caller can tell a missing grant apart from a missing sidecar. Without that
     // distinction a dev build with no compiled binary would report a permission
@@ -9786,6 +9800,9 @@ class IPCHandlers {
 
   deleteTranscriptionInternal(id) {
     this.audioStorageManager.deleteAudio(id);
+    // Drop the screen terms with the row, so deleting a dictation really does
+    // remove everything screen context read for it.
+    screenContextTermsStore.forget(id);
     const result = this.databaseManager.deleteTranscription(id);
     if (result?.success) {
       setImmediate(() => {

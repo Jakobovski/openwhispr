@@ -8,6 +8,7 @@ import { formatHotkeyLabel, parseHotkeyList } from "../utils/hotkeys";
 import { formatDateGroup } from "../utils/dateFormatting";
 import { cn } from "./lib/utils";
 import { useUpcomingEvents } from "../hooks/useUpcomingEvents";
+import { useScreenContextTerms } from "../hooks/useScreenContextTerms";
 import UpcomingMeetings from "./UpcomingMeetings";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -51,6 +52,9 @@ export default function HistoryView({
   const { t } = useTranslation();
   const dataRetentionEnabled = useSettingsStore((s) => s.dataRetentionEnabled);
   const { events, isLoading: eventsLoading, isConnected } = useUpcomingEvents();
+  // Keyed by transcription row id. Empty for dictations from a previous run — the
+  // terms are held in the main process's memory and never persisted.
+  const screenContextTerms = useScreenContextTerms();
 
   const groupedHistory = useMemo(() => {
     if (history.length === 0) return [];
@@ -326,6 +330,7 @@ export default function HistoryView({
                           onShowAudioInFolder={onShowAudioInFolder}
                           onRetryTranscription={onRetryTranscription}
                           onOpenSettings={() => onOpenSettings("transcription")}
+                          screenTerms={screenContextTerms[item.id]}
                         />
                       ))}
                     </div>

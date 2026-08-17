@@ -47,6 +47,18 @@ export interface TranscriptionItem {
   deleted_at: string | null;
 }
 
+/**
+ * Terms OCR'd from the window a dictation was made into. Held in the main process
+ * for the lifetime of the app and never persisted — see screenContextTermsStore.
+ */
+export interface ScreenContextTerms {
+  /** App and window the text was read from, e.g. "Safari — Pull Requests". */
+  window: string;
+  /** Candidate terms that survived the common-word filter, most frequent first. */
+  terms: string[];
+  termCount: number;
+}
+
 export interface ScreenRecordingAccessResult {
   granted: boolean;
   /** The macOS TCC status, or "unsupported" off macOS and without the sidecar. */
@@ -1764,6 +1776,10 @@ declare global {
       windowOcrStart?: () => void;
       windowOcrCollect?: () => Promise<{ text: string; window: string } | null>;
       windowOcrCancel?: () => void;
+      /** Hands the OCR'd vocabulary to the main process, which holds it in memory only. */
+      recordScreenContextTerms?: (transcriptionId: number, detail: ScreenContextTerms) => void;
+      /** Everything currently held, keyed by transcription row id. */
+      getScreenContextTerms?: () => Promise<Record<string, ScreenContextTerms>>;
       checkScreenRecordingPermission?: () => Promise<ScreenRecordingAccessResult>;
       /** Attempts a capture, which is the only thing that raises the macOS prompt. */
       requestScreenRecordingPermission?: () => Promise<ScreenRecordingAccessResult>;

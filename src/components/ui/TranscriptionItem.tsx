@@ -19,13 +19,13 @@ import {
 import type {
   TranscriptionItem as TranscriptionItemType,
   TranscriptionErrorCode,
+  ScreenContextTerms,
 } from "../../types/electron";
 import { cn } from "../lib/utils";
 import { getCachedPlatform } from "../../utils/platform";
 import { formatMmSs } from "../../utils/formatDuration";
 import { getProviderDisplayName } from "../../models/ModelRegistry";
 import { diffTranscripts, type DiffToken } from "../../utils/transcriptDiff";
-import { getScreenTerms } from "../../stores/screenContextTerms";
 
 const platform = getCachedPlatform();
 
@@ -175,6 +175,12 @@ interface TranscriptionItemProps {
   onShowAudioInFolder?: (id: number) => void;
   onRetryTranscription?: (id: number, options?: { isRecover?: boolean }) => Promise<void>;
   onOpenSettings?: () => void;
+  /**
+   * Terms OCR'd from the window this dictation was made into, when they are still
+   * held in memory. Absent for dictations from a previous run of the app, since they
+   * are deliberately never persisted.
+   */
+  screenTerms?: ScreenContextTerms;
 }
 
 export default function TranscriptionItem({
@@ -184,6 +190,7 @@ export default function TranscriptionItem({
   onShowAudioInFolder,
   onRetryTranscription,
   onOpenSettings,
+  screenTerms,
 }: TranscriptionItemProps) {
   const { t, i18n } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
@@ -195,10 +202,6 @@ export default function TranscriptionItem({
   const rawText = item.raw_text;
   const dual = parseDual(item.dual_json);
   const screenContext = parseScreenContext(item.screen_context_json);
-  // Read from memory, not from the row: the OCR'd vocabulary is deliberately never
-  // stored, so this is present for dictations made since the app started and absent
-  // for everything older.
-  const screenTerms = getScreenTerms(item.client_transcription_id);
   // Which of the candidate terms actually landed in the transcript, so the list
   // below distinguishes "was available" from "was used".
   const usedTerms = useMemo(
