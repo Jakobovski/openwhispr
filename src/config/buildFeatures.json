@@ -1,0 +1,23 @@
+{
+  "_comment": [
+    "Features switched off in this build. Not user settings — a setting is a choice the",
+    "user makes and can change, these are capabilities this fork does not ship.",
+    "",
+    "Plain JSON because src/ mixes renderer ESM with main-process CommonJS, and both",
+    "sides need the same answer: the main process to refuse to start the machinery, the",
+    "renderer to stop offering controls for something that cannot happen.",
+    "",
+    "autoUpdate: the update feed points at OpenWhispr/openwhispr — upstream. An update",
+    "here would replace this fork with a build that has none of its changes. Re-enabling",
+    "means pointing the feed at a repo that publishes THIS build; flipping the flag alone",
+    "just resumes overwriting the app.",
+    "",
+    "meetingDetection: automatic detection of meetings via mic usage, running processes",
+    "and calendar reminders, all of which existed to raise a prompt. The mic listener is a",
+    "Swift sidecar that ran for the whole session and the process detector polled, so both",
+    "were pure cost. Starting a meeting note deliberately — the meeting hotkey, the tray —",
+    "is unaffected."
+  ],
+  "autoUpdate": false,
+  "meetingDetection": false
+}

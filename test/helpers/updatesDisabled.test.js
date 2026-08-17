@@ -28,7 +28,13 @@ function methodBody(name) {
 }
 
 test("the kill switch is on", () => {
-  assert.match(source, /const UPDATES_DISABLED = true;/);
+  // The switch lives in buildFeatures.json so the renderer reads the same answer as the
+  // main process; the module must derive from it rather than carry its own literal.
+  const features = JSON.parse(
+    fs.readFileSync(path.join(ROOT, "src", "config", "buildFeatures.json"), "utf8")
+  );
+  assert.equal(features.autoUpdate, false, "auto-update must stay off in buildFeatures.json");
+  assert.match(source, /UPDATES_DISABLED = buildFeatures\.autoUpdate === false/);
 });
 
 test("every entry point that could reach the network is guarded", () => {

@@ -1,8 +1,26 @@
 const { BrowserWindow, shell } = require("electron");
 const debugLogger = require("./debugLogger");
 const { getMeetingJoinUrl } = require("./meetingJoinUrl");
+const buildFeatures = require("../config/buildFeatures.json");
 
 const IMMINENT_THRESHOLD_MS = 5 * 60 * 1000;
+
+// Automatic meeting detection is off in this build.
+//
+// It watched for meetings three ways and prompted when it thought one had started:
+// a mic-usage listener (a Swift sidecar running for the whole session), a poll of
+// running processes for known meeting apps, and calendar reminders. All three exist
+// only to raise a prompt, so with the prompt gone there is nothing for them to do —
+// and the sidecar and the poll are pure cost while they run.
+//
+// Off at the source rather than by unticking the notification settings: those only
+// ever gated `audioDetection`, so process detection kept polling regardless, and a
+// default can be overridden by a stored value from before it changed.
+//
+// What this does NOT disable: starting a meeting note yourself, via the meeting
+// hotkey or the tray. startManualMeeting and joinCalendarMeeting do not depend on the
+// detectors, so recording a meeting on purpose still works.
+const MEETING_DETECTION_DISABLED = buildFeatures.meetingDetection === false;
 
 const PLACEHOLDER_PREFIX = { __detected__: "detected", __manual__: "manual" };
 
@@ -37,7 +55,9 @@ class MeetingDetectionEngine {
     this.windowManager = windowManager;
     this.databaseManager = databaseManager;
     this.activeDetections = new Map();
-    this.preferences = { processDetection: true, audioDetection: true };
+    this.preferences = MEETING_DETECTION_DISABLED
+      ? { processDetection: false, audioDetection: false }
+      : { processDetection: true, audioDetection: true };
     this._userRecording = false;
     this._meetingModeActive = false;
     this._notificationQueue = [];
@@ -73,6 +93,13 @@ class MeetingDetectionEngine {
 
   _handleDetection(source, key, data) {
     const detectionId = `${source}:${key}`;
+
+    // The single funnel every source reaches, calendar reminders included — so this is
+    // the one place that has to hold even if a detector were started some other way.
+    if (MEETING_DETECTION_DISABLED) {
+      debugLogger.debug("Meeting detection disabled, ignoring", { detectionId }, "meeting");
+      return;
+    }
 
     if (source === "audio" && !this.preferences.audioDetection) {
       debugLogger.debug("Audio detection disabled, ignoring", { detectionId }, "meeting");
@@ -412,6 +439,10 @@ class MeetingDetectionEngine {
   }
 
   setPreferences(prefs) {
+    // The renderer syncs these from the notification settings on every launch, so
+    // without this the detectors would be turned back on behind the switch above.
+    if (MEETING_DETECTION_DISABLED) return;
+
     debugLogger.info("Updating detection preferences", prefs, "meeting");
     Object.assign(this.preferences, prefs);
 
@@ -433,6 +464,11 @@ class MeetingDetectionEngine {
   }
 
   start() {
+    if (MEETING_DETECTION_DISABLED) {
+      debugLogger.info("Meeting detection is disabled in this build", {}, "meeting");
+      return;
+    }
+
     debugLogger.info("Meeting detection engine started", this.preferences, "meeting");
     if (this.preferences.processDetection) this.meetingProcessDetector.start();
     if (this.preferences.audioDetection) this.audioActivityDetector.start();

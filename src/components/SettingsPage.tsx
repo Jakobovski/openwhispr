@@ -83,6 +83,7 @@ import { useLocalStorage } from "../hooks/useLocalStorage";
 import { validateHotkeyForSlot } from "../utils/hotkeyValidation";
 import { getPlatform, getCachedPlatform } from "../utils/platform";
 import { useScreenRecordingPermission } from "../hooks/useScreenRecordingPermission";
+import buildFeatures from "../config/buildFeatures.json";
 import { formatHotkeyLabel } from "../utils/hotkeys";
 import { ActivationModeSelector } from "./ui/ActivationModeSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -2943,34 +2944,40 @@ export default function SettingsPage({
                     />
                   </SettingsRow>
                 </SettingsPanelRow>
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("settingsPage.general.notifications.meetingDetection")}
-                    description={t(
-                      "settingsPage.general.notifications.meetingDetectionDescription"
-                    )}
-                  >
-                    <Toggle
-                      checked={notifyMeetingDetection}
-                      onChange={setNotifyMeetingDetection}
-                      disabled={!notificationsEnabled}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
-                <SettingsPanelRow>
-                  <SettingsRow
-                    label={t("settingsPage.general.notifications.calendarReminders")}
-                    description={t(
-                      "settingsPage.general.notifications.calendarRemindersDescription"
-                    )}
-                  >
-                    <Toggle
-                      checked={notifyCalendarReminders}
-                      onChange={setNotifyCalendarReminders}
-                      disabled={!notificationsEnabled}
-                    />
-                  </SettingsRow>
-                </SettingsPanelRow>
+                {/* Both of these only ever gated meeting-detection prompts, which this
+                    build does not raise — so a toggle here would control nothing. */}
+                {buildFeatures.meetingDetection && (
+                  <>
+                    <SettingsPanelRow>
+                      <SettingsRow
+                        label={t("settingsPage.general.notifications.meetingDetection")}
+                        description={t(
+                          "settingsPage.general.notifications.meetingDetectionDescription"
+                        )}
+                      >
+                        <Toggle
+                          checked={notifyMeetingDetection}
+                          onChange={setNotifyMeetingDetection}
+                          disabled={!notificationsEnabled}
+                        />
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                    <SettingsPanelRow>
+                      <SettingsRow
+                        label={t("settingsPage.general.notifications.calendarReminders")}
+                        description={t(
+                          "settingsPage.general.notifications.calendarRemindersDescription"
+                        )}
+                      >
+                        <Toggle
+                          checked={notifyCalendarReminders}
+                          onChange={setNotifyCalendarReminders}
+                          disabled={!notificationsEnabled}
+                        />
+                      </SettingsRow>
+                    </SettingsPanelRow>
+                  </>
+                )}
                 <SettingsPanelRow>
                   <SettingsRow
                     label={t("settingsPage.general.notifications.updates")}

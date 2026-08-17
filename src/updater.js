@@ -1,4 +1,5 @@
 const { autoUpdater } = require("electron-updater");
+const buildFeatures = require("./config/buildFeatures.json");
 
 // Auto-update is off in this build, and must stay off.
 //
@@ -15,7 +16,7 @@ const { autoUpdater } = require("electron-updater");
 //
 // To re-enable, point the feed at a repo that actually publishes this build. Simply
 // flipping this flag would resume replacing the app with upstream.
-const UPDATES_DISABLED = true;
+const UPDATES_DISABLED = buildFeatures.autoUpdate === false;
 
 class UpdateManager {
   constructor() {
