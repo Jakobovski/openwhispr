@@ -1789,6 +1789,14 @@ declare global {
       } | null>;
       windowOcrCancel?: () => void;
       /** Hands the OCR'd vocabulary to the main process, which holds it in memory only. */
+      /** Azure Speech transcription, proxied through main. Returns the transcript. */
+      proxyAzureSpeechTranscription?: (payload: {
+        audioBuffer: ArrayBuffer;
+        mimeType?: string;
+        locale?: string;
+        phrases?: string[];
+        model?: string;
+      }) => Promise<{ text: string }>;
       recordScreenContextTerms?: (transcriptionId: number, detail: ScreenContextTerms) => void;
       /** Everything currently held, keyed by transcription row id. */
       getScreenContextTerms?: () => Promise<Record<string, ScreenContextTerms>>;

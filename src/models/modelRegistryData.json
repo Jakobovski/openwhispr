@@ -293,6 +293,18 @@
           "description": "Microsoft multilingual speech-to-text via OpenRouter"
         }
       ]
+    },
+    {
+      "id": "azure-speech",
+      "name": "Azure Speech",
+      "baseUrl": "https://YOUR-RESOURCE.cognitiveservices.azure.com",
+      "models": [
+        {
+          "id": "mai-transcribe-1.5",
+          "name": "MAI-Transcribe 1.5",
+          "description": "Microsoft speech-to-text with phrase-list biasing"
+        }
+      ]
     }
   ],
   "cloudProviders": [

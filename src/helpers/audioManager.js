@@ -97,6 +97,35 @@ const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
 // OpenRouter is a router rather than a model host, so its `model` is a fully qualified
 // slug like "microsoft/mai-transcribe-1.5". Its endpoint is documented as accepting
 // OpenAI-style multipart, and does: verified against the live API.
+// Azure wants a full locale ("en-US"), and rejects the bare language code every other
+// provider here takes. Mapped rather than passed through, because "The specified locale
+// is not supported" is what a bare "en" earns.
+const AZURE_LOCALE_FALLBACKS = {
+  en: "en-US",
+  es: "es-ES",
+  fr: "fr-FR",
+  de: "de-DE",
+  pt: "pt-BR",
+  it: "it-IT",
+  ru: "ru-RU",
+  ja: "ja-JP",
+  ko: "ko-KR",
+  zh: "zh-CN",
+  nl: "nl-NL",
+  pl: "pl-PL",
+  tr: "tr-TR",
+  hi: "hi-IN",
+  ar: "ar-EG",
+};
+
+function toAzureLocale(language) {
+  const value = String(language || "").trim();
+  if (!value) return undefined;
+  // Already a full locale.
+  if (value.includes("-")) return value;
+  return AZURE_LOCALE_FALLBACKS[value.toLowerCase()];
+}
+
 const OPENAI_COMPATIBLE_TRANSCRIPTION = {
   openai: { apiKeyField: "openaiApiKey", base: API_ENDPOINTS.OPENAI_BASE },
   groq: { apiKeyField: "groqApiKey", base: API_ENDPOINTS.GROQ_BASE },
@@ -2204,8 +2233,45 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    * screenshot is ever taken — not a screenshot whose text is then discarded.
    */
   startScreenContextCapture() {
+    // A new dictation invalidates the previous one's terms; see ensureScreenContext.
+    this._screenContext = undefined;
     if (!getSettings().screenContextEnabled) return;
     window.electronAPI?.windowOcrStart?.();
+  }
+
+  /**
+   * The capture for this dictation, collected at most once.
+   *
+   * Two callers need it now and they run at different times: the phrase list wants the
+   * terms *before* the audio is sent, and the post-transcription matcher wants them
+   * after. Collecting is destructive — it clears the pending capture so the next
+   * dictation starts clean — so whoever asked second used to get nothing. The result is
+   * cached for the dictation instead, and `undefined` distinguishes "not yet collected"
+   * from a collected `null`.
+   */
+  async ensureScreenContext() {
+    if (this._screenContext !== undefined) return this._screenContext;
+    if (!getSettings().screenContextEnabled) {
+      this._screenContext = null;
+      return null;
+    }
+    this._screenContext = await this.collectScreenContext();
+    return this._screenContext;
+  }
+
+  /**
+   * Vocabulary to bias recognition with, best first.
+   *
+   * Two sources, both things the user has effectively vouched for: the custom
+   * dictionary — which is also where auto-learned corrections are written — and the
+   * terms read from the window they are dictating into. The dictionary goes first
+   * because it is durable and deliberate, so it wins the budget when screen text is
+   * plentiful.
+   */
+  async getTranscriptionPhrases() {
+    const dictionary = this.getCustomDictionaryArray() ?? [];
+    const capture = await this.ensureScreenContext();
+    return [...dictionary, ...(capture?.terms ?? [])];
   }
 
   /** Drop a capture whose dictation will never produce a transcript. */
@@ -2266,7 +2332,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // and filters it while the user is still speaking, so the raw screen text never
       // reaches this process. A null capture is a failure; an empty term list is a
       // window with nothing worth matching, which is a normal outcome.
-      const capture = await this.collectScreenContext();
+      const capture = await this.ensureScreenContext();
       if (!capture) {
         await this.warnIfScreenContextBlocked();
         return text;
@@ -3333,6 +3399,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         mimeType: audioBlob.type || undefined,
         language: language && language !== "auto" ? language : undefined,
         ...(keyterms.length > 0 ? { keyterms } : {}),
+      });
+      text = result?.text;
+    } else if (provider === "azure-speech") {
+      if (!window.electronAPI?.proxyAzureSpeechTranscription) {
+        throw new Error("Azure Speech transcription is unavailable in this window");
+      }
+      // The only provider that can be biased before recognition rather than corrected
+      // after it, which is why the phrases are assembled here and nowhere else.
+      const result = await window.electronAPI.proxyAzureSpeechTranscription({
+        audioBuffer: await audioBlob.arrayBuffer(),
+        mimeType: audioBlob.type || undefined,
+        // Azure rejects a bare "en"; an absent locale means the model's multilingual
+        // mode, which is the right default when the user has not chosen a language.
+        locale: language && language !== "auto" ? toAzureLocale(language) : undefined,
+        phrases: await this.getTranscriptionPhrases(),
+        model,
       });
       text = result?.text;
     } else {

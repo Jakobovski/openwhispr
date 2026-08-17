@@ -8712,6 +8712,22 @@ class IPCHandlers {
     // caller can tell a missing grant apart from a missing sidecar. Without that
     // distinction a dev build with no compiled binary would report a permission
     // problem and send the user to a settings pane that cannot fix it.
+    // Azure Speech, for MAI-Transcribe with a phrase list. In the main process because
+    // the renderer's fetch is subject to CORS and this endpoint is not documented as
+    // sending the headers that would satisfy it — the same reason the xAI path proxies.
+    ipcMain.handle("proxy-azure-speech-transcription", async (_event, payload = {}) => {
+      const { transcribeWithAzureSpeech } = require("./azureSpeechTranscription");
+      return transcribeWithAzureSpeech({
+        apiKey: process.env.AZURE_SPEECH_API_KEY,
+        endpoint: process.env.AZURE_SPEECH_ENDPOINT,
+        audio: Buffer.from(payload.audioBuffer || []),
+        mimeType: payload.mimeType,
+        locale: payload.locale,
+        phrases: payload.phrases,
+        model: payload.model,
+      });
+    });
+
     ipcMain.handle("check-screen-recording-permission", () => {
       if (process.platform !== "darwin") {
         return { granted: false, status: "unsupported", supported: false };

@@ -28,6 +28,9 @@ const PERSISTED_KEYS = [
   ...SECRET_KEYS,
   "LOCAL_TRANSCRIPTION_PROVIDER",
   "PARAKEET_MODEL",
+  // The Azure Speech resource host. Identifies the resource but is not a credential,
+  // so it lives with the config rather than the secrets.
+  "AZURE_SPEECH_ENDPOINT",
   "LOCAL_WHISPER_MODEL",
   "CLEANUP_PROVIDER",
   "LOCAL_CLEANUP_MODEL",

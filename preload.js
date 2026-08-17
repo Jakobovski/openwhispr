@@ -11,6 +11,7 @@ const BYOK_KEY_BRIDGES = [
   { base: "groq", get: "getGroqKey", save: "saveGroqKey" },
   { base: "xai", get: "getXaiKey", save: "saveXaiKey" },
   { base: "mistral", get: "getMistralKey", save: "saveMistralKey" },
+  { base: "azurespeech", get: "getAzurespeechKey", save: "saveAzurespeechKey" },
   { base: "openrouter", get: "getOpenrouterKey", save: "saveOpenrouterKey" },
   { base: "tinfoil", get: "getTinfoilKey", save: "saveTinfoilKey" },
   { base: "corti", get: "getCortiKey", save: "saveCortiKey" },
@@ -668,6 +669,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
   windowOcrStart: () => ipcRenderer.send("window-ocr-start"),
   windowOcrCollect: () => ipcRenderer.invoke("window-ocr-collect"),
   windowOcrCancel: () => ipcRenderer.send("window-ocr-cancel"),
+  proxyAzureSpeechTranscription: (payload) =>
+    ipcRenderer.invoke("proxy-azure-speech-transcription", payload),
   recordScreenContextTerms: (transcriptionId, detail) =>
     ipcRenderer.send("screen-context-record-terms", transcriptionId, detail),
   getScreenContextTerms: () => ipcRenderer.invoke("screen-context-get-terms"),

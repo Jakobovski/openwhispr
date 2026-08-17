@@ -71,6 +71,7 @@ export interface ApiKeySettings {
   xaiApiKey: string;
   mistralApiKey: string;
   openrouterApiKey: string;
+  azureSpeechApiKey: string;
   cortiClientId: string;
   cortiClientSecret: string;
   cortiApiKey: string;

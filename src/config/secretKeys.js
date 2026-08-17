@@ -51,6 +51,16 @@ const BYOK_API_KEYS = [
     storeKey: "openrouterApiKey",
   },
   {
+    // Azure Speech, for MAI-Transcribe. Its key is used only in the main process — the
+    // renderer never sends the request — but it still needs a store field, because
+    // isMultiTranscriptionEnabled counts a lane as unusable when its key field is empty.
+    base: "azurespeech",
+    env: "AZURE_SPEECH_API_KEY",
+    get: "getAzurespeechKey",
+    save: "saveAzurespeechKey",
+    storeKey: "azureSpeechApiKey",
+  },
+  {
     base: "tinfoil",
     env: "TINFOIL_API_KEY",
     get: "getTinfoilKey",

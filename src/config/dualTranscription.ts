@@ -14,7 +14,8 @@ export interface DualTranscriptionProvider {
   label: string;
   model: string;
   /** Settings store key holding this provider's BYOK key. Dual needs one per side. */
-  apiKeyField: "groqApiKey" | "xaiApiKey" | "openaiApiKey" | "openrouterApiKey";
+  apiKeyField:
+    "groqApiKey" | "xaiApiKey" | "openaiApiKey" | "openrouterApiKey" | "azureSpeechApiKey";
 }
 
 // Order is the dropdown order and the slot defaults below, best first.
@@ -39,6 +40,15 @@ export const DUAL_TRANSCRIPTION_PROVIDERS: DualTranscriptionProvider[] = [
     label: "OpenRouter",
     model: "microsoft/mai-transcribe-1.5",
     apiKeyField: "openrouterApiKey",
+  },
+  // The same model as the OpenRouter lane above, reached directly. Worth being a
+  // separate lane rather than a swap: only this route accepts a phrase list, so the
+  // two produce measurably different transcripts from identical audio.
+  {
+    id: "azure-speech",
+    label: "Azure Speech",
+    model: "mai-transcribe-1.5",
+    apiKeyField: "azureSpeechApiKey",
   },
 ];
 
@@ -95,9 +105,12 @@ export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = {
 export const DEFAULT_RECONCILE_PROVIDER = "xai";
 export const DEFAULT_RECONCILE_MODEL = "grok-4.20-0309-non-reasoning";
 
-// Tie-break order for the merge, best first. Based on what these providers actually
-// produce here: xAI answered first in every race the wait budget decided, and its
-// transcripts have needed the fewest corrections.
+// Tie-break order for the merge, best first. Azure's MAI-Transcribe leads because it is
+// the only lane that can be biased *before* recognition: the phrase list carries the
+// custom dictionary and the terms on screen, so on exactly the words a tie tends to be
+// about — names, products, identifiers — it has information the others do not. xAI
+// follows on measurement: it answered first in every race the wait budget decided, and
+// its transcripts have needed the fewest corrections.
 //
 // Documentation, not wiring: the rule itself is written into the reconcile prompt,
 // because the merge is an LLM reading labelled versions rather than code picking a
@@ -105,7 +118,7 @@ export const DEFAULT_RECONCILE_MODEL = "grok-4.20-0309-non-reasoning";
 // (correct spelling, plausibility in context) and a majority — two recognisers
 // agreeing on a word outrank one recogniser's track record, so this only settles a
 // straight 1-1 split or a three-way disagreement.
-export const TRANSCRIPTION_QUALITY_ORDER = ["xai", "openai", "groq"];
+export const TRANSCRIPTION_QUALITY_ORDER = ["azure-speech", "xai", "openai", "groq"];
 
 // Providers offered for reconciliation. Limited to the ones whose model list the
 // static registry knows, so the model picker beside it can be a closed choice

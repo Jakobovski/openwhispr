@@ -28,6 +28,16 @@ const languages = fs
   .filter((entry) => fs.statSync(path.join(LOCALES, entry)).isDirectory())
   .sort();
 
+// The name each provider is called in the prompt, which is also the label
+// wrapReconcileVersions tags its version block with.
+const PROVIDER_NAMES = {
+  "azure-speech": "Azure Speech",
+  xai: "xAI",
+  openai: "OpenAI",
+  groq: "Groq",
+  openrouter: "OpenRouter",
+};
+
 const prompts = new Map(
   languages.map((lang) => [
     lang,
@@ -92,8 +102,12 @@ test("every locale carries the provider tie-break, subordinated to a majority", 
 
   for (const [lang, prompt] of prompts) {
     for (const provider of TRANSCRIPTION_QUALITY_ORDER) {
-      // Provider names are untranslated brand names in every locale.
-      const name = provider === "xai" ? "xAI" : provider === "openai" ? "OpenAI" : "Groq";
+      // Provider names are untranslated brand names in every locale. An explicit map,
+      // not a fallback: this previously ended in `: "Groq"`, so a provider added to the
+      // order matched a name already in the prompt and the check passed without the new
+      // one ever being mentioned.
+      const name = PROVIDER_NAMES[provider];
+      assert.ok(name, `no prompt name known for "${provider}" — add it to PROVIDER_NAMES`);
       if (!prompt.includes(name)) missingOrder.push(`${lang}: no mention of ${name}`);
     }
 
