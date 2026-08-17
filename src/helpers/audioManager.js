@@ -90,6 +90,19 @@ const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"])
 // capture must cost the paste path milliseconds rather than seconds.
 const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
 
+// Providers whose transcription endpoint is OpenAI's: multipart POST to
+// /audio/transcriptions with `file` and `model`, answering `{ text }`. xAI is absent
+// on purpose — it goes through a main-process proxy and takes no model.
+//
+// OpenRouter is a router rather than a model host, so its `model` is a fully qualified
+// slug like "microsoft/mai-transcribe-1.5". Its endpoint is documented as accepting
+// OpenAI-style multipart, and does: verified against the live API.
+const OPENAI_COMPATIBLE_TRANSCRIPTION = {
+  openai: { apiKeyField: "openaiApiKey", base: API_ENDPOINTS.OPENAI_BASE },
+  groq: { apiKeyField: "groqApiKey", base: API_ENDPOINTS.GROQ_BASE },
+  openrouter: { apiKeyField: "openrouterApiKey", base: API_ENDPOINTS.OPENROUTER_BASE },
+};
+
 function dictationAgentReachable(settings) {
   return resolveDictationAgentInference(settings, { isCloudAgent: isCloudDictationAgentMode() })
     .reachable;
@@ -3323,14 +3336,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       });
       text = result?.text;
     } else {
-      const apiKey = provider === "groq" ? settings.groqApiKey : settings.openaiApiKey;
+      // Table-driven rather than a chain of ternaries, so adding an OpenAI-compatible
+      // transcription provider is one entry rather than an edit in three places.
+      const compatible = OPENAI_COMPATIBLE_TRANSCRIPTION[provider];
+      if (!compatible) {
+        throw new Error(`Provider ${provider} has no transcription endpoint configured`);
+      }
+      const apiKey = settings[compatible.apiKeyField];
       if (!apiKey) {
         throw new Error(`No ${provider} API key configured`);
       }
-      const endpoint =
-        provider === "groq"
-          ? buildApiUrl(API_ENDPOINTS.GROQ_BASE, "/audio/transcriptions")
-          : buildApiUrl(API_ENDPOINTS.OPENAI_BASE, "/audio/transcriptions");
+      const endpoint = buildApiUrl(compatible.base, "/audio/transcriptions");
 
       const formData = new FormData();
       // Trimming re-encodes to WAV, so the filename must follow the blob rather

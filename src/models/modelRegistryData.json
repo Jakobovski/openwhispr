@@ -281,6 +281,18 @@
           "streaming": true
         }
       ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "models": [
+        {
+          "id": "microsoft/mai-transcribe-1.5",
+          "name": "MAI-Transcribe 1.5",
+          "description": "Microsoft multilingual speech-to-text via OpenRouter"
+        }
+      ]
     }
   ],
   "cloudProviders": [
