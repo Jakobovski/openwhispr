@@ -8,6 +8,17 @@ import { expandSnippets } from "../utils/snippets";
 import { getRecordingErrorTitle, getRecordingErrorDescription } from "../utils/recordingErrors";
 import { isAccessibilitySkipped } from "../utils/permissions";
 
+/**
+ * Whether this install talks to OpenWhispr's own transcription service.
+ *
+ * The cloud STT config only exists for that mode; a BYOK install asking for it produced
+ * 327 failed requests across the local logs, each logged as an ERROR.
+ */
+const usesOpenWhisprCloud = () => {
+  const settings = getSettings();
+  return !settings.useLocalWhisper && settings.cloudTranscriptionMode === "openwhispr";
+};
+
 // How long the timing readout stays on screen after a dictation.
 const STATS_VISIBLE_MS = 4000;
 
@@ -42,8 +53,10 @@ export const useAudioRecording = (toast, options = {}) => {
         audioManagerRef.current.setVoiceAgentRequested(voiceAgentRequested);
         audioManagerRef.current.setTranslationRequested(translationRequested);
 
-        // Retry STT config fetch if it wasn't loaded on mount (e.g. auth wasn't ready)
-        if (!audioManagerRef.current.sttConfig) {
+        // Retry STT config fetch if it wasn't loaded on mount (e.g. auth wasn't ready).
+        // Only in cloud mode: on BYOK the endpoint is never configured, so asking is a
+        // guaranteed failed request and an ERROR line that buries real ones.
+        if (!audioManagerRef.current.sttConfig && usesOpenWhisprCloud()) {
           const config = await window.electronAPI.getSttConfig?.();
           if (config?.success) {
             audioManagerRef.current.setSttConfig(config);
@@ -262,14 +275,16 @@ export const useAudioRecording = (toast, options = {}) => {
     });
 
     audioManagerRef.current.setContext("dictation");
-    window.electronAPI.getSttConfig?.().then((config) => {
-      if (config?.success && audioManagerRef.current) {
-        audioManagerRef.current.setSttConfig(config);
-        if (audioManagerRef.current.shouldUseStreaming()) {
-          audioManagerRef.current.warmupStreamingConnection();
+    if (usesOpenWhisprCloud()) {
+      window.electronAPI.getSttConfig?.().then((config) => {
+        if (config?.success && audioManagerRef.current) {
+          audioManagerRef.current.setSttConfig(config);
+          if (audioManagerRef.current.shouldUseStreaming()) {
+            audioManagerRef.current.warmupStreamingConnection();
+          }
         }
-      }
-    });
+      });
+    }
 
     const handleToggle = async ({
       voiceAgentRequested = false,

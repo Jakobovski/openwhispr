@@ -2,6 +2,16 @@ const fs = require("fs");
 const path = require("path");
 const { app } = require("electron");
 const debugLogger = require("./debugLogger");
+const {
+  isAudioFile,
+  selectOverflowFiles,
+  transcriptionIdFromFilename,
+} = require("../utils/audioRetention");
+
+// Stored dictations are capped rather than pruned only by age: dictation now writes 16 kHz
+// PCM, roughly ten times the bytes of the Opus it used to store, so a folder that was
+// self-limiting is not any more.
+const AUDIO_STORAGE_CAP_BYTES = 1024 * 1024 * 1024;
 
 class AudioStorageManager {
   constructor() {
@@ -21,22 +31,43 @@ class AudioStorageManager {
     }
   }
 
-  _buildFilename(transcriptionId, timestamp) {
+  /**
+   * Extension for the bytes actually being written.
+   *
+   * Dictation captures PCM now, and naming a WAV ".webm" is not cosmetic: retry uploads
+   * the stored file to a provider, and OpenAI rejects a payload whose extension disagrees
+   * with its contents.
+   */
+  _extensionFor(mimeType) {
+    const type = String(mimeType || "").toLowerCase();
+    if (type.includes("wav")) return ".wav";
+    if (type.includes("ogg")) return ".ogg";
+    if (type.includes("mp4") || type.includes("m4a")) return ".m4a";
+    if (type.includes("mpeg") || type.includes("mp3")) return ".mp3";
+    if (type.includes("flac")) return ".flac";
+    return ".webm";
+  }
+
+  _buildFilename(transcriptionId, timestamp, extension = ".webm") {
     if (timestamp) {
       const d = new Date(timestamp);
       if (!isNaN(d.getTime())) {
         const pad = (n) => String(n).padStart(2, "0");
         const date = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         const time = `${pad(d.getHours())}-${pad(d.getMinutes())}-${pad(d.getSeconds())}`;
-        return `OpenWhispr-${date}-${time}-${transcriptionId}.webm`;
+        return `OpenWhispr-${date}-${time}-${transcriptionId}${extension}`;
       }
     }
-    return `OpenWhispr-${transcriptionId}.webm`;
+    return `OpenWhispr-${transcriptionId}${extension}`;
   }
 
-  saveAudio(transcriptionId, audioBuffer, timestamp) {
+  saveAudio(transcriptionId, audioBuffer, timestamp, mimeType) {
     try {
-      const filename = this._buildFilename(transcriptionId, timestamp);
+      const filename = this._buildFilename(
+        transcriptionId,
+        timestamp,
+        this._extensionFor(mimeType)
+      );
       const filePath = path.join(this.audioDir, filename);
       fs.writeFileSync(filePath, audioBuffer);
       debugLogger.debug(
@@ -102,7 +133,7 @@ class AudioStorageManager {
   cleanupExpiredAudio(retentionDays, databaseManager) {
     try {
       const cutoffMs = Date.now() - retentionDays * 86400000;
-      const files = fs.readdirSync(this.audioDir).filter((f) => f.endsWith(".webm"));
+      const files = fs.readdirSync(this.audioDir).filter(isAudioFile);
       const expiredIds = [];
       let kept = 0;
 
@@ -112,11 +143,7 @@ class AudioStorageManager {
           const stats = fs.statSync(filePath);
           if (stats.mtimeMs < cutoffMs) {
             fs.unlinkSync(filePath);
-            // Extract ID from "OpenWhispr-...-{id}.webm" or legacy "{id}.webm"
-            const basename = path.basename(file, ".webm");
-            const lastDash = basename.lastIndexOf("-");
-            const id = lastDash !== -1 ? basename.slice(lastDash + 1) : basename;
-            expiredIds.push(id);
+            expiredIds.push(transcriptionIdFromFilename(file));
           } else {
             kept++;
           }
@@ -147,7 +174,7 @@ class AudioStorageManager {
 
   deleteAllAudio() {
     try {
-      const files = fs.readdirSync(this.audioDir).filter((f) => f.endsWith(".webm"));
+      const files = fs.readdirSync(this.audioDir).filter(isAudioFile);
       for (const file of files) {
         try {
           fs.unlinkSync(path.join(this.audioDir, file));
@@ -167,9 +194,66 @@ class AudioStorageManager {
     }
   }
 
+  /**
+   * Deletes the oldest recordings until the folder is within its cap.
+   *
+   * Runs after a save rather than on a timer: the folder only grows when something is
+   * written, and a sweep tied to that is one the user cannot get ahead of. Clearing the
+   * database flags matters as much as the unlink — a row still claiming has_audio offers a
+   * retry that would fail on a missing file.
+   */
+  enforceStorageCap(databaseManager, maxBytes = AUDIO_STORAGE_CAP_BYTES) {
+    try {
+      const entries = [];
+      for (const name of fs.readdirSync(this.audioDir).filter(isAudioFile)) {
+        try {
+          const stats = fs.statSync(path.join(this.audioDir, name));
+          entries.push({ name, size: stats.size, mtimeMs: stats.mtimeMs });
+        } catch {
+          // A file that vanished between listing and stat needs no eviction.
+        }
+      }
+
+      const { remove, totalBytes, freedBytes } = selectOverflowFiles(entries, maxBytes);
+      if (remove.length === 0) return { deleted: 0, totalBytes };
+
+      const deletedIds = [];
+      for (const name of remove) {
+        try {
+          fs.unlinkSync(path.join(this.audioDir, name));
+          deletedIds.push(transcriptionIdFromFilename(name));
+        } catch (error) {
+          debugLogger.error(
+            "Failed to delete audio over cap",
+            { file: name, error: error.message },
+            "audio-storage"
+          );
+        }
+      }
+      if (deletedIds.length > 0 && databaseManager) {
+        databaseManager.clearAudioFlags(deletedIds);
+      }
+
+      debugLogger.info(
+        "Audio storage cap enforced",
+        {
+          deleted: deletedIds.length,
+          freedMb: Math.round(freedBytes / 1048576),
+          totalMb: Math.round(totalBytes / 1048576),
+          capMb: Math.round(maxBytes / 1048576),
+        },
+        "audio-storage"
+      );
+      return { deleted: deletedIds.length, totalBytes: totalBytes - freedBytes };
+    } catch (error) {
+      debugLogger.error("Audio cap sweep failed", { error: error.message }, "audio-storage");
+      return { deleted: 0, totalBytes: 0 };
+    }
+  }
+
   getStorageUsage() {
     try {
-      const files = fs.readdirSync(this.audioDir).filter((f) => f.endsWith(".webm"));
+      const files = fs.readdirSync(this.audioDir).filter(isAudioFile);
       let totalBytes = 0;
       for (const file of files) {
         try {
@@ -188,3 +272,4 @@ class AudioStorageManager {
 }
 
 module.exports = AudioStorageManager;
+module.exports.AUDIO_STORAGE_CAP_BYTES = AUDIO_STORAGE_CAP_BYTES;

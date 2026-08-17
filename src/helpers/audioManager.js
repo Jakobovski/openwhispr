@@ -1564,6 +1564,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       }
 
       this.lastAudioMetadata = {
+        // Named for what was actually captured: retry uploads this file, and a provider
+        // rejects a payload whose extension disagrees with its bytes.
+        mimeType: audioBlob?.type || this.recordingMimeType || "audio/wav",
         durationMs: metadata?.durationSeconds
           ? Math.round(metadata.durationSeconds * 1000)
           : Math.round(performance.now() - pipelineStart),

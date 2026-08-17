@@ -1027,7 +1027,12 @@ class IPCHandlers {
     ipcMain.handle("save-transcription-audio", async (event, id, audioBuffer, metadata) => {
       const transcription = this.databaseManager.getTranscriptionById(id);
       const timestamp = transcription?.timestamp || null;
-      const result = this.audioStorageManager.saveAudio(id, Buffer.from(audioBuffer), timestamp);
+      const result = this.audioStorageManager.saveAudio(
+        id,
+        Buffer.from(audioBuffer),
+        timestamp,
+        metadata?.mimeType
+      );
       if (result.success) {
         this.databaseManager.updateTranscriptionAudio(id, {
           hasAudio: 1,
@@ -1037,6 +1042,8 @@ class IPCHandlers {
         });
         const updated = this.databaseManager.getTranscriptionById(id);
         if (updated) this.broadcastToWindows("transcription-updated", updated);
+        // Swept after the write, since that is the only moment the folder grows.
+        this.audioStorageManager.enforceStorageCap(this.databaseManager);
       }
       return result;
     });
