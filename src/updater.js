@@ -1,5 +1,22 @@
 const { autoUpdater } = require("electron-updater");
 
+// Auto-update is off in this build, and must stay off.
+//
+// The feed below points at OpenWhispr/openwhispr — upstream. This is a fork, so an
+// update would not be an update: it would download upstream's release and replace
+// this app with a build that has none of its changes. `autoInstallOnAppQuit` made
+// that worse by installing on the next quit, without asking again.
+//
+// Enforced at the source rather than by hiding the button: nothing calls
+// setFeedURL, no event handlers are registered, no polling interval is started, and
+// every public method returns an inert result. A caller that wants to check for
+// updates gets a clean "none available" instead of an error, so the settings UI and
+// IPC keep working without special cases.
+//
+// To re-enable, point the feed at a repo that actually publishes this build. Simply
+// flipping this flag would resume replacing the app with upstream.
+const UPDATES_DISABLED = true;
+
 class UpdateManager {
   constructor() {
     this.updateAvailable = false;
@@ -22,6 +39,19 @@ class UpdateManager {
   }
 
   setupAutoUpdater() {
+    if (UPDATES_DISABLED) {
+      // Explicitly countermand the default, in case an earlier build of this app
+      // already downloaded an upstream update: electron-updater would otherwise
+      // install it on the next quit without asking.
+      try {
+        autoUpdater.autoDownload = false;
+        autoUpdater.autoInstallOnAppQuit = false;
+      } catch {
+        // Nothing to countermand if the module never initialised.
+      }
+      return;
+    }
+
     if (process.env.NODE_ENV === "development") {
       return;
     }
@@ -163,6 +193,10 @@ class UpdateManager {
 
   async checkForUpdates() {
     try {
+      if (UPDATES_DISABLED) {
+        return { updateAvailable: false, message: "Updates are disabled in this build" };
+      }
+
       if (process.env.NODE_ENV === "development") {
         return {
           updateAvailable: false,
@@ -198,6 +232,10 @@ class UpdateManager {
 
   async downloadUpdate() {
     try {
+      if (UPDATES_DISABLED) {
+        return { success: false, message: "Updates are disabled in this build" };
+      }
+
       if (process.env.NODE_ENV === "development") {
         return {
           success: false,
@@ -234,6 +272,10 @@ class UpdateManager {
 
   async installUpdate() {
     try {
+      if (UPDATES_DISABLED) {
+        return { success: false, message: "Updates are disabled in this build" };
+      }
+
       if (process.env.NODE_ENV === "development") {
         return {
           success: false,
@@ -285,6 +327,9 @@ class UpdateManager {
         updateAvailable: this.updateAvailable,
         updateDownloaded: this.updateDownloaded,
         isDevelopment: process.env.NODE_ENV === "development",
+        // One source of truth for the UI, so "is updating switched off" is answered
+        // by the process that owns the updater rather than guessed at in the renderer.
+        updatesDisabled: UPDATES_DISABLED,
       };
     } catch (error) {
       console.error("❌ Error getting update status:", error);
@@ -302,6 +347,10 @@ class UpdateManager {
   }
 
   checkForUpdatesOnStartup() {
+    // No startup check and no four-hourly poll: this build has no feed of its own,
+    // so every check could only ever find upstream.
+    if (UPDATES_DISABLED) return;
+
     if (process.env.NODE_ENV !== "development") {
       setTimeout(() => {
         console.log("🔄 Checking for updates on startup...");

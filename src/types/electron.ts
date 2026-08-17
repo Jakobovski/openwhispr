@@ -382,6 +382,8 @@ export interface UpdateStatusResult {
   updateAvailable: boolean;
   updateDownloaded: boolean;
   isDevelopment: boolean;
+  /** True when this build has updating switched off; see src/updater.js. */
+  updatesDisabled?: boolean;
 }
 
 export interface UpdateInfoResult {

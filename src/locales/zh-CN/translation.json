@@ -1593,7 +1593,8 @@
         "badges": {
           "dev": "开发版",
           "latest": "最新",
-          "update": "更新"
+          "update": "更新",
+          "disabled": "已停用"
         },
         "checkForUpdates": "检查更新",
         "checking": "检查中...",
@@ -1643,7 +1644,8 @@
         "restarting": "正在重启...",
         "title": "更新",
         "versionPlaceholder": "—",
-        "whatsNew": "v{{version}} 更新内容"
+        "whatsNew": "v{{version}} 更新内容",
+        "disabled": "此版本已停用更新。"
       }
     },
     "permissions": {

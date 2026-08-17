@@ -1771,7 +1771,8 @@
         "badges": {
           "dev": "Dev",
           "latest": "Latest",
-          "update": "Update"
+          "update": "Update",
+          "disabled": "Off"
         },
         "checkForUpdates": "Check for Updates",
         "checking": "Checking...",
@@ -1821,7 +1822,8 @@
         "restarting": "Restarting...",
         "title": "Updates",
         "versionPlaceholder": "—",
-        "whatsNew": "What's new in v{{version}}"
+        "whatsNew": "What's new in v{{version}}",
+        "disabled": "Updates are turned off in this build."
       }
     },
     "permissions": {

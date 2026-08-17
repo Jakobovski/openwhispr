@@ -1598,7 +1598,8 @@
         "badges": {
           "dev": "Dev",
           "latest": "Последняя",
-          "update": "Обновление"
+          "update": "Обновление",
+          "disabled": "Отключено"
         },
         "checkForUpdates": "Проверить обновления",
         "checking": "Проверка...",
@@ -1648,7 +1649,8 @@
         "restarting": "Перезапуск...",
         "title": "Обновления",
         "versionPlaceholder": "—",
-        "whatsNew": "Что нового в v{{version}}"
+        "whatsNew": "Что нового в v{{version}}",
+        "disabled": "Обновления в этой сборке отключены."
       }
     },
     "permissions": {

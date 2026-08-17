@@ -1598,7 +1598,8 @@
         "badges": {
           "dev": "Dev",
           "latest": "Aktuell",
-          "update": "Update"
+          "update": "Update",
+          "disabled": "Aus"
         },
         "checkForUpdates": "Nach Updates suchen",
         "checking": "Wird geprüft...",
@@ -1648,7 +1649,8 @@
         "restarting": "Wird neu gestartet...",
         "title": "Updates",
         "versionPlaceholder": "—",
-        "whatsNew": "Neu in v{{version}}"
+        "whatsNew": "Neu in v{{version}}",
+        "disabled": "Updates sind in diesem Build deaktiviert."
       }
     },
     "permissions": {

@@ -1598,7 +1598,8 @@
         "badges": {
           "dev": "開発版",
           "latest": "最新",
-          "update": "アップデート"
+          "update": "アップデート",
+          "disabled": "無効"
         },
         "checkForUpdates": "アップデートを確認",
         "checking": "確認中...",
@@ -1648,7 +1649,8 @@
         "restarting": "再起動中...",
         "title": "アップデート",
         "versionPlaceholder": "—",
-        "whatsNew": "v{{version}} の新機能"
+        "whatsNew": "v{{version}} の新機能",
+        "disabled": "このビルドでは更新が無効です。"
       }
     },
     "permissions": {

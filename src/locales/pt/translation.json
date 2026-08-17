@@ -1577,7 +1577,8 @@
         "badges": {
           "dev": "Dev",
           "latest": "Mais recente",
-          "update": "Atualização"
+          "update": "Atualização",
+          "disabled": "Desativado"
         },
         "checkForUpdates": "Verificar atualizações",
         "checking": "Verificando...",
@@ -1627,7 +1628,8 @@
         "restarting": "Reiniciando...",
         "title": "Atualizações",
         "versionPlaceholder": "—",
-        "whatsNew": "Novidades na v{{version}}"
+        "whatsNew": "Novidades na v{{version}}",
+        "disabled": "As atualizações estão desativadas nesta versão."
       }
     },
     "permissions": {
