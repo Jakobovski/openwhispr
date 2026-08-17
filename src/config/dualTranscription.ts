@@ -31,10 +31,9 @@ export const DUAL_TRANSCRIPTION_PROVIDERS: DualTranscriptionProvider[] = [
   { id: "groq", label: "Groq", model: "whisper-large-v3", apiKeyField: "groqApiKey" },
   // Appended, not inserted. Order is the dropdown order *and* the substitution order
   // used when a stored slot collides with a default, so putting a new provider
-  // anywhere but the end would silently change which lane fills a collision.
-  //
-  // Not a default slot either: the three above are the configured set, and a fourth
-  // provider becoming a lane on its own would be a change nobody asked for.
+  // anywhere but the end would silently change which lane fills a collision. It holds
+  // slot C by default even so — see DEFAULT_DUAL_PROVIDER_C — because which provider a
+  // slot defaults to is chosen there, independently of position in this list.
   {
     id: "openrouter",
     label: "OpenRouter",
@@ -121,7 +120,12 @@ export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "ge
 // Lives here because two defaults have to agree: the settings store seeds
 // dualTranscriptionSecondTimeoutMs from it, and audioManager falls back to it when
 // the setting is absent. When they disagreed, the store's value silently won.
-export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 750;
+//
+// One second: enough headroom for a slower lane — a routed provider adds a hop over a
+// direct one — to still be compared rather than dropped. The cost of being generous is
+// paid only when a lane is actually late, since the budget starts at the first success
+// and ends the moment the rest answer.
+export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1000;
 
 // How long the merge itself gets before it is abandoned and the best single transcript
 // is used instead.
@@ -132,10 +136,13 @@ export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 750;
 // user has stopped speaking, so both are felt directly, but they fail differently — a
 // dropped lane costs a comparison, a dropped merge costs the merge.
 //
-// 750ms is chosen against the measured spread: the default reconcile model returned in
-// 600-660ms over the real prompt, so this allows the normal case and cuts the tail.
-// Dropping it is cheap because the fallback is a real transcript, not an error.
-export const DEFAULT_RECONCILE_TIMEOUT_MS = 750;
+// One second against a measured spread of 600-660ms for the default reconcile model
+// over the real prompt. That is deliberately more headroom than the measurement needs:
+// the spread was taken on one model and one prompt length, and a merge that is dropped
+// costs the whole comparison — three transcripts collapse back to one — where waiting
+// costs only the extra milliseconds. Dropping is still cheap in the sense that the
+// fallback is a real transcript rather than an error.
+export const DEFAULT_RECONCILE_TIMEOUT_MS = 1000;
 
 export function getDualTranscriptionProvider(id: string): DualTranscriptionProvider | undefined {
   return DUAL_TRANSCRIPTION_PROVIDERS.find((provider) => provider.id === id);
