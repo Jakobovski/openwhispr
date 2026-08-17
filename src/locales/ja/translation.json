@@ -1836,6 +1836,7 @@
       "multiProvider": "プロバイダー {{position}}",
       "multiProviderNone": "なし",
       "multiNeedsTwo": "プロバイダーを2つ以上選んでください。1つだけではマルチ文字起こしは無効です。",
+      "multiDuplicateProvider": "2つのスロットが同じプロバイダーを指しているため、実行されるのは {{providers}} のみです。重複はコストが増えるだけで second opinion になりません。",
       "multiOverridesModel": "マルチ文字起こしが有効なため、ディクテーションはここで選択したモデルではなく {{providers}} を使用します。"
     },
     "intelligence": {

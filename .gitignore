@@ -68,6 +68,7 @@ typings/
 # Packaged verbatim into the app bundle as Contents/Resources/.env by
 # electron-builder, so anything in it ships with the build. Never commit it.
 .env.bundled
+.env.bundled.*
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache

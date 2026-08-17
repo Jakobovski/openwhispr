@@ -1884,6 +1884,7 @@
       "multiProvider": "Proveedor {{position}}",
       "multiProviderNone": "Ninguno",
       "multiNeedsTwo": "Elige al menos dos proveedores: con uno solo la transcripción múltiple no se activa.",
+      "multiDuplicateProvider": "Dos ranuras indican el mismo proveedor, así que solo se ejecutarán {{providers}}: un duplicado cuesta más sin aportar una segunda opinión.",
       "multiOverridesModel": "La transcripción múltiple está activada, por lo que el dictado usa {{providers}} en lugar de un modelo seleccionado aquí."
     },
     "intelligence": {

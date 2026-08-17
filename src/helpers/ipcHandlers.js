@@ -1,4 +1,5 @@
 const { ipcMain, app, shell, BrowserWindow, systemPreferences, net, session } = require("electron");
+const settingsDefaults = require("../config/settingsDefaults.json");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -3530,7 +3531,7 @@ class IPCHandlers {
         } = require("@aws-sdk/client-bedrock");
         const { normalizeBedrockCatalog } = require("./bedrockCatalog");
 
-        const region = config?.bedrockRegion || "us-east-1";
+        const region = config?.bedrockRegion || settingsDefaults.storeDefaults.bedrockRegion;
         let credentials;
         if (config?.bedrockProfile) {
           const { fromNodeProviderChain } = require("@aws-sdk/credential-providers");
@@ -4464,7 +4465,7 @@ class IPCHandlers {
         } else if (settings?.useLocalWhisper) {
           if (settings.localTranscriptionProvider === "nvidia") {
             const model =
-              settings.parakeetModel || process.env.PARAKEET_MODEL || "parakeet-tdt-0.6b-v3";
+              settings.parakeetModel || process.env.PARAKEET_MODEL || settingsDefaults.resolutionDefaults.parakeetModel;
             result = await this.parakeetManager.transcribeLocalParakeet(buffer, { model });
           } else if (this.whisperManager?.serverManager?.isAvailable?.()) {
             const vadOptions = this._resolveWhisperVadOptions("noteRecording");
@@ -4528,7 +4529,7 @@ class IPCHandlers {
           });
           if (text) result = { text, source: "tinfoil", model };
         } else {
-          const provider = settings?.cloudTranscriptionProvider || "openai";
+          const provider = settings?.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
           const model = this._resolveByokModel(provider, settings?.cloudTranscriptionModel);
 
           let apiKey, endpoint;

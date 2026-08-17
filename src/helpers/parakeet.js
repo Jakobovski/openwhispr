@@ -1,4 +1,5 @@
 const fs = require("fs");
+const settingsDefaults = require("../config/settingsDefaults.json");
 const fsPromises = require("fs").promises;
 const path = require("path");
 const { pipeline } = require("stream/promises");
@@ -193,7 +194,7 @@ class ParakeetManager {
   }
 
   async transcribeLocalParakeet(audioBlob, options = {}) {
-    const model = options.model || "parakeet-tdt-0.6b-v3";
+    const model = options.model || settingsDefaults.resolutionDefaults.parakeetModel;
     const serverAvailable = this.serverManager.isAvailable(getModelRuntime(model));
 
     debugLogger.logSTTPipeline("transcribeLocalParakeet - start", {

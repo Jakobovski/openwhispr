@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import settingsDefaults from "../config/settingsDefaults.json";
 import { useTranslation } from "react-i18next";
 import { Loader2, Search } from "lucide-react";
 import { Button } from "./ui/button";
@@ -424,7 +425,7 @@ function AzureConfig({ reasoningModel, setReasoningModel }: EnterpriseProviderCo
         <Input
           value={store.azureApiVersion}
           onChange={(e) => store.setAzureApiVersion(e.target.value)}
-          placeholder="2024-10-21"
+          placeholder={settingsDefaults.storeDefaults.azureApiVersion}
           className="text-sm font-mono"
         />
       </div>

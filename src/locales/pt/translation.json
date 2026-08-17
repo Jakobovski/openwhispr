@@ -1815,6 +1815,7 @@
       "multiProvider": "Provedor {{position}}",
       "multiProviderNone": "Nenhum",
       "multiNeedsTwo": "Escolha pelo menos dois provedores — com apenas um, a transcrição múltipla fica desativada.",
+      "multiDuplicateProvider": "Dois slots indicam o mesmo provedor, então apenas {{providers}} será usado — uma duplicata custa mais sem dar uma segunda opinião.",
       "multiOverridesModel": "A transcrição múltipla está ativada, por isso o ditado usa {{providers}} em vez de um modelo selecionado aqui."
     },
     "intelligence": {

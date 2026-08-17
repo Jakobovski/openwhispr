@@ -1831,6 +1831,7 @@
       "multiProvider": "提供商 {{position}}",
       "multiProviderNone": "无",
       "multiNeedsTwo": "请至少选择两个提供商 — 只有一个时多重转录不会生效。",
+      "multiDuplicateProvider": "两个位置指向同一个提供商，因此只会运行 {{providers}} — 重复只会增加成本，得不到第二个意见。",
       "multiOverridesModel": "多重转录已开启，因此听写将使用 {{providers}}，而不是在此选择的模型。"
     },
     "intelligence": {

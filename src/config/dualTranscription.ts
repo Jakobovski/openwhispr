@@ -114,6 +114,47 @@ export function getDualTranscriptionProvider(id: string): DualTranscriptionProvi
  * provider's model id behind, and so changing a default here reaches everyone who
  * never picked a model.
  */
+/**
+ * The lanes a multi-provider dictation will actually run, in slot order.
+ *
+ * Resolution has to be deduplicated, and not only for tidiness: a stored slot combined
+ * with a *default* slot can name the same provider, which is how a defaults change once
+ * had one install sending every dictation to OpenAI twice while xAI never ran at all. A
+ * duplicate lane is never useful — same provider, same model, same answer — and it costs
+ * a second call and evicts a genuine second opinion.
+ *
+ * A slot the user chose is never overridden: an explicit duplicate is dropped. A slot
+ * still on its default is filled with the first provider no other slot is using, so a
+ * default can be reordered without silently collapsing the pair.
+ */
+export function resolveMultiTranscriptionLanes(
+  settings: Record<string, unknown>
+): Array<{ slot: string; provider: string; model: string }> {
+  const used = new Set<string>();
+  const lanes: Array<{ slot: string; provider: string; model: string }> = [];
+
+  for (const { slot, providerKey, modelKey } of MULTI_TRANSCRIPTION_SLOTS) {
+    const stored = (settings[providerKey] as string) || "";
+    let provider = stored || DEFAULT_SLOT_PROVIDERS[slot] || NO_PROVIDER;
+    if (!provider || provider === NO_PROVIDER) continue;
+
+    if (used.has(provider)) {
+      if (stored) continue; // the user asked for this twice; run it once
+      const substitute = DUAL_TRANSCRIPTION_PROVIDERS.find((entry) => !used.has(entry.id));
+      if (!substitute) continue;
+      provider = substitute.id;
+    }
+
+    used.add(provider);
+    lanes.push({
+      slot,
+      provider,
+      model: resolveDualTranscriptionModel(provider, settings[modelKey] as string),
+    });
+  }
+  return lanes;
+}
+
 export function resolveDualTranscriptionModel(providerId: string, storedModel?: string): string {
   const chosen = storedModel?.trim();
   if (chosen) return chosen;

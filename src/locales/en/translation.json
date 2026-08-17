@@ -2009,6 +2009,7 @@
       "multiProvider": "Provider {{position}}",
       "multiProviderNone": "None",
       "multiNeedsTwo": "Pick at least two providers — multi transcription stays off with only one.",
+      "multiDuplicateProvider": "Two slots name the same provider, so only {{providers}} will run — a duplicate adds cost without a second opinion.",
       "multiOverridesModel": "Multi transcription is on, so dictation uses {{providers}} instead of a model selected here."
     },
     "intelligence": {

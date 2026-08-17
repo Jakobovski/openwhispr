@@ -1,4 +1,5 @@
 const fs = require("fs");
+const settingsDefaults = require("../config/settingsDefaults.json");
 const path = require("path");
 const debugLogger = require("./debugLogger");
 const { getModelsDirForService } = require("./modelDirUtils");
@@ -83,7 +84,7 @@ class ParakeetServerManager {
   }
 
   async transcribe(audioBuffer, options = {}) {
-    const { modelName = "parakeet-tdt-0.6b-v3" } = options;
+    const { modelName = settingsDefaults.resolutionDefaults.parakeetModel } = options;
 
     const modelDir = path.join(this.getModelsDir(), modelName);
     if (!this.isModelDownloaded(modelName)) {

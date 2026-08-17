@@ -1,4 +1,5 @@
 // Main-process AI SDK factory for enterprise providers (Bedrock, Azure,
+const settingsDefaults = require("../config/settingsDefaults.json");
 // Vertex). These SDKs depend on Node-only APIs (fs, process, AWS/Azure/Google
 // credential chains) and can't run in a Vite-bundled renderer, which is why
 // they live here and not in `src/services/ai/providers.ts`. The renderer's
@@ -23,7 +24,7 @@ function getEnterpriseAIModel(provider, model, apiKey, enterprise) {
 
 function createBedrockModel(model, enterprise) {
   const { createAmazonBedrock } = require("@ai-sdk/amazon-bedrock");
-  const region = enterprise?.bedrockRegion || "us-east-1";
+  const region = enterprise?.bedrockRegion || settingsDefaults.storeDefaults.bedrockRegion;
 
   if (enterprise?.bedrockProfile) {
     const { fromNodeProviderChain } = require("@aws-sdk/credential-providers");
@@ -50,7 +51,7 @@ function createAzureModel(model, apiKey, enterprise) {
   return createAzure({
     apiKey,
     baseURL: enterprise?.azureEndpoint,
-    apiVersion: enterprise?.azureApiVersion || "2024-10-21",
+    apiVersion: enterprise?.azureApiVersion || settingsDefaults.storeDefaults.azureApiVersion,
   })(model);
 }
 
@@ -61,7 +62,7 @@ function createVertexModel(model, apiKey, enterprise) {
   }
   return createVertex({
     project: enterprise?.vertexProject,
-    location: enterprise?.vertexLocation || "us-central1",
+    location: enterprise?.vertexLocation || settingsDefaults.storeDefaults.vertexLocation,
   })(model);
 }
 

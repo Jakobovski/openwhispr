@@ -1836,6 +1836,7 @@
       "multiProvider": "Provider {{position}}",
       "multiProviderNone": "Nessuno",
       "multiNeedsTwo": "Scegli almeno due provider: con uno solo la trascrizione multipla resta disattivata.",
+      "multiDuplicateProvider": "Due slot indicano lo stesso provider, quindi verranno usati solo {{providers}}: un duplicato costa senza dare un secondo parere.",
       "multiOverridesModel": "La trascrizione multipla è attiva, quindi la dettatura usa {{providers}} invece di un modello selezionato qui."
     },
     "intelligence": {

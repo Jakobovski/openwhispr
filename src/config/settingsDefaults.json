@@ -1,0 +1,21 @@
+{
+  "storeDefaults": {
+    "cloudTranscriptionProvider": "openai",
+    "fallbackWhisperModel": "base",
+    "cortiEnvironment": "us",
+    "cleanupCloudMode": "openwhispr",
+    "translationSourceLanguage": "auto",
+    "cortiTenant": "base",
+    "cleanupProvider": "openai",
+    "bedrockRegion": "us-east-1",
+    "azureApiVersion": "2024-10-21",
+    "vertexLocation": "us-central1",
+    "whisperModel": "base",
+    "speakerDiarizationEnabled": true,
+    "preferredLanguage": "en"
+  },
+  "resolutionDefaults": {
+    "parakeetModel": "parakeet-tdt-0.6b-v3",
+    "bedrockProfile": "default"
+  }
+}

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import settingsDefaults from "../config/settingsDefaults.json";
 import { getSettings, selectResolvedMeetingTranscription } from "./settingsStore";
 import { useStreamingProvidersStore } from "./streamingProvidersStore";
 import { isBuiltInMicrophone } from "../utils/audioDeviceUtils";
@@ -124,8 +125,8 @@ const getMeetingTranscriptionOptions = () => {
       localProvider: resolved.localTranscriptionProvider,
       localModel:
         resolved.localTranscriptionProvider === "nvidia"
-          ? resolved.parakeetModel || "parakeet-tdt-0.6b-v3"
-          : resolved.whisperModel || "base",
+          ? resolved.parakeetModel || settingsDefaults.resolutionDefaults.parakeetModel
+          : resolved.whisperModel || settingsDefaults.storeDefaults.whisperModel,
       language,
     };
   }
@@ -473,7 +474,7 @@ export const useMeetingRecordingStore = create<MeetingRecordingState>()(() => ({
   systemPartialSpeakerName: null,
   diarizationSessionId: null,
   sessionDiarizationEnabled:
-    (getSettings() as { speakerDiarizationEnabled?: boolean }).speakerDiarizationEnabled ?? true,
+    (getSettings() as { speakerDiarizationEnabled?: boolean }).speakerDiarizationEnabled ?? settingsDefaults.storeDefaults.speakerDiarizationEnabled,
   sessionExpectedCount: DEFAULT_EXPECTED_SPEAKER_COUNT,
   userTouchedStepper: false,
   error: null,
@@ -742,7 +743,7 @@ export async function startRecording(args: StartRecordingArgs): Promise<void> {
   const initialEnabled =
     args.diarizationEnabled ??
     (getSettings() as { speakerDiarizationEnabled?: boolean }).speakerDiarizationEnabled ??
-    true;
+    settingsDefaults.storeDefaults.speakerDiarizationEnabled;
   const initialCount = Math.max(
     1,
     Math.min(MAX_SPEAKER_COUNT, args.expectedCount ?? DEFAULT_EXPECTED_SPEAKER_COUNT)

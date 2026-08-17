@@ -32,6 +32,7 @@ import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree } from "../utils/transcriptReconcile";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
 import { concatFrames } from "../utils/pcmAudio";
+import settingsDefaults from "../config/settingsDefaults.json";
 import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/prompts";
 import {
   DUAL_TRANSCRIPTION_MODELS,
@@ -40,9 +41,7 @@ import {
   DEFAULT_DUAL_PROVIDER_A,
   DEFAULT_DUAL_PROVIDER_B,
   DEFAULT_DUAL_PROVIDER_C,
-  MULTI_TRANSCRIPTION_SLOTS,
-  DEFAULT_SLOT_PROVIDERS,
-  NO_PROVIDER,
+  resolveMultiTranscriptionLanes,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   resolveDualTranscriptionModel,
@@ -241,17 +240,14 @@ function isMultiTranscriptionEnabled(settings) {
   if (!settings?.dualTranscriptionEnabled) return false;
   if (settings.useLocalWhisper) return false;
   if (settings.cloudTranscriptionMode !== "byok") return false;
-  // Needs at least two distinct providers that actually have a key. One configured lane
-  // is just the single-provider path with extra machinery, and a lane without a key is a
-  // guaranteed failure rather than a second opinion.
-  const usable = new Set();
-  for (const { slot, providerKey } of MULTI_TRANSCRIPTION_SLOTS) {
-    const provider = settings[providerKey] || DEFAULT_SLOT_PROVIDERS[slot];
-    if (!provider || provider === NO_PROVIDER) continue;
-    const keyField = DUAL_TRANSCRIPTION_API_KEY_FIELDS[provider];
-    if (keyField && settings[keyField]) usable.add(provider);
-  }
-  return usable.size >= 2;
+  // At least two lanes that actually have a key. One lane is the single-provider path with
+  // extra machinery, and a lane without a key is a guaranteed failure rather than a second
+  // opinion. Lanes come from the shared resolver, so duplicates are already collapsed.
+  const withKeys = resolveMultiTranscriptionLanes(settings).filter((lane) => {
+    const keyField = DUAL_TRANSCRIPTION_API_KEY_FIELDS[lane.provider];
+    return keyField && settings[keyField];
+  });
+  return withKeys.length >= 2;
 }
 
 // Minimal 16-bit PCM WAV writer. The trimmed audio only exists as samples, and
@@ -768,7 +764,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // the UI-wide preferred language; "auto" keeps whisper auto-detection.
   getEffectiveSttLanguage(settings) {
     if (this.translationRequested) {
-      return settings.translationSourceLanguage || "auto";
+      return settings.translationSourceLanguage || settingsDefaults.storeDefaults.translationSourceLanguage;
     }
     return settings.preferredLanguage;
   }
@@ -1517,7 +1513,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const useLocalWhisper = settings.useLocalWhisper;
       const localProvider = settings.localTranscriptionProvider;
       const whisperModel = settings.whisperModel;
-      const parakeetModel = settings.parakeetModel || "parakeet-tdt-0.6b-v3";
+      const parakeetModel = settings.parakeetModel || settingsDefaults.resolutionDefaults.parakeetModel;
 
       const cloudTranscriptionMode = settings.cloudTranscriptionMode;
       const isSignedIn = settings.isSignedIn;
@@ -1760,7 +1756,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  async processWithLocalParakeet(audioBlob, model = "parakeet-tdt-0.6b-v3", metadata = {}) {
+  async processWithLocalParakeet(audioBlob, model = settingsDefaults.resolutionDefaults.parakeetModel, metadata = {}) {
     const timings = {};
 
     try {
@@ -1852,7 +1848,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return null;
     }
 
-    const provider = s.cloudTranscriptionProvider || "openai";
+    const provider = s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
 
     // Check cache (invalidate if provider changed)
     if (this.cachedApiKey !== null && this.cachedApiKeyProvider === provider) {
@@ -2225,7 +2221,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const cleanupModel = getEffectiveCleanupModel();
     const isCloud = isCloudCleanupMode();
     const settings = getSettings();
-    const cleanupProvider = settings.cleanupProvider || "auto";
+    const cleanupProvider =
+      settings.cleanupProvider || settingsDefaults.storeDefaults.cleanupProvider;
     const cleanupReachable = !!settings.useCleanupModel && (!!cleanupModel || isCloud);
     const agentReachable = dictationAgentReachable(settings);
     const agentName =
@@ -2516,7 +2513,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const audioFormat = audioBlob.type;
     const opts = {};
     if (language) opts.language = language;
-    const cleanupCloudMode = settings.cleanupCloudMode || "openwhispr";
+    const cleanupCloudMode = settings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
     if (
       (settings.useCleanupModel && !this.skipReasoning && cleanupCloudMode === "openwhispr") ||
       (this.translationRequested &&
@@ -2561,7 +2558,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (this.translationRequested && route.kind !== "translation") {
         this.notifyTranslationFallback("unreachable");
       }
-      const cleanupCloudMode = settings.cleanupCloudMode || "openwhispr";
+      const cleanupCloudMode = settings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
 
       try {
         if (route.kind === "agent") {
@@ -2687,12 +2684,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const apiSettings = getSettings();
     const language = getBaseLanguageCode(this.getEffectiveSttLanguage(apiSettings));
     const allowLocalFallback = apiSettings.allowLocalFallback;
-    const fallbackModel = apiSettings.fallbackWhisperModel || "base";
+    const fallbackModel = apiSettings.fallbackWhisperModel || settingsDefaults.storeDefaults.fallbackWhisperModel;
 
     try {
       const durationSeconds = metadata.durationSeconds ?? null;
       const model = this.getTranscriptionModel();
-      const provider = apiSettings.cloudTranscriptionProvider || "openai";
+      const provider = apiSettings.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
 
       logger.debug(
         "Transcription request starting",
@@ -2901,8 +2898,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           audioBuffer,
           // Corti requires a concrete primaryLanguage; default to English when auto-detecting
           language: language || "en",
-          environment: apiSettings.cortiEnvironment || "us",
-          tenant: (apiSettings.cortiTenant || "").trim() || "base",
+          environment: apiSettings.cortiEnvironment || settingsDefaults.storeDefaults.cortiEnvironment,
+          tenant: (apiSettings.cortiTenant || "").trim() || settingsDefaults.storeDefaults.cortiTenant,
         };
 
         const result = await window.electronAPI.proxyCortiTranscription(proxyData);
@@ -3340,16 +3337,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   async transcribeMulti(audioBlob, { language } = {}) {
     const settings = getSettings();
 
-    // One entry per configured slot, in slot order — which is also the tie-break order
-    // the merge prompt applies, so slot A should hold the most trusted recogniser.
-    const lanes = MULTI_TRANSCRIPTION_SLOTS.map(({ slot, providerKey, modelKey }) => {
-      const provider = settings[providerKey] || DEFAULT_SLOT_PROVIDERS[slot] || NO_PROVIDER;
-      return {
-        slot,
-        provider,
-        model: resolveDualTranscriptionModel(provider, settings[modelKey]),
-      };
-    }).filter((lane) => lane.provider && lane.provider !== NO_PROVIDER);
+    // Resolved centrally so the fan-out, the settings UI and the gate all agree on which
+    // providers actually run — and so a stored slot plus a colliding default cannot send
+    // the same provider twice while evicting another.
+    const lanes = resolveMultiTranscriptionLanes(settings);
 
     // Trimmed once, before the fan-out: every provider gets the same shorter audio, and
     // the saving counts once per lane.
@@ -3531,7 +3522,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const s = getSettings();
       const selfHostedModel = resolveSelfHostedTranscriptionModel(s);
       if (selfHostedModel) return selfHostedModel;
-      const provider = s.cloudTranscriptionProvider || "openai";
+      const provider = s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
       const trimmedModel = (s.cloudTranscriptionModel || "").trim();
 
       // For custom provider, use whatever model is set (or fallback to whisper-1)
@@ -3578,7 +3569,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   getTranscriptionEndpoint(deploymentName = "") {
     const s = getSettings();
-    const currentProvider = s.cloudTranscriptionProvider || "openai";
+    const currentProvider = s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
 
     // Backstop against the OpenAI-default leak: Tinfoil goes through the main-process
     // proxy, never here — except self-hosted, which resolves its remote URL below.
@@ -3967,7 +3958,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
     if (REALTIME_MODELS.has(s.cloudTranscriptionModel)) {
       // Realtime WS is OpenAI-only — other providers fall through to HTTP.
-      if ((s.cloudTranscriptionProvider || "openai") !== "openai") return false;
+      if ((s.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider) !== "openai") return false;
       if (s.cloudTranscriptionMode === "byok") return !!s.openaiApiKey;
       if (s.cloudTranscriptionMode === "openwhispr") return !!(isSignedInOverride ?? s.isSignedIn);
       return false;
@@ -4569,7 +4560,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (this.translationRequested && route.kind !== "translation") {
         this.notifyTranslationFallback("unreachable");
       }
-      const cleanupCloudMode = stSettings.cleanupCloudMode || "openwhispr";
+      const cleanupCloudMode = stSettings.cleanupCloudMode || settingsDefaults.storeDefaults.cleanupCloudMode;
 
       try {
         if (route.kind === "agent") {

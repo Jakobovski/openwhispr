@@ -1884,6 +1884,7 @@
       "multiProvider": "Fournisseur {{position}}",
       "multiProviderNone": "Aucun",
       "multiNeedsTwo": "Choisissez au moins deux fournisseurs — avec un seul, la transcription multiple reste inactive.",
+      "multiDuplicateProvider": "Deux emplacements désignent le même fournisseur, donc seuls {{providers}} seront utilisés — un doublon coûte sans apporter de second avis.",
       "multiOverridesModel": "La transcription multiple est activée : la dictée utilise {{providers}} au lieu d'un modèle choisi ici."
     },
     "intelligence": {

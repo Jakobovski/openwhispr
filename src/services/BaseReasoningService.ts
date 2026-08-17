@@ -1,4 +1,5 @@
 import { getCleanupSystemPrompt } from "../config/prompts";
+import settingsDefaults from "../config/settingsDefaults.json";
 import { getSettings } from "../stores/settingsStore";
 import { getDictionaryHintWords } from "../utils/snippets";
 
@@ -23,7 +24,7 @@ export abstract class BaseReasoningService {
   }
 
   protected getPreferredLanguage(): string {
-    return getSettings().preferredLanguage || "auto";
+    return getSettings().preferredLanguage || settingsDefaults.storeDefaults.preferredLanguage;
   }
 
   protected getUiLanguage(): string {

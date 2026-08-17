@@ -6,6 +6,7 @@ import { chooseDictionaryStartupAction } from "../helpers/dictionaryStartup";
 import { useStreamingProvidersStore } from "./streamingProvidersStore";
 import logger from "../utils/logger";
 import whisperVadConstants from "../constants/whisperVad.json";
+import settingsDefaults from "../config/settingsDefaults.json";
 import modelRegistryData from "../models/modelRegistryData.json";
 import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
 import type { GoogleCalendarAccount } from "../types/calendar";
@@ -983,20 +984,20 @@ function syncAfterLocalWrite(method: "syncDictionaryNow" | "syncSnippetsNow"): v
 export const useSettingsStore = create<SettingsState>()((set, get) => ({
   uiLanguage: normalizeUiLanguage(isBrowser ? localStorage.getItem("uiLanguage") : null),
   useLocalWhisper: readBoolean("useLocalWhisper", false),
-  whisperModel: readString("whisperModel", "base"),
+  whisperModel: readString("whisperModel", settingsDefaults.storeDefaults.whisperModel),
   localTranscriptionProvider: (readString("localTranscriptionProvider", "whisper") === "nvidia"
     ? "nvidia"
     : "whisper") as LocalTranscriptionProvider,
   parakeetModel: readString("parakeetModel", ""),
   allowOpenAIFallback: readBoolean("allowOpenAIFallback", false),
   allowLocalFallback: readBoolean("allowLocalFallback", false),
-  fallbackWhisperModel: readString("fallbackWhisperModel", "base"),
+  fallbackWhisperModel: readString("fallbackWhisperModel", settingsDefaults.storeDefaults.fallbackWhisperModel),
   // English rather than "auto": every provider here takes an optional language hint,
   // and naming the language beats asking the recogniser to detect it — auto-detection
   // is where short dictations get scored as the wrong language entirely. Anyone who
   // dictates in another language sets it once in Settings.
-  preferredLanguage: readString("preferredLanguage", "en"),
-  cloudTranscriptionProvider: readString("cloudTranscriptionProvider", "openai"),
+  preferredLanguage: readString("preferredLanguage", settingsDefaults.storeDefaults.preferredLanguage),
+  cloudTranscriptionProvider: readString("cloudTranscriptionProvider", settingsDefaults.storeDefaults.cloudTranscriptionProvider),
   cloudTranscriptionModel: readString("cloudTranscriptionModel", "gpt-4o-mini-transcribe"),
   cloudTranscriptionBaseUrl: readString(
     "cloudTranscriptionBaseUrl",
@@ -1005,10 +1006,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   // Secrets aren't hydrated yet at construction; the BYOK default is set
   // post-hydration in initializeSettings.
   cloudTranscriptionMode: readString("cloudTranscriptionMode", "openwhispr"),
-  cleanupCloudMode: readString("cleanupCloudMode", "openwhispr"),
+  cleanupCloudMode: readString("cleanupCloudMode", settingsDefaults.storeDefaults.cleanupCloudMode),
   cleanupCloudBaseUrl: readString("cleanupCloudBaseUrl", API_ENDPOINTS.OPENAI_BASE),
-  cortiEnvironment: readString("cortiEnvironment", "us"),
-  cortiTenant: readString("cortiTenant", "base"),
+  cortiEnvironment: readString("cortiEnvironment", settingsDefaults.storeDefaults.cortiEnvironment),
+  cortiTenant: readString("cortiTenant", settingsDefaults.storeDefaults.cortiTenant),
   xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
   silenceTrimEnabled: readBoolean("silenceTrimEnabled", true),
   silenceTrimStrength: readString("silenceTrimStrength", "light"),
@@ -1049,7 +1050,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   useCleanupModel: readBoolean("useCleanupModel", true),
   useDictationAgent: readBoolean("useDictationAgent", true),
   cleanupModel: readString("cleanupModel", ""),
-  cleanupProvider: readString("cleanupProvider", "openai"),
+  cleanupProvider: readString("cleanupProvider", settingsDefaults.storeDefaults.cleanupProvider),
 
   // Secrets hydrate from main process in initializeSettings, never from localStorage.
   openaiApiKey: "",
@@ -1068,7 +1069,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   // Enterprise providers
   bedrockAuthMode: readString("bedrockAuthMode", "sso"),
-  bedrockRegion: readString("bedrockRegion", "us-east-1"),
+  bedrockRegion: readString("bedrockRegion", settingsDefaults.storeDefaults.bedrockRegion),
   bedrockProfile: readString("bedrockProfile", ""),
   bedrockAccessKeyId: "",
   bedrockSecretAccessKey: "",
@@ -1076,10 +1077,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   azureEndpoint: readString("azureEndpoint", ""),
   azureApiKey: "",
   azureDeploymentName: readString("azureDeploymentName", ""),
-  azureApiVersion: readString("azureApiVersion", "2024-10-21"),
+  azureApiVersion: readString("azureApiVersion", settingsDefaults.storeDefaults.azureApiVersion),
   vertexAuthMode: readString("vertexAuthMode", "adc"),
   vertexProject: readString("vertexProject", ""),
-  vertexLocation: readString("vertexLocation", "us-central1"),
+  vertexLocation: readString("vertexLocation", settingsDefaults.storeDefaults.vertexLocation),
   vertexApiKey: "",
 
   dictationKey: readString("dictationKey", ""),
@@ -1135,7 +1136,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   })(),
   gcalPrimaryOnly: readBoolean("gcalPrimaryOnly", true),
   meetingProcessDetection: readBoolean("meetingProcessDetection", true),
-  speakerDiarizationEnabled: readBoolean("speakerDiarizationEnabled", true),
+  speakerDiarizationEnabled: readBoolean("speakerDiarizationEnabled", settingsDefaults.storeDefaults.speakerDiarizationEnabled),
   dictationSileroEnabled: readBoolean("dictationSileroEnabled", true),
   noteRecordingSileroEnabled: readBoolean("noteRecordingSileroEnabled", true),
   meetingSileroEnabled: readBoolean("meetingSileroEnabled", true),
@@ -1274,7 +1275,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   translationCustomApiKey: readString("translationCustomApiKey", ""),
   translationDisableThinking: readBoolean("translationDisableThinking", true),
   useDictationTranslation: readBoolean("useDictationTranslation", false),
-  translationSourceLanguage: readString("translationSourceLanguage", "auto"),
+  translationSourceLanguage: readString("translationSourceLanguage", settingsDefaults.storeDefaults.translationSourceLanguage),
   translationTargetLanguage: readString("translationTargetLanguage", ""),
   translationTargets: (() => {
     // Seed from the saved array; otherwise from the single active target if set.

@@ -49,6 +49,7 @@ import {
   DUAL_TRANSCRIPTION_PROVIDERS,
   RECONCILE_PROVIDER_IDS,
   NO_PROVIDER,
+  resolveMultiTranscriptionLanes,
   getDualTranscriptionProvider,
   resolveDualTranscriptionModel,
 } from "../config/dualTranscription";
@@ -382,13 +383,14 @@ function TranscriptionSection({
     xaiApiKey,
     openaiApiKey,
   };
-  const activeMultiProviders = [
-    dualTranscriptionProviderA,
-    dualTranscriptionProviderB,
-    dualTranscriptionProviderC,
-  ]
-    .filter((provider) => provider && provider !== NO_PROVIDER)
-    .map((provider) => getDualTranscriptionProvider(provider))
+  // What will actually run, resolved exactly as the fan-out resolves it. Reading the slots
+  // directly would show a provider that a duplicate collapse has already dropped — which
+  // is how one install displayed OpenAI and xAI while sending OpenAI twice.
+  const resolvedLanes = resolveMultiTranscriptionLanes(
+    useSettingsStore.getState() as unknown as Record<string, unknown>
+  );
+  const activeMultiProviders = resolvedLanes
+    .map((lane) => getDualTranscriptionProvider(lane.provider))
     .filter((provider): provider is NonNullable<typeof provider> => !!provider);
   const multiProvidersMissingKeys = activeMultiProviders.filter(
     (provider) => !dualApiKeys[provider.apiKeyField]?.trim()
@@ -639,6 +641,16 @@ function TranscriptionSection({
               <p className="text-xs text-warning">
                 {t("settingsPage.transcription.dualMissingKeys", {
                   providers: multiProvidersMissingKeys.map((provider) => provider.label).join(", "),
+                })}
+              </p>
+            </SettingsPanelRow>
+          )}
+          {resolvedLanes.length <
+            multiSlots.filter((s) => s.provider && s.provider !== NO_PROVIDER).length && (
+            <SettingsPanelRow>
+              <p className="text-xs text-warning">
+                {t("settingsPage.transcription.multiDuplicateProvider", {
+                  providers: activeMultiProviders.map((provider) => provider.label).join(", "),
                 })}
               </p>
             </SettingsPanelRow>

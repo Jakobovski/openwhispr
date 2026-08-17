@@ -1836,6 +1836,7 @@
       "multiProvider": "Anbieter {{position}}",
       "multiProviderNone": "Keiner",
       "multiNeedsTwo": "Wähle mindestens zwei Anbieter – mit nur einem bleibt die Mehrfach-Transkription aus.",
+      "multiDuplicateProvider": "Zwei Slots nennen denselben Anbieter, daher laufen nur {{providers}} — ein Duplikat kostet extra, ohne eine zweite Meinung zu liefern.",
       "multiOverridesModel": "Mehrfach-Transkription ist aktiv, daher verwendet das Diktat {{providers}} statt eines hier ausgewählten Modells."
     },
     "intelligence": {

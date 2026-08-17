@@ -657,7 +657,7 @@ const { t } = useTranslation();
 ### Adding New Features
 
 1. **New IPC Channel**: Add to both ipcHandlers.js and preload.js
-2. **New Setting**: Update useSettings.ts and SettingsPage.tsx
+2. **New Setting**: Update useSettings.ts and SettingsPage.tsx. **A setting has exactly one default.** Declare it in the store's `read*("key", …)` call and nowhere else — never write `settings.foo || "someDefault"` in a consumer. `read*` falls back only when a key is *absent*, so a second default fires only when the stored value is empty; that is why these bugs show up on one install and not another, and why the UI, the runtime and a fresh install can disagree while every file looks correct on its own. If a default is needed outside the store (a main-process helper, an IPC handler, a placeholder that shows what blank does), add it to `src/config/settingsDefaults.json` — plain JSON because `src/` mixes renderer ESM with main-process CommonJS — and import it on both sides. `test/config/settingsDefaults.test.js` enforces this and will fail the build on a second default; exceptions go in its allowlists with a stated reason.
 3. **New UI Component**: Follow shadcn/ui patterns in src/components/ui
 4. **New Manager**: Create in src/helpers/, initialize in main.js
 5. **New UI Strings**: Add translation keys to all 10 language files (see i18n section above)
