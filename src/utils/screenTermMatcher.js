@@ -194,6 +194,18 @@ function applyScreenTermCorrections(transcript, screenTerms) {
     const exact = byLower.get(lower);
     if (exact) {
       if (exact === core) return token;
+
+      // A difference confined to the first letter is not evidence of anything. Screen
+      // text capitalises the first word of every label, button and heading, so a term
+      // read from one carries a capital that belongs to its position on screen rather
+      // than to the word — and adopting it capitalises ordinary prose mid-sentence:
+      // "rebuild the dataset" became "rebuild the Dataset".
+      //
+      // An internal capital is the opposite: nothing about being a button makes the H
+      // in GitHub uppercase, so that one is a property of the word and worth adopting,
+      // first letter included.
+      if (core.slice(1) === exact.slice(1)) return token;
+
       replacements.push({ from: core, to: exact, kind: "recase" });
       return lead + exact + trail;
     }

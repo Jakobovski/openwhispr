@@ -121,8 +121,21 @@ test("extraction orders by frequency and caps the list", () => {
 // --- Tier 1: recasing, which is semantically a no-op ---
 
 test("a case-only miss adopts the on-screen casing", () => {
+  // Internal capitals only — see the first-letter test below. Nothing about being a
+  // button makes the H in GitHub uppercase, so that casing belongs to the word and is
+  // taken whole, leading capital included.
   assert.equal(apply("i pushed to github today", ["GitHub"]), "i pushed to GitHub today");
   assert.equal(apply("open openwhispr please", ["OpenWhispr"]), "open OpenWhispr please");
+});
+
+test("a first-letter-only capital is not adopted", () => {
+  // Screen text capitalises the first word of every label, button and heading, so that
+  // capital belongs to the word's position on screen, not to the word. Adopting it
+  // capitalised ordinary prose mid-sentence: "rebuild the dataset" came back as
+  // "rebuild the Dataset".
+  assert.equal(apply("rebuild the dataset", ["Dataset"]), "rebuild the dataset");
+  assert.equal(apply("deploy to kubernetes", ["Kubernetes"]), "deploy to kubernetes");
+  assert.deepEqual(applyScreenTermCorrections("rebuild the dataset", ["Dataset"]).replacements, []);
 });
 
 test("recasing preserves surrounding punctuation", () => {
