@@ -367,6 +367,7 @@ function TranscriptionSection({
 
   const groqApiKey = useSettingsStore((s) => s.groqApiKey);
   const xaiApiKey = useSettingsStore((s) => s.xaiApiKey);
+  const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
 
   const dualModelA = useSettingsStore((s) => s.dualTranscriptionModelA);
@@ -385,6 +386,7 @@ function TranscriptionSection({
     groqApiKey,
     xaiApiKey,
     openaiApiKey,
+    openrouterApiKey,
   };
   // What will actually run, resolved exactly as the fan-out resolves it. Reading the slots
   // directly would show a provider that a duplicate collapse has already dropped — which

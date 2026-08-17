@@ -14,7 +14,7 @@ export interface DualTranscriptionProvider {
   label: string;
   model: string;
   /** Settings store key holding this provider's BYOK key. Dual needs one per side. */
-  apiKeyField: "groqApiKey" | "xaiApiKey" | "openaiApiKey";
+  apiKeyField: "groqApiKey" | "xaiApiKey" | "openaiApiKey" | "openrouterApiKey";
 }
 
 // Order is the dropdown order and the slot defaults below, best first.
@@ -29,6 +29,18 @@ export const DUAL_TRANSCRIPTION_PROVIDERS: DualTranscriptionProvider[] = [
   { id: "xai", label: "xAI", model: "grok-stt", apiKeyField: "xaiApiKey" },
   { id: "openai", label: "OpenAI", model: "gpt-transcribe", apiKeyField: "openaiApiKey" },
   { id: "groq", label: "Groq", model: "whisper-large-v3", apiKeyField: "groqApiKey" },
+  // Appended, not inserted. Order is the dropdown order *and* the substitution order
+  // used when a stored slot collides with a default, so putting a new provider
+  // anywhere but the end would silently change which lane fills a collision.
+  //
+  // Not a default slot either: the three above are the configured set, and a fourth
+  // provider becoming a lane on its own would be a change nobody asked for.
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    model: "microsoft/mai-transcribe-1.5",
+    apiKeyField: "openrouterApiKey",
+  },
 ];
 
 /**
@@ -58,7 +70,9 @@ export const DUAL_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object.
 
 export const DEFAULT_DUAL_PROVIDER_A = "xai";
 export const DEFAULT_DUAL_PROVIDER_B = "openai";
-export const DEFAULT_DUAL_PROVIDER_C = "groq";
+// Slot C is OpenRouter's MAI-Transcribe rather than Groq's Whisper. Groq is still
+// selectable; it is no longer the third opinion by default.
+export const DEFAULT_DUAL_PROVIDER_C = "openrouter";
 
 /** Slot defaults, keyed the way the fan-out reads them. */
 export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = {

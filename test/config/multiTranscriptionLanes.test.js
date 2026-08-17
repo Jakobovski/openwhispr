@@ -8,7 +8,7 @@ const providers = (lanes) => lanes.map((lane) => lane.provider);
 
 test("empty settings run the three slot defaults, in order", async () => {
   const { resolveMultiTranscriptionLanes } = await load();
-  assert.deepEqual(providers(resolveMultiTranscriptionLanes({})), ["xai", "openai", "groq"]);
+  assert.deepEqual(providers(resolveMultiTranscriptionLanes({})), ["xai", "openai", "openrouter"]);
 });
 
 test("a stored slot combined with a colliding default does not duplicate a provider", async () => {
@@ -19,7 +19,7 @@ test("a stored slot combined with a colliding default does not duplicate a provi
   // log line.
   const lanes = resolveMultiTranscriptionLanes({ dualTranscriptionProviderA: "openai" });
 
-  assert.deepEqual(providers(lanes), ["openai", "xai", "groq"]);
+  assert.deepEqual(providers(lanes), ["openai", "xai", "openrouter"]);
   assert.equal(new Set(providers(lanes)).size, 3, "no provider runs twice");
 });
 
@@ -27,13 +27,14 @@ test("an explicitly chosen duplicate runs once rather than overriding the choice
   const { resolveMultiTranscriptionLanes } = await load();
   // Both A and B stored as groq by hand: honour the choice and drop the redundant call,
   // rather than substituting a provider the user did not ask for. Slot C is still on its
-  // default, so it is free to be filled with something unused.
+  // default, so it is free to be filled with something unused — OpenRouter, since
+  // slot C's default is no longer groq.
   const lanes = resolveMultiTranscriptionLanes({
     dualTranscriptionProviderA: "groq",
     dualTranscriptionProviderB: "groq",
   });
 
-  assert.deepEqual(providers(lanes), ["groq", "xai"]);
+  assert.deepEqual(providers(lanes), ["groq", "openrouter"]);
 });
 
 test("a slot set to none runs nothing for that slot", async () => {
@@ -109,7 +110,7 @@ test("a fresh install runs the three chosen provider/model pairs", async () => {
     [
       ["xai", "grok-stt"],
       ["openai", "gpt-transcribe"],
-      ["groq", "whisper-large-v3"],
+      ["openrouter", "microsoft/mai-transcribe-1.5"],
     ]
   );
 });
