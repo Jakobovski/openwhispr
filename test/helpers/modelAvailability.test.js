@@ -123,7 +123,7 @@ test("the default reconcile model is one its provider still offers", () => {
   const shipped = buildProviderModelIndex(registry.cloudProviders);
 
   // Mirrors DEFAULT_RECONCILE_PROVIDER / DEFAULT_RECONCILE_MODEL in
-  // src/config/dualTranscription.ts, which is TS and not loadable here. Update both
+  // src/config/multiTranscription.ts, which is TS and not loadable here. Update both
   // together: a default the registry does not list would be substituted away on every
   // merge, silently running a model nobody chose.
   const provider = "xai";

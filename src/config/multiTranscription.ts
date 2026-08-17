@@ -1,15 +1,18 @@
-// Dual transcription sends one recording to two providers and has an LLM merge the
-// two transcripts.
+// Multi transcription sends one recording to several providers at once and has an LLM
+// merge what comes back.
 //
-// The model each provider runs is fixed here rather than taken from the single
-// provider selection in Settings: merging only makes sense between two comparable
-// transcripts, and the single picker holds one provider's choice, which says nothing
-// about the second. That is also why the settings UI has to describe these — a user
-// looking at the single-provider picker while dual is on is reading a selection that
-// does not apply.
+// The model each provider runs is fixed here rather than taken from the single-provider
+// selection in Settings: merging only makes sense between comparable transcripts, and
+// that picker holds one provider's choice, which says nothing about the others. It is
+// also why the settings UI has to describe these — someone reading the single-provider
+// picker while multi is on is reading a selection that does not apply.
+//
+// The persisted setting keys below still say "dual". They are the names already in every
+// user's localStorage, and renaming them would orphan their provider and model choices
+// for a cosmetic gain; the code around them says what it means instead.
 import modelRegistryData from "../models/modelRegistryData.json" with { type: "json" };
 
-export interface DualTranscriptionProvider {
+export interface MultiTranscriptionProvider {
   id: string;
   label: string;
   model: string;
@@ -26,14 +29,14 @@ export interface DualTranscriptionProvider {
 // merge two readings it cannot separate on the merits, the model picked version_a both
 // times in an A/B with the labels swapped, so slot order is a real tie-break and the
 // most accurate recogniser should hold the first slot.
-export const DUAL_TRANSCRIPTION_PROVIDERS: DualTranscriptionProvider[] = [
+export const MULTI_TRANSCRIPTION_PROVIDERS: MultiTranscriptionProvider[] = [
   { id: "xai", label: "xAI", model: "grok-stt", apiKeyField: "xaiApiKey" },
   { id: "openai", label: "OpenAI", model: "gpt-transcribe", apiKeyField: "openaiApiKey" },
   { id: "groq", label: "Groq", model: "whisper-large-v3", apiKeyField: "groqApiKey" },
   // Appended, not inserted. Order is the dropdown order *and* the substitution order
   // used when a stored slot collides with a default, so putting a new provider
   // anywhere but the end would silently change which lane fills a collision. It holds
-  // slot C by default even so — see DEFAULT_DUAL_PROVIDER_C — because which provider a
+  // slot C by default even so — see DEFAULT_MULTI_PROVIDER_C — because which provider a
   // slot defaults to is chosen there, independently of position in this list.
   {
     id: "openrouter",
@@ -69,25 +72,25 @@ export const MULTI_TRANSCRIPTION_SLOTS = [
 /** A slot set to this runs nothing, which is how a two-provider setup is expressed. */
 export const NO_PROVIDER = "none";
 
-export const DUAL_TRANSCRIPTION_MODELS: Record<string, string> = Object.fromEntries(
-  DUAL_TRANSCRIPTION_PROVIDERS.map((provider) => [provider.id, provider.model])
+export const MULTI_TRANSCRIPTION_MODELS: Record<string, string> = Object.fromEntries(
+  MULTI_TRANSCRIPTION_PROVIDERS.map((provider) => [provider.id, provider.model])
 );
 
-export const DUAL_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object.fromEntries(
-  DUAL_TRANSCRIPTION_PROVIDERS.map((provider) => [provider.id, provider.apiKeyField])
+export const MULTI_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object.fromEntries(
+  MULTI_TRANSCRIPTION_PROVIDERS.map((provider) => [provider.id, provider.apiKeyField])
 );
 
-export const DEFAULT_DUAL_PROVIDER_A = "xai";
-export const DEFAULT_DUAL_PROVIDER_B = "openai";
+export const DEFAULT_MULTI_PROVIDER_A = "xai";
+export const DEFAULT_MULTI_PROVIDER_B = "openai";
 // Slot C is OpenRouter's MAI-Transcribe rather than Groq's Whisper. Groq is still
 // selectable; it is no longer the third opinion by default.
-export const DEFAULT_DUAL_PROVIDER_C = "openrouter";
+export const DEFAULT_MULTI_PROVIDER_C = "openrouter";
 
 /** Slot defaults, keyed the way the fan-out reads them. */
 export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = {
-  A: DEFAULT_DUAL_PROVIDER_A,
-  B: DEFAULT_DUAL_PROVIDER_B,
-  C: DEFAULT_DUAL_PROVIDER_C,
+  A: DEFAULT_MULTI_PROVIDER_A,
+  B: DEFAULT_MULTI_PROVIDER_B,
+  C: DEFAULT_MULTI_PROVIDER_C,
 };
 
 // Who merges the two transcripts when they disagree. Reconciling is a judgement call
@@ -138,7 +141,7 @@ export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "ge
 // direct one — to still be compared rather than dropped. The cost of being generous is
 // paid only when a lane is actually late, since the budget starts at the first success
 // and ends the moment the rest answer.
-export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1000;
+export const DEFAULT_MULTI_SECOND_TIMEOUT_MS = 1000;
 
 // How long the merge itself gets before it is abandoned and the best single transcript
 // is used instead.
@@ -157,8 +160,8 @@ export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1000;
 // fallback is a real transcript rather than an error.
 export const DEFAULT_RECONCILE_TIMEOUT_MS = 1000;
 
-export function getDualTranscriptionProvider(id: string): DualTranscriptionProvider | undefined {
-  return DUAL_TRANSCRIPTION_PROVIDERS.find((provider) => provider.id === id);
+export function getMultiTranscriptionProvider(id: string): MultiTranscriptionProvider | undefined {
+  return MULTI_TRANSCRIPTION_PROVIDERS.find((provider) => provider.id === id);
 }
 
 /**
@@ -187,7 +190,7 @@ export function resolveMultiTranscriptionLanes(
 
     if (used.has(provider)) {
       if (stored) continue; // the user asked for this twice; run it once
-      const substitute = DUAL_TRANSCRIPTION_PROVIDERS.find((entry) => !used.has(entry.id));
+      const substitute = MULTI_TRANSCRIPTION_PROVIDERS.find((entry) => !used.has(entry.id));
       if (!substitute) continue;
       provider = substitute.id;
     }
@@ -196,7 +199,7 @@ export function resolveMultiTranscriptionLanes(
     lanes.push({
       slot,
       provider,
-      model: resolveDualTranscriptionModel(provider, settings[modelKey] as string),
+      model: resolveMultiTranscriptionModel(provider, settings[modelKey] as string),
     });
   }
   return lanes;
@@ -213,8 +216,8 @@ const SERVED_TRANSCRIPTION_MODELS: Record<string, Set<string>> = Object.fromEntr
   ).map((provider) => [provider.id, new Set((provider.models ?? []).map((model) => model.id))])
 );
 
-export function resolveDualTranscriptionModel(providerId: string, storedModel?: string): string {
-  const fallback = getDualTranscriptionProvider(providerId)?.model ?? "";
+export function resolveMultiTranscriptionModel(providerId: string, storedModel?: string): string {
+  const fallback = getMultiTranscriptionProvider(providerId)?.model ?? "";
   const chosen = storedModel?.trim();
   if (!chosen) return fallback;
 

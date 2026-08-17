@@ -206,7 +206,7 @@ test("a fresh install and a cleared setting resolve to the same thing", () => {
   // present but empty took a different path through the app than a fresh profile —
   // which is how the duplicate-provider bug hid: it needed one stored slot and one
   // unstored slot to appear.
-  const { resolveMultiTranscriptionLanes } = require("../../src/config/dualTranscription.ts");
+  const { resolveMultiTranscriptionLanes } = require("../../src/config/multiTranscription.ts");
 
   const fresh = resolveMultiTranscriptionLanes({});
   const cleared = resolveMultiTranscriptionLanes({

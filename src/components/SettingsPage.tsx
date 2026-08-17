@@ -47,13 +47,13 @@ import NixOsPasteInfo from "./ui/NixOsPasteInfo";
 import TranscriptionModelPicker from "./TranscriptionModelPicker";
 import SelfHostedPanel from "./SelfHostedPanel";
 import {
-  DUAL_TRANSCRIPTION_PROVIDERS,
+  MULTI_TRANSCRIPTION_PROVIDERS,
   RECONCILE_PROVIDER_IDS,
   NO_PROVIDER,
   resolveMultiTranscriptionLanes,
-  getDualTranscriptionProvider,
-  resolveDualTranscriptionModel,
-} from "../config/dualTranscription";
+  getMultiTranscriptionProvider,
+  resolveMultiTranscriptionModel,
+} from "../config/multiTranscription";
 import { REASONING_PROVIDERS, getTranscriptionProviders } from "../models/ModelRegistry";
 import {
   ConfirmDialog,
@@ -361,9 +361,9 @@ function TranscriptionSection({
   const multiTranscriptionEnabled = useSettingsStore((s) => s.multiTranscriptionEnabled);
   const setMultiTranscriptionEnabled = useSettingsStore((s) => s.setMultiTranscriptionEnabled);
   const dualTranscriptionProviderA = useSettingsStore((s) => s.dualTranscriptionProviderA);
-  const setDualTranscriptionProviderA = useSettingsStore((s) => s.setDualTranscriptionProviderA);
+  const setMultiTranscriptionProviderA = useSettingsStore((s) => s.setMultiTranscriptionProviderA);
   const dualTranscriptionProviderB = useSettingsStore((s) => s.dualTranscriptionProviderB);
-  const setDualTranscriptionProviderB = useSettingsStore((s) => s.setDualTranscriptionProviderB);
+  const setMultiTranscriptionProviderB = useSettingsStore((s) => s.setMultiTranscriptionProviderB);
 
   const groqApiKey = useSettingsStore((s) => s.groqApiKey);
   const xaiApiKey = useSettingsStore((s) => s.xaiApiKey);
@@ -375,7 +375,7 @@ function TranscriptionSection({
   const dualModelB = useSettingsStore((s) => s.dualTranscriptionModelB);
   const setDualModelB = useSettingsStore((s) => s.setDualTranscriptionModelB);
   const dualTranscriptionProviderC = useSettingsStore((s) => s.dualTranscriptionProviderC);
-  const setDualTranscriptionProviderC = useSettingsStore((s) => s.setDualTranscriptionProviderC);
+  const setMultiTranscriptionProviderC = useSettingsStore((s) => s.setMultiTranscriptionProviderC);
   const dualModelC = useSettingsStore((s) => s.dualTranscriptionModelC);
   const setDualModelC = useSettingsStore((s) => s.setDualTranscriptionModelC);
 
@@ -395,7 +395,7 @@ function TranscriptionSection({
     useSettingsStore.getState() as unknown as Record<string, unknown>
   );
   const activeMultiProviders = resolvedLanes
-    .map((lane) => getDualTranscriptionProvider(lane.provider))
+    .map((lane) => getMultiTranscriptionProvider(lane.provider))
     .filter((provider): provider is NonNullable<typeof provider> => !!provider);
   const multiProvidersMissingKeys = activeMultiProviders.filter(
     (provider) => !dualApiKeys[provider.apiKeyField]?.trim()
@@ -489,21 +489,21 @@ function TranscriptionSection({
     {
       slot: "A",
       provider: dualTranscriptionProviderA,
-      setProvider: setDualTranscriptionProviderA,
+      setProvider: setMultiTranscriptionProviderA,
       model: dualModelA,
       setModel: setDualModelA,
     },
     {
       slot: "B",
       provider: dualTranscriptionProviderB,
-      setProvider: setDualTranscriptionProviderB,
+      setProvider: setMultiTranscriptionProviderB,
       model: dualModelB,
       setModel: setDualModelB,
     },
     {
       slot: "C",
       provider: dualTranscriptionProviderC,
-      setProvider: setDualTranscriptionProviderC,
+      setProvider: setMultiTranscriptionProviderC,
       model: dualModelC,
       setModel: setDualModelC,
     },
@@ -525,7 +525,7 @@ function TranscriptionSection({
             const taken = multiSlots
               .filter((other) => other.slot !== slot)
               .map((other) => other.provider);
-            const definition = getDualTranscriptionProvider(provider);
+            const definition = getMultiTranscriptionProvider(provider);
             return (
               <Fragment key={slot}>
                 <SettingsPanelRow>
@@ -549,7 +549,7 @@ function TranscriptionSection({
                             {t("settingsPage.transcription.multiProviderNone")}
                           </SelectItem>
                         )}
-                        {DUAL_TRANSCRIPTION_PROVIDERS.filter(
+                        {MULTI_TRANSCRIPTION_PROVIDERS.filter(
                           (candidate) => !taken.includes(candidate.id) || candidate.id === provider
                         ).map((candidate) => (
                           <SelectItem key={candidate.id} value={candidate.id}>
@@ -568,7 +568,7 @@ function TranscriptionSection({
                       })}
                     >
                       <Select
-                        value={resolveDualTranscriptionModel(provider, model)}
+                        value={resolveMultiTranscriptionModel(provider, model)}
                         onValueChange={setModel}
                       >
                         <SelectTrigger className="w-56">

@@ -21,7 +21,7 @@ const LOCALES = path.join(ROOT, "src", "locales");
 const {
   MULTI_TRANSCRIPTION_SLOTS,
   TRANSCRIPTION_QUALITY_ORDER,
-} = require("../../src/config/dualTranscription.ts");
+} = require("../../src/config/multiTranscription.ts");
 
 const languages = fs
   .readdirSync(LOCALES)

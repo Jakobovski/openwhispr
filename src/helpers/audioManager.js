@@ -36,18 +36,18 @@ import { concatFrames } from "../utils/pcmAudio";
 import settingsDefaults from "../config/settingsDefaults.json";
 import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/prompts";
 import {
-  DUAL_TRANSCRIPTION_MODELS,
-  DUAL_TRANSCRIPTION_API_KEY_FIELDS,
-  getDualTranscriptionProvider,
-  DEFAULT_DUAL_PROVIDER_A,
-  DEFAULT_DUAL_PROVIDER_B,
-  DEFAULT_DUAL_PROVIDER_C,
+  MULTI_TRANSCRIPTION_MODELS,
+  MULTI_TRANSCRIPTION_API_KEY_FIELDS,
+  getMultiTranscriptionProvider,
+  DEFAULT_MULTI_PROVIDER_A,
+  DEFAULT_MULTI_PROVIDER_B,
+  DEFAULT_MULTI_PROVIDER_C,
   resolveMultiTranscriptionLanes,
-  DEFAULT_DUAL_SECOND_TIMEOUT_MS,
+  DEFAULT_MULTI_SECOND_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_TIMEOUT_MS,
-  resolveDualTranscriptionModel,
-} from "../config/dualTranscription";
+  resolveMultiTranscriptionModel,
+} from "../config/multiTranscription";
 
 import {
   getBatchTranscriptionModel,
@@ -297,7 +297,7 @@ function isMultiTranscriptionEnabled(settings) {
   // extra machinery, and a lane without a key is a guaranteed failure rather than a second
   // opinion. Lanes come from the shared resolver, so duplicates are already collapsed.
   const withKeys = resolveMultiTranscriptionLanes(settings).filter((lane) => {
-    const keyField = DUAL_TRANSCRIPTION_API_KEY_FIELDS[lane.provider];
+    const keyField = MULTI_TRANSCRIPTION_API_KEY_FIELDS[lane.provider];
     return keyField && settings[keyField];
   });
   return withKeys.length >= 2;
@@ -3378,7 +3378,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const startedAt = performance.now();
     // The caller's per-side choice wins; the provider's default stands in when the
     // user has not picked one.
-    const model = requestedModel?.trim() || DUAL_TRANSCRIPTION_MODELS[provider];
+    const model = requestedModel?.trim() || MULTI_TRANSCRIPTION_MODELS[provider];
     if (!model) {
       throw new Error(`Provider ${provider} is not available for dual transcription`);
     }
@@ -3619,7 +3619,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // that still might produce the only transcript.
     const budgetMs = Number.isFinite(settings.dualTranscriptionSecondTimeoutMs)
       ? settings.dualTranscriptionSecondTimeoutMs
-      : DEFAULT_DUAL_SECOND_TIMEOUT_MS;
+      : DEFAULT_MULTI_SECOND_TIMEOUT_MS;
     const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
       tracked,
       settled,
@@ -3663,7 +3663,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         slot: lane.slot,
         provider: lane.provider,
         model: lane.model,
-        label: getDualTranscriptionProvider(lane.provider)?.label || lane.provider,
+        label: getMultiTranscriptionProvider(lane.provider)?.label || lane.provider,
         status: statusFor(index),
         text: ok ? result.value.text : null,
         ms: ok ? result.value.ms : null,

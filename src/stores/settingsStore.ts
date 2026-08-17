@@ -20,14 +20,14 @@ import {
 import { findStaleLocalModelKeys } from "../helpers/localModelSelections";
 import { buildProviderModelIndex, resolveUsableModel } from "../helpers/modelAvailability";
 import {
-  DEFAULT_DUAL_PROVIDER_A,
-  DEFAULT_DUAL_PROVIDER_B,
-  DEFAULT_DUAL_PROVIDER_C,
-  DEFAULT_DUAL_SECOND_TIMEOUT_MS,
+  DEFAULT_MULTI_PROVIDER_A,
+  DEFAULT_MULTI_PROVIDER_B,
+  DEFAULT_MULTI_PROVIDER_C,
+  DEFAULT_MULTI_SECOND_TIMEOUT_MS,
   DEFAULT_RECONCILE_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_MODEL,
-} from "../config/dualTranscription";
+} from "../config/multiTranscription";
 import {
   INFERENCE_SCOPES,
   type InferenceScope,
@@ -675,7 +675,7 @@ export interface SettingsState
   dualTranscriptionProviderA: string;
   dualTranscriptionProviderB: string;
   dualTranscriptionProviderC: string;
-  // Empty means "the provider's default", from DUAL_TRANSCRIPTION_PROVIDERS.
+  // Empty means "the provider's default", from MULTI_TRANSCRIPTION_PROVIDERS.
   dualTranscriptionModelA: string;
   dualTranscriptionModelB: string;
   dualTranscriptionModelC: string;
@@ -688,9 +688,9 @@ export interface SettingsState
   // transcript is pasted instead.
   dualTranscriptionReconcileTimeoutMs: number;
   setMultiTranscriptionEnabled: (value: boolean) => void;
-  setDualTranscriptionProviderA: (value: string) => void;
-  setDualTranscriptionProviderB: (value: string) => void;
-  setDualTranscriptionProviderC: (value: string) => void;
+  setMultiTranscriptionProviderA: (value: string) => void;
+  setMultiTranscriptionProviderB: (value: string) => void;
+  setMultiTranscriptionProviderC: (value: string) => void;
   setDualTranscriptionModelA: (value: string) => void;
   setDualTranscriptionModelB: (value: string) => void;
   setDualTranscriptionModelC: (value: string) => void;
@@ -1071,9 +1071,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   // returns false without them, so a new user with one key silently gets the normal
   // single-provider path rather than a broken one.
   multiTranscriptionEnabled: readBoolean("multiTranscriptionEnabled", true),
-  dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_DUAL_PROVIDER_A),
-  dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_DUAL_PROVIDER_B),
-  dualTranscriptionProviderC: readString("dualTranscriptionProviderC", DEFAULT_DUAL_PROVIDER_C),
+  dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_MULTI_PROVIDER_A),
+  dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_MULTI_PROVIDER_B),
+  dualTranscriptionProviderC: readString("dualTranscriptionProviderC", DEFAULT_MULTI_PROVIDER_C),
   dualTranscriptionModelA: readString("dualTranscriptionModelA", ""),
   dualTranscriptionModelB: readString("dualTranscriptionModelB", ""),
   dualTranscriptionModelC: readString("dualTranscriptionModelC", ""),
@@ -1087,7 +1087,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   ),
   dualTranscriptionSecondTimeoutMs: readNumber(
     "dualTranscriptionSecondTimeoutMs",
-    DEFAULT_DUAL_SECOND_TIMEOUT_MS
+    DEFAULT_MULTI_SECOND_TIMEOUT_MS
   ),
   dualTranscriptionReconcileTimeoutMs: readNumber(
     "dualTranscriptionReconcileTimeoutMs",
@@ -1639,9 +1639,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setScreenContextEnabled: createBooleanSetter("screenContextEnabled"),
   setSilenceTrimStrength: createStringSetter("silenceTrimStrength"),
   setMultiTranscriptionEnabled: createBooleanSetter("multiTranscriptionEnabled"),
-  setDualTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),
-  setDualTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),
-  setDualTranscriptionProviderC: createStringSetter("dualTranscriptionProviderC"),
+  setMultiTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),
+  setMultiTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),
+  setMultiTranscriptionProviderC: createStringSetter("dualTranscriptionProviderC"),
   setDualTranscriptionModelA: createStringSetter("dualTranscriptionModelA"),
   setDualTranscriptionModelB: createStringSetter("dualTranscriptionModelB"),
   setDualTranscriptionModelC: createStringSetter("dualTranscriptionModelC"),

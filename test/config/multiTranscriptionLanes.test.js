@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 // Node strips the types, so the TS config module loads directly.
-const load = () => import("../../src/config/dualTranscription.ts");
+const load = () => import("../../src/config/multiTranscription.ts");
 
 const providers = (lanes) => lanes.map((lane) => lane.provider);
 
