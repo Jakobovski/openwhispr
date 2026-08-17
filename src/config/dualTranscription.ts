@@ -82,11 +82,16 @@ export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = {
 export const DEFAULT_RECONCILE_PROVIDER = "xai";
 export const DEFAULT_RECONCILE_MODEL = "grok-4.20-0309-non-reasoning";
 
-// Tie-break order for the merge, best first, passed to the reconcile prompt as a
-// preference of last resort. Based on what these providers actually produce here: xAI
-// answered first in every race the wait budget decided, and its transcripts have needed
-// the fewest corrections. It only settles disagreements the prompt cannot judge on the
-// merits — a correctly spelled name or a more plausible reading wins regardless of side.
+// Tie-break order for the merge, best first. Based on what these providers actually
+// produce here: xAI answered first in every race the wait budget decided, and its
+// transcripts have needed the fewest corrections.
+//
+// Documentation, not wiring: the rule itself is written into the reconcile prompt,
+// because the merge is an LLM reading labelled versions rather than code picking a
+// winner. It is also the *weakest* rule in that prompt, below both the merits
+// (correct spelling, plausibility in context) and a majority — two recognisers
+// agreeing on a word outrank one recogniser's track record, so this only settles a
+// straight 1-1 split or a three-way disagreement.
 export const TRANSCRIPTION_QUALITY_ORDER = ["xai", "openai", "groq"];
 
 // Providers offered for reconciliation. Limited to the ones whose model list the
