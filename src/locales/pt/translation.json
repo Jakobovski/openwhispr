@@ -179,7 +179,9 @@
       "systemAudioDescription": "Permite que o gravador de reuniões ouça o outro lado das suas chamadas — reuniões, aulas, podcasts. Você pode ativar depois nas Configurações.",
       "optional": "Opcional",
       "recommended": "Recomendado",
-      "accessibilityTroubleshooting": "Em Configurações do Sistema → Acessibilidade, desative o interruptor do OpenWhispr e ative-o novamente. Se o OpenWhispr não aparecer na lista, clique em + e adicione-o a partir da pasta Aplicativos. Ainda com problemas? Envie um e-mail para support@openwhispr.com."
+      "accessibilityTroubleshooting": "Em Configurações do Sistema → Acessibilidade, desative o interruptor do OpenWhispr e ative-o novamente. Se o OpenWhispr não aparecer na lista, clique em + e adicione-o a partir da pasta Aplicativos. Ainda com problemas? Envie um e-mail para support@openwhispr.com.",
+      "screenRecordingTitle": "Gravação de Tela",
+      "screenRecordingDescription": "Permite que o contexto da tela leia a janela em que você dita, para corrigir os nomes que aparecem nela. Usado apenas no seu Mac."
     },
     "transcription": {
       "title": "Configuração de transcrição",
@@ -1639,7 +1641,9 @@
       "testAndGrant": "Testar e conceder",
       "title": "Permissões",
       "troubleshoot": "Solucionar problemas",
-      "troubleshootingTitle": "Solução de problemas"
+      "troubleshootingTitle": "Solução de problemas",
+      "screenRecordingTitle": "Gravação de Tela",
+      "screenRecordingDescription": "Permite que o contexto da tela leia a janela em que você dita, para corrigir os nomes que aparecem nela. Usado apenas no seu Mac."
     },
     "privacy": {
       "cloudBackup": "Backup na nuvem",

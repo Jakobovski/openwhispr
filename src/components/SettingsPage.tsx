@@ -35,6 +35,7 @@ import {
   Wand2,
   Upload,
   Languages,
+  ScanText,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { AUTH_URL, signOut, deleteAccount } from "../lib/auth";
@@ -1260,6 +1261,7 @@ export default function SettingsPage({
   const { checkWhisperInstallation } = useWhisper();
   const permissionsHook = usePermissions(showAlertDialog);
   const systemAudio = useSystemAudioPermission();
+  const screenRecordingPermission = useScreenRecordingPermission();
   useClipboard(showAlertDialog);
   const [audioStorageUsage, setAudioStorageUsage] = useState<{
     fileCount: number;
@@ -4105,6 +4107,20 @@ EOF`,
                         description={t("settingsPage.permissions.systemAudioDescription")}
                         granted={systemAudio.granted}
                         onRequest={systemAudio.request}
+                        buttonText={t("settingsPage.permissions.grantAccess")}
+                        badge={t("settingsPage.permissions.optional")}
+                      />
+                    )}
+                    {/* Screen context is on by default, so this grant decides whether
+                        it does anything at all — it belongs in the list of permissions
+                        the app uses, not only beside the toggle that consumes it. */}
+                    {platform === "darwin" && (
+                      <PermissionCard
+                        icon={ScanText}
+                        title={t("settingsPage.permissions.screenRecordingTitle")}
+                        description={t("settingsPage.permissions.screenRecordingDescription")}
+                        granted={screenRecordingPermission.granted}
+                        onRequest={screenRecordingPermission.request}
                         buttonText={t("settingsPage.permissions.grantAccess")}
                         badge={t("settingsPage.permissions.optional")}
                       />

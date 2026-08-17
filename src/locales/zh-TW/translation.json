@@ -200,7 +200,9 @@
       "systemAudioDescription": "讓會議錄音機聽到通話另一方的聲音 — 會議、講座、Podcast。你可以稍後在「設定」中開啟。",
       "optional": "可選",
       "recommended": "建議",
-      "accessibilityTroubleshooting": "在系統設定 → 輔助使用中，將 OpenWhispr 的開關關閉再重新開啟。如果清單中根本沒有 OpenWhispr，請點按 + 並從「應用程式」資料夾加入。還是不行？請寄信至 support@openwhispr.com。"
+      "accessibilityTroubleshooting": "在系統設定 → 輔助使用中，將 OpenWhispr 的開關關閉再重新開啟。如果清單中根本沒有 OpenWhispr，請點按 + 並從「應用程式」資料夾加入。還是不行？請寄信至 support@openwhispr.com。",
+      "screenRecordingTitle": "螢幕錄製",
+      "screenRecordingDescription": "讓螢幕內容讀取你正在輸入的視窗，以更正其中出現的名稱。僅在你的 Mac 上使用。"
     },
     "transcription": {
       "title": "轉錄設定",
@@ -1655,7 +1657,9 @@
       "testAndGrant": "測試並授權",
       "title": "權限",
       "troubleshoot": "疑難排解",
-      "troubleshootingTitle": "疑難排解"
+      "troubleshootingTitle": "疑難排解",
+      "screenRecordingTitle": "螢幕錄製",
+      "screenRecordingDescription": "讓螢幕內容讀取你正在輸入的視窗，以更正其中出現的名稱。僅在你的 Mac 上使用。"
     },
     "privacy": {
       "cloudBackup": "雲端備份",

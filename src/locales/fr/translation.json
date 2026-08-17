@@ -200,7 +200,9 @@
       "systemAudioDescription": "Permet à l'enregistreur de réunion d'entendre vos interlocuteurs : réunions, cours, podcasts. Activable plus tard dans les Réglages.",
       "optional": "Facultatif",
       "recommended": "Recommandé",
-      "accessibilityTroubleshooting": "Dans Réglages Système → Accessibilité, désactivez le bouton d'OpenWhispr puis réactivez-le. Si OpenWhispr n'apparaît pas du tout dans la liste, cliquez sur + et ajoutez-le depuis le dossier Applications. Toujours bloqué ? Écrivez à support@openwhispr.com."
+      "accessibilityTroubleshooting": "Dans Réglages Système → Accessibilité, désactivez le bouton d'OpenWhispr puis réactivez-le. Si OpenWhispr n'apparaît pas du tout dans la liste, cliquez sur + et ajoutez-le depuis le dossier Applications. Toujours bloqué ? Écrivez à support@openwhispr.com.",
+      "screenRecordingTitle": "Enregistrement de l'écran",
+      "screenRecordingDescription": "Permet au contexte d'écran de lire la fenêtre dans laquelle vous dictez, afin de corriger les noms qui y figurent. Utilisé uniquement sur votre Mac."
     },
     "transcription": {
       "title": "Configuration de la transcription",
@@ -1708,7 +1710,9 @@
       "testAndGrant": "Tester et autoriser",
       "title": "Permissions",
       "troubleshoot": "Dépanner",
-      "troubleshootingTitle": "Dépannage"
+      "troubleshootingTitle": "Dépannage",
+      "screenRecordingTitle": "Enregistrement de l'écran",
+      "screenRecordingDescription": "Permet au contexte d'écran de lire la fenêtre dans laquelle vous dictez, afin de corriger les noms qui y figurent. Utilisé uniquement sur votre Mac."
     },
     "privacy": {
       "cloudBackup": "Sauvegarde cloud",

@@ -1039,11 +1039,15 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cortiTenant: readString("cortiTenant", settingsDefaults.storeDefaults.cortiTenant),
   xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
   silenceTrimEnabled: readBoolean("silenceTrimEnabled", true),
-  // Off by default. It screenshots whatever window the user is looking at on
-  // every dictation, which is not something to start doing to someone without
-  // being asked — and it needs a Screen Recording grant that only makes sense to
-  // request once the user has chosen the feature.
-  screenContextEnabled: readBoolean("screenContextEnabled", false),
+  // On by default: the names it fixes are the ones a recogniser reliably gets
+  // wrong, so the feature is worth having on rather than discovering.
+  //
+  // What that commits to: a screenshot of the focused window on every dictation.
+  // It never leaves the machine — the terms correct the transcript locally and are
+  // never persisted or sent to a provider (see screenTermMatcher) — but it does
+  // mean macOS will ask for Screen Recording, so the grant is offered in the
+  // permissions list rather than sprung the first time someone dictates.
+  screenContextEnabled: readBoolean("screenContextEnabled", true),
   silenceTrimStrength: readString("silenceTrimStrength", "light"),
   // On by default. It needs a BYOK key for each side, and isDualTranscriptionEnabled
   // returns false without them, so a new user with one key silently gets the normal

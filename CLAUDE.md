@@ -628,7 +628,7 @@ A dedicated global hotkey that starts a dictation whose transcript is sent strai
 
 ### 18. Screen Context (Focused-Window OCR)
 
-macOS-only. Reads the window the user is looking at while they dictate and uses the distinctive terms on it to correct names the recognizer got wrong ("open whisper" → "OpenWhispr", "Shunade" → "Sinead"). Off by default (`screenContextEnabled`).
+macOS-only. Reads the window the user is looking at while they dictate and uses the distinctive terms on it to correct names the recognizer got wrong ("open whisper" → "OpenWhispr", "Shunade" → "Sinead"). On by default (`screenContextEnabled`), so the Screen Recording grant decides whether it does anything — it is offered as an optional card in the permissions list (Settings → Privacy & Data, and the first-run screen) rather than sprung on the first dictation.
 
 **Flow**:
 
@@ -650,7 +650,7 @@ macOS-only. Reads the window the user is looking at while they dictate and uses 
 - A capture that resolved but was never collected is **dropped, not reused** — otherwise a cancelled dictation's screenshot corrects the *next* transcript (`test/helpers/windowOcrManager.test.js`).
 - Every failure is non-fatal: no permission, no binary, wrong OS, or a wedged sidecar all yield the transcript exactly as transcribed.
 
-**Permission**: Screen Recording, checked via `systemPreferences.getMediaAccessStatus("screen")`. macOS has no `askForMediaAccess` for the screen — only an actual capture attempt raises the prompt, and a denial is sticky — so `request-screen-recording-permission` attempts a capture and falls back to opening the Screen Recording pane. Requested only when the user turns the setting on.
+**Permission**: Screen Recording, checked via `systemPreferences.getMediaAccessStatus("screen")`. macOS has no `askForMediaAccess` for the screen — only an actual capture attempt raises the prompt, and a denial is sticky — so `request-screen-recording-permission` attempts a capture and falls back to opening the Screen Recording pane. `useScreenRecordingPermission` re-checks on window focus, because the grant lands in System Settings rather than coming back as a return value.
 
 **Tests**: `test/helpers/windowOcrManager.test.js`, `test/utils/screenTermMatcher.test.js`
 

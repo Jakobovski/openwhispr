@@ -200,7 +200,9 @@
       "systemAudioDescription": "Permette al registratore delle riunioni di sentire l'altro lato delle tue chiamate — riunioni, lezioni, podcast. Puoi attivarlo più tardi nelle Impostazioni.",
       "optional": "Facoltativo",
       "recommended": "Consigliato",
-      "accessibilityTroubleshooting": "In Impostazioni di Sistema → Accessibilità, disattiva l'interruttore di OpenWhispr e riattivalo. Se OpenWhispr non compare nell'elenco, fai clic su + e aggiungilo dalla cartella Applicazioni. Ancora problemi? Scrivi a support@openwhispr.com."
+      "accessibilityTroubleshooting": "In Impostazioni di Sistema → Accessibilità, disattiva l'interruttore di OpenWhispr e riattivalo. Se OpenWhispr non compare nell'elenco, fai clic su + e aggiungilo dalla cartella Applicazioni. Ancora problemi? Scrivi a support@openwhispr.com.",
+      "screenRecordingTitle": "Registrazione schermo",
+      "screenRecordingDescription": "Consente al contesto dello schermo di leggere la finestra in cui stai dettando, per correggere i nomi che vi appaiono. Usato solo sul tuo Mac."
     },
     "transcription": {
       "title": "Configurazione trascrizione",
@@ -1660,7 +1662,9 @@
       "testAndGrant": "Testa e concedi",
       "title": "Permessi",
       "troubleshoot": "Risoluzione problemi",
-      "troubleshootingTitle": "Risoluzione problemi"
+      "troubleshootingTitle": "Risoluzione problemi",
+      "screenRecordingTitle": "Registrazione schermo",
+      "screenRecordingDescription": "Consente al contesto dello schermo di leggere la finestra in cui stai dettando, per correggere i nomi che vi appaiono. Usato solo sul tuo Mac."
     },
     "privacy": {
       "cloudBackup": "Backup cloud",

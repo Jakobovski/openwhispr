@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { Mic, Shield, Monitor } from "lucide-react";
+import { Mic, Shield, Monitor, ScanText } from "lucide-react";
 import PermissionCard from "./PermissionCard";
+import { useScreenRecordingPermission } from "../../hooks/useScreenRecordingPermission";
 import MicPermissionWarning from "./MicPermissionWarning";
 import PasteToolsInfo from "./PasteToolsInfo";
 import type { UsePermissionsReturn } from "../../hooks/usePermissions";
@@ -25,6 +26,7 @@ export default function PermissionsSection({
   const platform = permissions.pasteToolsInfo?.platform;
   const isMacOS = platform === "darwin";
   const shouldShowSystemAudioPermission = canManageSystemAudioInApp(systemAudio);
+  const screenRecording = useScreenRecordingPermission();
 
   return (
     <>
@@ -68,6 +70,21 @@ export default function PermissionsSection({
                 ? t("onboarding.permissions.recommended")
                 : t("onboarding.permissions.optional")
             }
+          />
+        )}
+
+        {/* Screen context ships on, so a first run that skips this grant gets a
+            feature that silently does nothing. Optional, not required: dictation
+            works without it, and only the Done button gates on the microphone. */}
+        {isMacOS && (
+          <PermissionCard
+            icon={ScanText}
+            title={t("onboarding.permissions.screenRecordingTitle")}
+            description={t("onboarding.permissions.screenRecordingDescription")}
+            granted={screenRecording.granted}
+            onRequest={screenRecording.request}
+            buttonText={t("onboarding.permissions.grantAccess")}
+            badge={t("onboarding.permissions.optional")}
           />
         )}
       </div>

@@ -200,7 +200,9 @@
       "systemAudioDescription": "会議レコーダーが通話の相手側の音声（会議、講義、ポッドキャストなど）を聴けるようにします。後から設定で有効にできます。",
       "optional": "任意",
       "recommended": "推奨",
-      "accessibilityTroubleshooting": "システム設定 → アクセシビリティで、OpenWhisprのスイッチをオフにしてから再度オンにしてください。OpenWhisprがリストに表示されていない場合は、+ をクリックしてアプリケーションフォルダから追加してください。それでも解決しませんか？support@openwhispr.com までメールでお問い合わせください。"
+      "accessibilityTroubleshooting": "システム設定 → アクセシビリティで、OpenWhisprのスイッチをオフにしてから再度オンにしてください。OpenWhisprがリストに表示されていない場合は、+ をクリックしてアプリケーションフォルダから追加してください。それでも解決しませんか？support@openwhispr.com までメールでお問い合わせください。",
+      "screenRecordingTitle": "画面収録",
+      "screenRecordingDescription": "画面コンテキストが、入力先のウィンドウを読み取り、そこに見える名前を修正できるようにします。Mac 内でのみ使用されます。"
     },
     "transcription": {
       "title": "文字起こし設定",
@@ -1660,7 +1662,9 @@
       "testAndGrant": "テストして許可",
       "title": "権限",
       "troubleshoot": "トラブルシュート",
-      "troubleshootingTitle": "トラブルシューティング"
+      "troubleshootingTitle": "トラブルシューティング",
+      "screenRecordingTitle": "画面収録",
+      "screenRecordingDescription": "画面コンテキストが、入力先のウィンドウを読み取り、そこに見える名前を修正できるようにします。Mac 内でのみ使用されます。"
     },
     "privacy": {
       "cloudBackup": "クラウドバックアップ",
