@@ -39,10 +39,19 @@ export interface TranscriptionItem {
   route_kind?: string | null;
   /** JSON per-side detail for dual-provider dictations; null for every other row. */
   dual_json?: string | null;
+  /** JSON record of the words screen context rewrote; null when it changed nothing. */
+  screen_context_json?: string | null;
   client_transcription_id: string;
   cloud_id: string | null;
   sync_status: "synced" | "pending" | "error";
   deleted_at: string | null;
+}
+
+export interface ScreenRecordingAccessResult {
+  granted: boolean;
+  /** The macOS TCC status, or "unsupported" off macOS and without the sidecar. */
+  status: string;
+  supported: boolean;
 }
 
 export interface ModelLatencyStat {
@@ -1755,6 +1764,10 @@ declare global {
       windowOcrStart?: () => void;
       windowOcrCollect?: () => Promise<{ text: string; window: string } | null>;
       windowOcrCancel?: () => void;
+      checkScreenRecordingPermission?: () => Promise<ScreenRecordingAccessResult>;
+      /** Attempts a capture, which is the only thing that raises the macOS prompt. */
+      requestScreenRecordingPermission?: () => Promise<ScreenRecordingAccessResult>;
+      openScreenRecordingSettings?: () => Promise<{ success: boolean; error?: string }>;
 
       // Agent overlay
       resizeAgentWindow?: (width: number, height: number) => Promise<void>;

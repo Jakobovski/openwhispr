@@ -387,7 +387,11 @@
         "recordingWithDuration": "Gravação descartada · {{duration}}",
         "recover": "Recuperar",
         "recovered": "Recuperada"
-      }
+      },
+      "screenContextTitle": "Da tela",
+      "screenContextCount": "{{words}} corrigidas a partir da tela",
+      "screenContextSubstitute": "mal ouvida",
+      "screenContextRecase": "maiúsculas"
     },
     "cloudMigration": {
       "title": "Boas-vindas ao OpenWhispr Cloud",
@@ -1816,7 +1820,11 @@
       "multiProviderNone": "Nenhum",
       "multiNeedsTwo": "Escolha pelo menos dois provedores — com apenas um, a transcrição múltipla fica desativada.",
       "multiDuplicateProvider": "Dois slots indicam o mesmo provedor, então apenas {{providers}} será usado — uma duplicata custa mais sem dar uma segunda opinião.",
-      "multiOverridesModel": "A transcrição múltipla está ativada, por isso o ditado usa {{providers}} em vez de um modelo selecionado aqui."
+      "multiOverridesModel": "A transcrição múltipla está ativada, por isso o ditado usa {{providers}} em vez de um modelo selecionado aqui.",
+      "screenContext": "Contexto da tela",
+      "screenContextDescription": "Lê a janela que você está olhando enquanto dita e usa os nomes nela para corrigir a transcrição. Nada sai do seu Mac.",
+      "screenContextPermissionNeeded": "É necessária a permissão de Gravação de Tela para ler a janela que você está olhando.",
+      "screenContextOpenSettings": "Abrir Ajustes"
     },
     "intelligence": {
       "gpuDevice": {

@@ -125,6 +125,52 @@ test("collect without a start returns null", async () => {
   assert.equal(await manager.collect(), null);
 });
 
+test("a capture nobody collected is not handed to the next dictation", async () => {
+  // The shipped bug: collect() is what clears the capture, so a dictation that
+  // ended without one — cancelled, failed, or past its collect budget — left it
+  // in place, and the next start() reused it. The next transcript was then
+  // corrected against the window from the *previous* dictation.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "window-ocr-stale-"));
+  const counter = path.join(dir, "n");
+  const script = path.join(dir, "fake-ocr");
+  fs.writeFileSync(
+    script,
+    `#!/bin/sh
+echo x >> ${counter}
+n=$(wc -l < ${counter} | tr -d ' ')
+echo "{\\"ok\\":true,\\"text\\":\\"window $n\\",\\"window\\":\\"W$n\\"}"
+`
+  );
+  fs.chmodSync(script, 0o755);
+
+  try {
+    const manager = managerWith(script);
+
+    // Dictation 1 captures and is then abandoned without collecting.
+    await manager.start();
+
+    // Dictation 2 must get its own capture, not the abandoned one.
+    manager.start();
+    const second = await manager.collect();
+    assert.equal(second.text, "window 2");
+    assert.equal(second.window, "W2");
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("an explicit cancel clears the capture", async () => {
+  const { script, cleanup } = fakeSidecar(`echo '{"ok":true,"text":"a","window":"W"}'`);
+  try {
+    const manager = managerWith(script);
+    await manager.start();
+    manager.cancel();
+    assert.equal(await manager.collect(), null);
+  } finally {
+    cleanup();
+  }
+});
+
 test("collect clears the capture so the next dictation starts fresh", async () => {
   const { script, cleanup } = fakeSidecar(`echo '{"ok":true,"text":"a","window":"W"}'`);
   try {

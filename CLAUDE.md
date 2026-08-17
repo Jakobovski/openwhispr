@@ -626,6 +626,34 @@ A dedicated global hotkey that starts a dictation whose transcript is sent strai
 
 **Tests**: `test/helpers/dictationRouting.test.js` (run with `node --test`)
 
+### 18. Screen Context (Focused-Window OCR)
+
+macOS-only. Reads the window the user is looking at while they dictate and uses the distinctive terms on it to correct names the recognizer got wrong ("open whisper" → "OpenWhispr", "Shunade" → "Sinead"). Off by default (`screenContextEnabled`).
+
+**Flow**:
+
+1. Recording starts → `audioManager.startScreenContextCapture()` → `window-ocr-start`. Fired before the mic is acquired so recognition overlaps the user speaking and costs no latency at the end.
+2. `windowOcrManager.js` spawns `macos-window-ocr` (Swift, ScreenCaptureKit + Vision), scoped to the frontmost app's largest on-screen window, excluding OpenWhispr's own PID.
+3. Transcript arrives → `applyScreenContext()` collects the capture (bounded by `SCREEN_CONTEXT_COLLECT_BUDGET_MS`, 500ms) and runs `screenTermMatcher.js`.
+4. Corrections are applied *before* cleanup, so the cleanup model reads correct spellings. Both call sites do this: `processTranscription` (batch) and `stopStreamingRecording` (streaming, which has its own reasoning block).
+5. Replacements are stored in `transcriptions.screen_context_json` and rendered per-word in the history row.
+
+**Two tiers** (`src/utils/screenTermMatcher.js`), both live:
+
+- **recase** — an exact case-insensitive hit adopts the screen's casing. Semantically a no-op.
+- **substitute** — a phonetically equivalent near-miss of a distinctive on-screen term is replaced. Speculative, so it is bounded by a phonetic key, an edit-distance ceiling, and a hard rule that no ordinary English word is ever touched (`COMMON_WORDS`).
+
+**Invariants**:
+
+- Terms never leave the machine. They correct the transcript *after* transcription and are never sent to a provider as a `prompt` the way `customDictionary` is — that would ship the contents of the user's screen to a third party on every dictation.
+- Terms are never persisted. The custom dictionary is the durable vocabulary; this is per-dictation only.
+- A capture that resolved but was never collected is **dropped, not reused** — otherwise a cancelled dictation's screenshot corrects the *next* transcript (`test/helpers/windowOcrManager.test.js`).
+- Every failure is non-fatal: no permission, no binary, wrong OS, or a wedged sidecar all yield the transcript exactly as transcribed.
+
+**Permission**: Screen Recording, checked via `systemPreferences.getMediaAccessStatus("screen")`. macOS has no `askForMediaAccess` for the screen — only an actual capture attempt raises the prompt, and a denial is sticky — so `request-screen-recording-permission` attempts a capture and falls back to opening the Screen Recording pane. Requested only when the user turns the setting on.
+
+**Tests**: `test/helpers/windowOcrManager.test.js`, `test/utils/screenTermMatcher.test.js`
+
 ## Development Guidelines
 
 ### Internationalization (i18n) — REQUIRED

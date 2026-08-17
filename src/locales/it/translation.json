@@ -408,7 +408,11 @@
         "recordingWithDuration": "Registrazione scartata · {{duration}}",
         "recover": "Recupera",
         "recovered": "Recuperata"
-      }
+      },
+      "screenContextTitle": "Dallo schermo",
+      "screenContextCount": "{{words}} corrette dallo schermo",
+      "screenContextSubstitute": "sentita male",
+      "screenContextRecase": "maiuscole"
     },
     "cloudMigration": {
       "title": "Benvenuto in OpenWhispr Cloud",
@@ -1837,7 +1841,11 @@
       "multiProviderNone": "Nessuno",
       "multiNeedsTwo": "Scegli almeno due provider: con uno solo la trascrizione multipla resta disattivata.",
       "multiDuplicateProvider": "Due slot indicano lo stesso provider, quindi verranno usati solo {{providers}}: un duplicato costa senza dare un secondo parere.",
-      "multiOverridesModel": "La trascrizione multipla è attiva, quindi la dettatura usa {{providers}} invece di un modello selezionato qui."
+      "multiOverridesModel": "La trascrizione multipla è attiva, quindi la dettatura usa {{providers}} invece di un modello selezionato qui.",
+      "screenContext": "Contesto dello schermo",
+      "screenContextDescription": "Legge la finestra che stai guardando mentre detti e usa i nomi presenti per correggere la trascrizione. Niente esce dal tuo Mac.",
+      "screenContextPermissionNeeded": "È necessaria l'autorizzazione Registrazione schermo per leggere la finestra che stai guardando.",
+      "screenContextOpenSettings": "Apri Impostazioni"
     },
     "intelligence": {
       "gpuDevice": {

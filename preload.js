@@ -668,6 +668,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   windowOcrStart: () => ipcRenderer.send("window-ocr-start"),
   windowOcrCollect: () => ipcRenderer.invoke("window-ocr-collect"),
   windowOcrCancel: () => ipcRenderer.send("window-ocr-cancel"),
+  checkScreenRecordingPermission: () => ipcRenderer.invoke("check-screen-recording-permission"),
+  requestScreenRecordingPermission: () => ipcRenderer.invoke("request-screen-recording-permission"),
+  openScreenRecordingSettings: () => ipcRenderer.invoke("open-screen-recording-settings"),
 
   // Meeting transcription (streaming, dual-channel)
   meetingTranscriptionPrepare: (options) =>

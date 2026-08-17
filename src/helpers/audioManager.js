@@ -82,6 +82,11 @@ const RECORDING_TIMESLICE_MS = 250; // flush chunks periodically so short record
 // Failure detector only: fires when the worklet or audio graph is dead and never flushes.
 const PREVIEW_FLUSH_WATCHDOG_MS = 1000;
 const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"]);
+// How long a transcript will wait on the screen capture it was started with.
+// Deliberately far below the sidecar's own budget: the capture has had the whole
+// recording to finish, so anything still running here is stuck, and a stuck
+// capture must cost the paste path milliseconds rather than seconds.
+const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
 
 function dictationAgentReachable(settings) {
   return resolveDictationAgentInference(settings, { isCloudAgent: isCloudDictationAgentMode() })
@@ -1017,7 +1022,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
       // Fire and forget, before the mic is even acquired: OCR then runs while
       // the user speaks instead of adding latency at the end.
-      window.electronAPI?.windowOcrStart?.();
+      this.startScreenContextCapture();
 
       const constraints = await this.getAudioConstraints(forceDefaultMic);
       const micStream = await this.acquireHealthyMicStream(
@@ -1425,6 +1430,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   resetDiscardedBatchRecordingState() {
+    // This dictation produces no transcript, so its capture has no consumer.
+    this.cancelScreenContextCapture();
     this.teardownSpeechGate();
     this._localSpeechGateState = null;
 
@@ -2171,42 +2178,104 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
-  // Reports what screen context would change in a transcript, without changing
-  // it. Shadow mode: the matcher's precision needs to be judged against real
-  // OCR output before it is allowed to rewrite anyone's dictation.
-  async reportScreenContext(text, source) {
-    if (!text || !window.electronAPI?.windowOcrCollect) return text;
+  /**
+   * Begin capturing the focused window, if the user has screen context on.
+   *
+   * Gated here rather than in the main process so a disabled setting means no
+   * screenshot is ever taken — not a screenshot whose text is then discarded.
+   */
+  startScreenContextCapture() {
+    if (!getSettings().screenContextEnabled) return;
+    window.electronAPI?.windowOcrStart?.();
+  }
+
+  /** Drop a capture whose dictation will never produce a transcript. */
+  cancelScreenContextCapture() {
+    window.electronAPI?.windowOcrCancel?.();
+  }
+
+  /**
+   * Await the in-flight capture, but never for long.
+   *
+   * The capture starts when recording starts, so by the time there is a
+   * transcript it has almost always finished and this returns immediately. The
+   * budget is the ceiling on the exception — a wedged sidecar or a permission
+   * dialog the user hasn't answered — because screen context is an enhancement
+   * and must not hold up the paste. A capture abandoned here is dropped by the
+   * manager rather than reused, so timing out cannot leak into the next
+   * dictation.
+   */
+  async collectScreenContext() {
+    const collect = window.electronAPI?.windowOcrCollect;
+    if (!collect) return null;
+
+    let timer;
+    try {
+      return await Promise.race([
+        collect(),
+        new Promise((resolve) => {
+          timer = setTimeout(() => resolve(null), SCREEN_CONTEXT_COLLECT_BUDGET_MS);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
+   * Correct a transcript against the text on screen when the user started talking.
+   *
+   * Both tiers apply: an exact case-insensitive hit adopts the screen's casing,
+   * and a phonetically equivalent near-miss of a distinctive on-screen term is
+   * substituted. Every replacement is recorded on the transcription so a wrong
+   * one shows up in history as a specific word rather than as an unexplained
+   * difference between what the user said and what they read back.
+   *
+   * Returns the original text unchanged on any failure — no context is a normal
+   * outcome, not an error.
+   */
+  async applyScreenContext(text, source) {
+    this._lastScreenContext = null;
+    if (!text || !getSettings().screenContextEnabled) return text;
 
     try {
-      const capture = await window.electronAPI.windowOcrCollect();
+      const capture = await this.collectScreenContext();
       if (!capture?.text) return text;
 
       const { extractScreenTerms, applyScreenTermCorrections } =
         await import("../utils/screenTermMatcher.js");
       const terms = extractScreenTerms(capture.text);
-      const { replacements } = applyScreenTermCorrections(text, terms);
+      const { text: corrected, replacements } = applyScreenTermCorrections(text, terms);
+      if (replacements.length === 0) return text;
 
+      this._lastScreenContext = { window: capture.window || "", replacements };
       logger.info(
-        "Screen context (shadow mode - transcript unchanged)",
+        "Screen context corrected the transcript",
         {
           source,
           window: capture.window,
           ocrChars: capture.text.length,
           termCount: terms.length,
-          sampleTerms: terms.slice(0, 25),
-          wouldReplace: replacements,
+          replacements,
         },
         "window-ocr"
       );
+      return corrected;
     } catch (error) {
-      logger.debug("Screen context report failed", { error: error.message }, "window-ocr");
+      logger.debug(
+        "Screen context failed, keeping the transcript",
+        { error: error.message },
+        "window-ocr"
+      );
+      return text;
     }
-    return text;
   }
 
   async processTranscription(text, source, { alreadyCleaned = false } = {}) {
-    await this.reportScreenContext(text, source);
-    const normalizedText = typeof text === "string" ? text.trim() : "";
+    // Before cleanup, so the cleanup model reads correctly spelled names rather
+    // than being asked to reason about a mishearing.
+    const contextualized = await this.applyScreenContext(text, source);
+    const normalizedText = typeof contextualized === "string" ? contextualized.trim() : "";
 
     if (!normalizedText) {
       logger.logReasoning("TRANSCRIPTION_EMPTY_SKIPPING_REASONING", {
@@ -3799,6 +3868,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   async saveTranscription(text, rawText = null, { clientTranscriptionId, dual = null } = {}) {
+    // Read and clear before the retention check: whether or not this row is
+    // stored, the corrections belong to the dictation that just ended and must
+    // not be attributed to the next one.
+    const screenContext = this._lastScreenContext;
+    this._lastScreenContext = null;
+
     if (!getSettings().dataRetentionEnabled) {
       logger.debug("Skipping transcription save — data retention disabled", {}, "audio");
       this.lastAudioBlob = null;
@@ -3811,6 +3886,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         clientTranscriptionId,
         routeKind: this.translationRequested ? "translation" : null,
         dualJson: dual ? JSON.stringify(dual) : null,
+        screenContextJson: screenContext ? JSON.stringify(screenContext) : null,
       });
       if (result?.id) syncService.debouncedPush("transcription", result.id);
 
@@ -4184,7 +4260,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       }
 
       // Same as the batch path: start OCR before the mic, so it overlaps speech.
-      window.electronAPI?.windowOcrStart?.();
+      this.startScreenContextCapture();
 
       this.stopRequestedDuringStreamingStart = false;
 
@@ -4560,9 +4636,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       "streaming"
     );
 
-    // Streaming has its own reasoning block below, so it needs the screen
-    // context report separately from processTranscription.
-    await this.reportScreenContext(finalText, "streaming");
+    // Streaming has its own reasoning block below, so screen context is applied
+    // here rather than in processTranscription. Before that block for the same
+    // reason as the batch path: cleanup should read the corrected names.
+    finalText = await this.applyScreenContext(finalText, "streaming");
 
     const stSettings = getSettings();
     const streamingSttModel = stopResult?.model || "nova-3";

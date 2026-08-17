@@ -408,7 +408,11 @@
         "recordingWithDuration": "Verworfene Aufnahme · {{duration}}",
         "recover": "Wiederherstellen",
         "recovered": "Wiederhergestellt"
-      }
+      },
+      "screenContextTitle": "Vom Bildschirm",
+      "screenContextCount": "{{words}} vom Bildschirm korrigiert",
+      "screenContextSubstitute": "falsch gehört",
+      "screenContextRecase": "Großschreibung"
     },
     "cloudMigration": {
       "title": "Willkommen bei OpenWhispr Cloud",
@@ -1837,7 +1841,11 @@
       "multiProviderNone": "Keiner",
       "multiNeedsTwo": "Wähle mindestens zwei Anbieter – mit nur einem bleibt die Mehrfach-Transkription aus.",
       "multiDuplicateProvider": "Zwei Slots nennen denselben Anbieter, daher laufen nur {{providers}} — ein Duplikat kostet extra, ohne eine zweite Meinung zu liefern.",
-      "multiOverridesModel": "Mehrfach-Transkription ist aktiv, daher verwendet das Diktat {{providers}} statt eines hier ausgewählten Modells."
+      "multiOverridesModel": "Mehrfach-Transkription ist aktiv, daher verwendet das Diktat {{providers}} statt eines hier ausgewählten Modells.",
+      "screenContext": "Bildschirmkontext",
+      "screenContextDescription": "Liest das Fenster, das du gerade ansiehst, während du diktierst, und korrigiert die Transkription mit den Namen darin. Nichts verlässt deinen Mac.",
+      "screenContextPermissionNeeded": "Für den Zugriff auf das Fenster wird die Berechtigung zur Bildschirmaufnahme benötigt.",
+      "screenContextOpenSettings": "Einstellungen öffnen"
     },
     "intelligence": {
       "gpuDevice": {

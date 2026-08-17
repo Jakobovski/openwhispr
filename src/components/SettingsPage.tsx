@@ -81,6 +81,7 @@ import { useHotkeyModeInfo } from "../hooks/useHotkeyModeInfo";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { validateHotkeyForSlot } from "../utils/hotkeyValidation";
 import { getPlatform, getCachedPlatform } from "../utils/platform";
+import { useScreenRecordingPermission } from "../hooks/useScreenRecordingPermission";
 import { formatHotkeyLabel } from "../utils/hotkeys";
 import { ActivationModeSelector } from "./ui/ActivationModeSelector";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -735,8 +736,70 @@ function TranscriptionSection({
         />
       )}
 
+      {/* Outside the mode branches: screen context corrects whatever transcript
+          came back, so it applies to local, BYOK and hosted alike. */}
+      <ScreenContextSettings />
+
       <GpuDeviceSelector purpose="transcription" />
     </div>
+  );
+}
+
+/**
+ * Screen context: OCR the focused window during recording and use what is on it
+ * to fix names the recognizer got wrong.
+ *
+ * The permission is deliberately not requested until the toggle is on. Asking to
+ * record someone's screen before they have chosen a feature that needs it is how
+ * a prompt gets denied out of hand, and a denial is sticky — macOS will not ask
+ * again, so the only recovery is a trip to System Settings.
+ */
+function ScreenContextSettings() {
+  const { t } = useTranslation();
+  const screenContextEnabled = useSettingsStore((s) => s.screenContextEnabled);
+  const setScreenContextEnabled = useSettingsStore((s) => s.setScreenContextEnabled);
+  const screenRecording = useScreenRecordingPermission();
+  const isMacOS = getCachedPlatform() === "darwin";
+
+  if (!isMacOS) return null;
+
+  const handleToggle = async (next: boolean) => {
+    setScreenContextEnabled(next);
+    if (next && !screenRecording.granted) await screenRecording.request();
+  };
+
+  return (
+    <SettingsPanel>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.transcription.screenContext")}
+          description={t("settingsPage.transcription.screenContextDescription")}
+        >
+          <Toggle checked={screenContextEnabled} onChange={handleToggle} />
+        </SettingsRow>
+      </SettingsPanelRow>
+
+      {/* Enabled but ungranted is the one state that silently does nothing, so it
+          is the one state that has to say so. */}
+      {screenContextEnabled && !screenRecording.granted && (
+        <SettingsPanelRow>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {t("settingsPage.transcription.screenContextPermissionNeeded")}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={screenRecording.openSettings}
+              disabled={screenRecording.isChecking}
+              className="shrink-0"
+            >
+              {t("settingsPage.transcription.screenContextOpenSettings")}
+            </Button>
+          </div>
+        </SettingsPanelRow>
+      )}
+    </SettingsPanel>
   );
 }
 

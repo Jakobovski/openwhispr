@@ -17,6 +17,9 @@ class WindowOcrManager {
   constructor() {
     this.cachedBinaryPath = undefined;
     this.pending = null;
+    // Whether `pending` has resolved. A resolved capture nobody collected belongs
+    // to a dictation that ended without one, and must not be handed to the next.
+    this.settled = false;
     this.child = null;
   }
 
@@ -46,15 +49,38 @@ class WindowOcrManager {
    * Safe to call repeatedly; a capture already in flight is reused.
    */
   start() {
+    // A finished capture still sitting here was never collected, which means the
+    // dictation that asked for it ended without a transcript — cancelled, failed,
+    // or its collect budget expired. Handing it to this dictation would correct
+    // the new transcript against the window the user was looking at during the
+    // old one, so it is dropped. An *unfinished* capture is a concurrent start
+    // inside one dictation and is still shared.
+    if (this.pending && this.settled) {
+      debugLogger.debug(
+        "Dropping an uncollected capture from an earlier dictation",
+        {},
+        "window-ocr"
+      );
+      this.pending = null;
+      this.settled = false;
+    }
     if (this.pending) {
       debugLogger.debug("Window OCR already in flight, reusing", {}, "window-ocr");
       return this.pending;
     }
-    this.pending = this._run().catch((error) => {
+
+    const capture = this._run().catch((error) => {
       debugLogger.debug("Window OCR failed", { error: error.message }, "window-ocr");
       return null;
     });
-    return this.pending;
+    this.pending = capture;
+    this.settled = false;
+    // Guarded against a start that replaced this capture in the meantime, so a
+    // stale resolution cannot mark a live capture as collectable-and-abandoned.
+    void capture.then(() => {
+      if (this.pending === capture) this.settled = true;
+    });
+    return capture;
   }
 
   /**
@@ -65,6 +91,7 @@ class WindowOcrManager {
     if (!this.pending) return null;
     const result = await this.pending;
     this.pending = null;
+    this.settled = false;
     return result;
   }
 
@@ -80,6 +107,7 @@ class WindowOcrManager {
     }
     this.child = null;
     this.pending = null;
+    this.settled = false;
   }
 
   _run() {

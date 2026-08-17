@@ -13,6 +13,7 @@ import {
   ArchiveRestore,
   ChevronDown,
   ChevronUp,
+  ScanText,
 } from "lucide-react";
 import type {
   TranscriptionItem as TranscriptionItemType,
@@ -73,6 +74,44 @@ function parseDual(raw?: string | null): DualDetail | null {
       reconcileMs: d.reconcileMs ?? null,
       mergedText: d.mergedText ?? null,
     };
+  } catch {
+    return null;
+  }
+}
+
+interface ScreenReplacement {
+  from: string;
+  to: string;
+  kind: string;
+}
+
+interface ScreenContextDetail {
+  window: string;
+  replacements: ScreenReplacement[];
+}
+
+/**
+ * The words screen context rewrote, or null for every row it left alone.
+ *
+ * Parsed defensively for the same reason as the dual detail: it is opaque JSON
+ * written by whichever version of the app recorded the row, and a shape change
+ * must not take the history list down with it.
+ */
+function parseScreenContext(raw?: string | null): ScreenContextDetail | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    const replacements: ScreenReplacement[] = Array.isArray(parsed.replacements)
+      ? parsed.replacements
+          .filter((entry: ScreenReplacement) => entry && entry.from && entry.to)
+          .map((entry: ScreenReplacement) => ({
+            from: String(entry.from),
+            to: String(entry.to),
+            kind: entry.kind === "substitute" ? "substitute" : "recase",
+          }))
+      : [];
+    if (replacements.length === 0) return null;
+    return { window: typeof parsed.window === "string" ? parsed.window : "", replacements };
   } catch {
     return null;
   }
@@ -149,11 +188,12 @@ export default function TranscriptionItem({
   const isDiscarded = item.status === "discarded";
   const rawText = item.raw_text;
   const dual = parseDual(item.dual_json);
+  const screenContext = parseScreenContext(item.screen_context_json);
   const hasRawText = rawText !== null;
   const hasAudio = item.has_audio === 1;
   // The dual breakdown lives in the same expandable panel, so a dual row with no raw
-  // text still needs the toggle.
-  const hasExpandable = hasRawText || !!dual;
+  // text still needs the toggle. Same for a row screen context rewrote.
+  const hasExpandable = hasRawText || !!dual || !!screenContext;
   const canExpand = hasExpandable && !isFailed && !isDiscarded;
 
   const timestampSource = item.timestamp.endsWith("Z") ? item.timestamp : `${item.timestamp}Z`;
@@ -356,6 +396,28 @@ export default function TranscriptionItem({
                   {dual.reconciled
                     ? `${t("controlPanel.history.dualMergedShort")} ${formatMs(dual.reconcileMs)}`
                     : t("controlPanel.history.dualNoMergeShort")}
+                </span>
+                {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+              </button>
+            )}
+
+            {/* Also always visible: a transcript was rewritten from what was on
+                screen, and the user should be able to tell that from the list
+                rather than only after expanding a row they had no reason to. */}
+            {screenContext && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
+                className="mt-1 flex items-center gap-1.5 text-[10px] text-muted-foreground/60 hover:text-foreground transition-colors"
+              >
+                <ScanText size={10} />
+                <span className="whitespace-nowrap">
+                  {t("controlPanel.history.screenContextCount", {
+                    words: screenContext.replacements.length,
+                  })}
                 </span>
                 {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
               </button>
@@ -593,6 +655,46 @@ export default function TranscriptionItem({
                     {dual.mergedText ?? rawText}
                   </p>
                 </div>
+              </div>
+            )}
+            {/* Every word screen context changed, spelled out. A recase is
+                cosmetic, but a substitute replaced one word with a different one
+                on the strength of a phonetic guess — so it is named, attributed
+                to the window it came from, and labelled by which tier did it. */}
+            {screenContext && (
+              <div className="border-t border-border/20 mt-2 pt-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    <ScanText size={10} />
+                    {t("controlPanel.history.screenContextTitle")}
+                  </span>
+                  {screenContext.window && (
+                    <span className="truncate text-[10px] text-muted-foreground/50">
+                      {screenContext.window}
+                    </span>
+                  )}
+                </div>
+                <ul className="mt-1 space-y-0.5">
+                  {screenContext.replacements.map((replacement, index) => (
+                    <li
+                      key={`${index}-${replacement.from}`}
+                      className="flex items-baseline gap-1.5 text-xs"
+                    >
+                      <span className="text-muted-foreground/60 line-through">
+                        {replacement.from}
+                      </span>
+                      <span className="text-muted-foreground/40">&rarr;</span>
+                      <mark className="rounded-[2px] bg-primary/15 px-[1px] font-semibold text-foreground">
+                        {replacement.to}
+                      </mark>
+                      <span className="ml-auto shrink-0 text-[10px] text-muted-foreground/50">
+                        {replacement.kind === "substitute"
+                          ? t("controlPanel.history.screenContextSubstitute")
+                          : t("controlPanel.history.screenContextRecase")}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
             {rawText !== null && (

@@ -408,7 +408,11 @@
         "recordingWithDuration": "已放弃的录音 · {{duration}}",
         "recover": "恢复",
         "recovered": "已恢复"
-      }
+      },
+      "screenContextTitle": "来自屏幕",
+      "screenContextCount": "根据屏幕更正了 {{words}} 处",
+      "screenContextSubstitute": "听错",
+      "screenContextRecase": "大小写"
     },
     "cloudMigration": {
       "title": "欢迎使用 OpenWhispr 云端",
@@ -1832,7 +1836,11 @@
       "multiProviderNone": "无",
       "multiNeedsTwo": "请至少选择两个提供商 — 只有一个时多重转录不会生效。",
       "multiDuplicateProvider": "两个位置指向同一个提供商，因此只会运行 {{providers}} — 重复只会增加成本，得不到第二个意见。",
-      "multiOverridesModel": "多重转录已开启，因此听写将使用 {{providers}}，而不是在此选择的模型。"
+      "multiOverridesModel": "多重转录已开启，因此听写将使用 {{providers}}，而不是在此选择的模型。",
+      "screenContext": "屏幕上下文",
+      "screenContextDescription": "在你口述时读取你正在查看的窗口，并用其中的名称更正转录内容。所有处理都在本机完成。",
+      "screenContextPermissionNeeded": "需要「屏幕录制」权限才能读取你正在查看的窗口。",
+      "screenContextOpenSettings": "打开设置"
     },
     "intelligence": {
       "gpuDevice": {

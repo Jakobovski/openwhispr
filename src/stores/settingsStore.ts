@@ -130,6 +130,7 @@ migrateMeetingFollowFlags();
 
 const BOOLEAN_SETTINGS = new Set([
   "silenceTrimEnabled",
+  "screenContextEnabled",
   "multiTranscriptionEnabled",
   "useLocalWhisper",
   "meetingUseLocalWhisper",
@@ -656,6 +657,11 @@ export interface SettingsState
   setSilenceTrimEnabled: (value: boolean) => void;
   setSilenceTrimStrength: (value: string) => void;
 
+  // Screen context: OCR the focused window while recording and use the terms on
+  // it to correct the transcript. macOS only, and needs Screen Recording.
+  screenContextEnabled: boolean;
+  setScreenContextEnabled: (value: boolean) => void;
+
   // Dual transcription (BYOK): send the recording to two providers and have an
   // LLM combine the results. Batch-only, since it compares finished transcripts.
   multiTranscriptionEnabled: boolean;
@@ -1033,6 +1039,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cortiTenant: readString("cortiTenant", settingsDefaults.storeDefaults.cortiTenant),
   xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
   silenceTrimEnabled: readBoolean("silenceTrimEnabled", true),
+  // Off by default. It screenshots whatever window the user is looking at on
+  // every dictation, which is not something to start doing to someone without
+  // being asked — and it needs a Screen Recording grant that only makes sense to
+  // request once the user has chosen the feature.
+  screenContextEnabled: readBoolean("screenContextEnabled", false),
   silenceTrimStrength: readString("silenceTrimStrength", "light"),
   // On by default. It needs a BYOK key for each side, and isDualTranscriptionEnabled
   // returns false without them, so a new user with one key silently gets the normal
@@ -1597,6 +1608,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setCortiEnvironment: createStringSetter("cortiEnvironment"),
   setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
   setSilenceTrimEnabled: createBooleanSetter("silenceTrimEnabled"),
+  setScreenContextEnabled: createBooleanSetter("screenContextEnabled"),
   setSilenceTrimStrength: createStringSetter("silenceTrimStrength"),
   setMultiTranscriptionEnabled: createBooleanSetter("multiTranscriptionEnabled"),
   setDualTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),

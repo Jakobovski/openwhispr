@@ -97,6 +97,15 @@ class DatabaseManager {
       } catch (err) {
         if (!err.message.includes("duplicate column")) throw err;
       }
+      // Which words screen context rewrote, as JSON: the window it read them from
+      // and a from/to/kind per replacement. Stored so a speculative substitution
+      // is auditable after the fact — the history view is the only reader, and
+      // only rows the matcher actually changed have it.
+      try {
+        this.db.exec("ALTER TABLE transcriptions ADD COLUMN screen_context_json TEXT");
+      } catch (err) {
+        if (!err.message.includes("duplicate column")) throw err;
+      }
 
       // One row per model call that returned, so the stats page can report min/median/
       // max and a sample count per model. Raw samples rather than running aggregates:
@@ -826,6 +835,7 @@ class DatabaseManager {
       errorCode = null,
       routeKind = null,
       dualJson = null,
+      screenContextJson = null,
       clientTranscriptionId = randomUUID(),
     } = {}
   ) {
@@ -834,7 +844,7 @@ class DatabaseManager {
         throw new Error("Database not initialized");
       }
       const stmt = this.db.prepare(
-        "INSERT INTO transcriptions (text, raw_text, status, error_message, error_code, route_kind, dual_json, client_transcription_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO transcriptions (text, raw_text, status, error_message, error_code, route_kind, dual_json, screen_context_json, client_transcription_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
       );
       const result = stmt.run(
         text,
@@ -844,6 +854,7 @@ class DatabaseManager {
         errorCode,
         routeKind,
         dualJson,
+        screenContextJson,
         clientTranscriptionId
       );
 

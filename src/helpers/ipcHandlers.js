@@ -3978,6 +3978,10 @@ class IPCHandlers {
           "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
         systemAudio:
           "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
+        // Same pane as system audio — macOS files both under Screen Recording —
+        // but named for what the caller is asking about.
+        screenRecording:
+          "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture",
       },
       win32: {
         microphone: "ms-settings:privacy-microphone",
@@ -4018,6 +4022,7 @@ class IPCHandlers {
     ipcMain.handle("open-sound-input-settings", () => openSystemSettings("sound"));
     ipcMain.handle("open-accessibility-settings", () => openSystemSettings("accessibility"));
     ipcMain.handle("open-system-audio-settings", () => openSystemSettings("systemAudio"));
+    ipcMain.handle("open-screen-recording-settings", () => openSystemSettings("screenRecording"));
 
     ipcMain.handle("toggle-media-playback", () => {
       const mediaPlayer = require("./mediaPlayer");
@@ -4465,7 +4470,9 @@ class IPCHandlers {
         } else if (settings?.useLocalWhisper) {
           if (settings.localTranscriptionProvider === "nvidia") {
             const model =
-              settings.parakeetModel || process.env.PARAKEET_MODEL || settingsDefaults.resolutionDefaults.parakeetModel;
+              settings.parakeetModel ||
+              process.env.PARAKEET_MODEL ||
+              settingsDefaults.resolutionDefaults.parakeetModel;
             result = await this.parakeetManager.transcribeLocalParakeet(buffer, { model });
           } else if (this.whisperManager?.serverManager?.isAvailable?.()) {
             const vadOptions = this._resolveWhisperVadOptions("noteRecording");
@@ -4529,7 +4536,9 @@ class IPCHandlers {
           });
           if (text) result = { text, source: "tinfoil", model };
         } else {
-          const provider = settings?.cloudTranscriptionProvider || settingsDefaults.storeDefaults.cloudTranscriptionProvider;
+          const provider =
+            settings?.cloudTranscriptionProvider ||
+            settingsDefaults.storeDefaults.cloudTranscriptionProvider;
           const model = this._resolveByokModel(provider, settings?.cloudTranscriptionModel);
 
           let apiKey, endpoint;
@@ -8683,6 +8692,38 @@ class IPCHandlers {
 
     ipcMain.on("window-ocr-cancel", () => {
       this.windowOcr?.cancel();
+    });
+
+    ipcMain.handle("check-screen-recording-permission", () => {
+      if (process.platform !== "darwin") {
+        return { granted: false, status: "unsupported", supported: false };
+      }
+      const status = systemPreferences.getMediaAccessStatus("screen");
+      return { granted: status === "granted", status, supported: true };
+    });
+
+    // macOS has no askForMediaAccess for the screen: the only thing that raises
+    // the prompt is an actual capture attempt. So attempt one — the sidecar is
+    // already a capture — and report the status it leaves behind. A user who has
+    // previously denied gets no second prompt from the OS, which is why the
+    // caller is expected to offer System Settings when this comes back denied.
+    ipcMain.handle("request-screen-recording-permission", async () => {
+      if (process.platform !== "darwin") {
+        return { granted: false, status: "unsupported", supported: false };
+      }
+      if (!this.windowOcr) {
+        const WindowOcrManager = require("./windowOcrManager");
+        this.windowOcr = new WindowOcrManager();
+      }
+      if (!this.windowOcr.isSupported()) {
+        return { granted: false, status: "unsupported", supported: false };
+      }
+
+      this.windowOcr.start();
+      await this.windowOcr.collect();
+
+      const status = systemPreferences.getMediaAccessStatus("screen");
+      return { granted: status === "granted", status, supported: true };
     });
 
     // Agent mode handlers

@@ -408,7 +408,11 @@
         "recordingWithDuration": "Discarded recording · {{duration}}",
         "recover": "Recover",
         "recovered": "Recovered"
-      }
+      },
+      "screenContextTitle": "From screen",
+      "screenContextCount": "{{words}} corrected from screen",
+      "screenContextSubstitute": "misheard",
+      "screenContextRecase": "capitalisation"
     },
     "cloudMigration": {
       "title": "Welcome to OpenWhispr Cloud",
@@ -2010,7 +2014,11 @@
       "multiProviderNone": "None",
       "multiNeedsTwo": "Pick at least two providers — multi transcription stays off with only one.",
       "multiDuplicateProvider": "Two slots name the same provider, so only {{providers}} will run — a duplicate adds cost without a second opinion.",
-      "multiOverridesModel": "Multi transcription is on, so dictation uses {{providers}} instead of a model selected here."
+      "multiOverridesModel": "Multi transcription is on, so dictation uses {{providers}} instead of a model selected here.",
+      "screenContext": "Screen context",
+      "screenContextDescription": "Read the window you're looking at while you dictate, and use the names on it to correct the transcript. Nothing leaves your Mac.",
+      "screenContextPermissionNeeded": "Screen Recording permission is needed before this can read the window you're looking at.",
+      "screenContextOpenSettings": "Open Settings"
     },
     "intelligence": {
       "gpuDevice": {

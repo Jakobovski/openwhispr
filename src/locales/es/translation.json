@@ -408,7 +408,11 @@
       "dualMergedShort": "combinado",
       "dualNoMergeShort": "sin combinar",
       "dualDisagreement": "{{percent}}% de diferencia",
-      "dualPunctuationOnly": "solo puntuación"
+      "dualPunctuationOnly": "solo puntuación",
+      "screenContextTitle": "De la pantalla",
+      "screenContextCount": "{{words}} corregidas desde la pantalla",
+      "screenContextSubstitute": "mal escuchada",
+      "screenContextRecase": "mayúsculas"
     },
     "cloudMigration": {
       "title": "Bienvenido a OpenWhispr Cloud",
@@ -1885,7 +1889,11 @@
       "multiProviderNone": "Ninguno",
       "multiNeedsTwo": "Elige al menos dos proveedores: con uno solo la transcripción múltiple no se activa.",
       "multiDuplicateProvider": "Dos ranuras indican el mismo proveedor, así que solo se ejecutarán {{providers}}: un duplicado cuesta más sin aportar una segunda opinión.",
-      "multiOverridesModel": "La transcripción múltiple está activada, por lo que el dictado usa {{providers}} en lugar de un modelo seleccionado aquí."
+      "multiOverridesModel": "La transcripción múltiple está activada, por lo que el dictado usa {{providers}} en lugar de un modelo seleccionado aquí.",
+      "screenContext": "Contexto de pantalla",
+      "screenContextDescription": "Lee la ventana que estás mirando mientras dictas y usa los nombres que aparecen en ella para corregir la transcripción. Nada sale de tu Mac.",
+      "screenContextPermissionNeeded": "Se necesita el permiso de Grabación de pantalla para poder leer la ventana que estás mirando.",
+      "screenContextOpenSettings": "Abrir Ajustes"
     },
     "intelligence": {
       "gpuDevice": {
