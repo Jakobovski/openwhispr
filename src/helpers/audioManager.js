@@ -19,6 +19,7 @@ import { ActiveMicRecoveryController } from "./activeMicRecovery";
 import { followsSystemDefaultMic, reconcileSavedMicSelection } from "./micSelectionRecovery";
 import { isStaleDeviceError } from "./staleMicDevice";
 import { shouldSaveDiscardedRecording } from "./discardedRecording";
+import { awaitLanesWithBudget } from "./multiTranscriptionRace";
 import {
   getSettings,
   getEffectiveCleanupModel,
@@ -3507,47 +3508,31 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       )
     );
 
-    // Deliberately not a deadline on the whole fan-out: that would drop every lane when
-    // the network is merely slow. The budget starts when the first lane *answers*, and
-    // whatever has not finished by then is abandoned — exactly the tail latency this mode
-    // adds over a single provider, regardless of how many lanes there are.
-    const firstIndex = await Promise.race(tracked);
-    const droppedProviders = [];
+    // The wait policy lives in multiTranscriptionRace, where it can be tested: the
+    // budget starts at the first *successful* lane rather than the first to answer, so
+    // a lane that fails fast is skipped over instead of starting the clock on lanes
+    // that still might produce the only transcript.
+    const budgetMs = Number.isFinite(settings.dualTranscriptionSecondTimeoutMs)
+      ? settings.dualTranscriptionSecondTimeoutMs
+      : DEFAULT_DUAL_SECOND_TIMEOUT_MS;
+    const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
+      tracked,
+      settled,
+      budgetMs
+    );
+    const droppedProviders = droppedIndexes.map((index) => lanes[index].provider);
 
-    if (settled[firstIndex]?.status === "fulfilled") {
-      const budgetMs = Number.isFinite(settings.dualTranscriptionSecondTimeoutMs)
-        ? settings.dualTranscriptionSecondTimeoutMs
-        : DEFAULT_DUAL_SECOND_TIMEOUT_MS;
-      const outstanding = tracked.filter((_, index) => settled[index] === null);
-      if (outstanding.length > 0) {
-        let timer;
-        const expired = Symbol("expired");
-        await Promise.race([
-          Promise.all(outstanding),
-          new Promise((resolve) => {
-            timer = setTimeout(() => resolve(expired), budgetMs);
-          }),
-        ]);
-        clearTimeout(timer);
-        lanes.forEach((lane, index) => {
-          if (settled[index] === null) droppedProviders.push(lane.provider);
-        });
-        if (droppedProviders.length > 0) {
-          logger.info(
-            "Multi transcription: dropped slow providers",
-            {
-              dropped: droppedProviders,
-              kept: lanes.filter((_, i) => settled[i] !== null).map((lane) => lane.provider),
-              budgetMs,
-            },
-            "transcription"
-          );
-        }
-      }
-    } else {
-      // The first to answer failed, so there is nothing to fall back to and no point
-      // enforcing a budget — another lane is the only chance of any text at all.
-      await Promise.all(tracked);
+    if (droppedProviders.length > 0) {
+      logger.info(
+        "Multi transcription: dropped slow providers",
+        {
+          dropped: droppedProviders,
+          kept: lanes.filter((_, i) => settled[i] !== null).map((lane) => lane.provider),
+          budgetMs,
+          budgetStartedAfter: lanes[firstSuccessIndex]?.provider,
+        },
+        "transcription"
+      );
     }
 
     // A lane that never settled was dropped; one that rejected failed outright. Both are
