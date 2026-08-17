@@ -26,6 +26,19 @@ function formatRate(count: number, total: number): string {
   return `${Math.round((count / total) * 100)}%`;
 }
 
+// Word error rate against the merged transcript, as a percentage. Only multi-provider
+// dictations that were actually merged carry one, so a lane can have plenty of timings
+// and no rate — an em dash rather than 0%, which would read as flawless.
+//
+// One decimal below 10%: the difference between 2.4% and 3.1% is the kind of gap that
+// decides which provider to keep, and whole percent hides it.
+function formatWer(rate: number | null): string {
+  if (rate == null) return "—";
+  const percent = rate * 100;
+  if (percent === 0) return "0%";
+  return percent < 10 ? `${percent.toFixed(1)}%` : `${Math.round(percent)}%`;
+}
+
 /** Everything that was attempted: successes plus both kinds of non-answer. */
 function attempts(row: ModelLatencyStat): number {
   return row.n + row.failed + row.dropped;
@@ -115,6 +128,7 @@ export default function ModelStatsView() {
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.min")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.median")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.max")}</th>
+                    <th className="text-right font-medium px-3 py-2">{t("modelStats.wer")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.failRate")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.dropRate")}</th>
                   </tr>
@@ -144,6 +158,19 @@ export default function ModelStatsView() {
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                         {formatMs(row.max_ms)}
+                      </td>
+                      <td
+                        className={cn(
+                          "px-3 py-2 text-right tabular-nums",
+                          row.median_wer == null ? "text-muted-foreground/40" : "text-foreground"
+                        )}
+                        title={
+                          row.wer_n
+                            ? t("modelStats.werTooltip", { count: row.wer_n })
+                            : t("modelStats.werNone")
+                        }
+                      >
+                        {formatWer(row.median_wer)}
                       </td>
                       <td
                         className={cn(

@@ -133,6 +133,16 @@ class DatabaseManager {
       } catch (err) {
         if (!err.message.includes("duplicate column")) throw err;
       }
+      // Word error rate against the merged transcript, stored per thousand so the column
+      // stays an integer. Null on every row that has no meaningful reference: a single
+      // provider run, a dictation the providers agreed on, or one whose merge was
+      // dropped — in all of those the "final" text is a lane's own output, and scoring a
+      // lane against itself would report a flawless zero.
+      try {
+        this.db.exec("ALTER TABLE model_latency ADD COLUMN wer_milli INTEGER");
+      } catch (err) {
+        if (!err.message.includes("duplicate column")) throw err;
+      }
 
       this.db.exec(`
         CREATE TABLE IF NOT EXISTS custom_dictionary (
@@ -731,18 +741,20 @@ class DatabaseManager {
       .run(MODEL_LATENCY_MAX_ROWS);
   }
 
-  recordModelLatency({ kind, provider = null, model = null, ms, outcome = "ok" }) {
+  recordModelLatency({ kind, provider = null, model = null, ms, outcome = "ok", wer = null }) {
     try {
       if (!this.db) throw new Error("Database not initialized");
       if (!kind) return { success: false };
       // A timing is required of a successful call and meaningless for the others.
       const timed = typeof ms === "number" && Number.isFinite(ms) && ms >= 0;
       if (outcome === "ok" && !timed) return { success: false };
+      const werMilli =
+        typeof wer === "number" && Number.isFinite(wer) && wer >= 0 ? Math.round(wer * 1000) : null;
       this.db
         .prepare(
-          "INSERT INTO model_latency (kind, provider, model, ms, outcome) VALUES (?, ?, ?, ?, ?)"
+          "INSERT INTO model_latency (kind, provider, model, ms, outcome, wer_milli) VALUES (?, ?, ?, ?, ?, ?)"
         )
-        .run(kind, provider, model, timed ? Math.round(ms) : 0, outcome);
+        .run(kind, provider, model, timed ? Math.round(ms) : 0, outcome, werMilli);
       // Cheap enough to check every insert, and it keeps the table from growing without
       // bound for someone who dictates all day.
       if (Math.random() < 0.02) this._pruneModelLatency();
@@ -764,7 +776,9 @@ class DatabaseManager {
     try {
       if (!this.db) throw new Error("Database not initialized");
       const rows = this.db
-        .prepare("SELECT kind, provider, model, ms, outcome FROM model_latency ORDER BY ms ASC")
+        .prepare(
+          "SELECT kind, provider, model, ms, outcome, wer_milli FROM model_latency ORDER BY ms ASC"
+        )
         .all();
 
       const groups = new Map();
@@ -776,6 +790,7 @@ class DatabaseManager {
             provider: row.provider,
             model: row.model,
             samples: [],
+            wers: [],
             failed: 0,
             dropped: 0,
           });
@@ -784,14 +799,22 @@ class DatabaseManager {
         if (row.outcome === "failed") group.failed += 1;
         else if (row.outcome === "dropped") group.dropped += 1;
         else group.samples.push(row.ms);
+        // Independent of outcome: a lane can answer and still be scored, and only rows
+        // from a genuinely reconciled dictation carry a rate at all.
+        if (typeof row.wer_milli === "number") group.wers.push(row.wer_milli);
       }
 
       // A group can hold nothing but failures. A provider that never answers is the
       // most interesting row on the page, so it is reported with null timings rather
       // than left out of the list.
       const stats = [...groups.values()].map(
-        ({ kind, provider, model, samples, failed, dropped }) => {
+        ({ kind, provider, model, samples, wers, failed, dropped }) => {
           const mid = Math.floor(samples.length / 2);
+          // Median rather than mean: one dictation where a lane returned nothing usable
+          // scores above 1 and would drag a mean far enough to misrepresent every other
+          // run. Sorted here because the query orders by ms, not by rate.
+          const sortedWers = [...wers].sort((a, b) => a - b);
+          const werMid = Math.floor(sortedWers.length / 2);
           return {
             kind,
             provider,
@@ -806,6 +829,12 @@ class DatabaseManager {
               : samples.length % 2 === 0
                 ? Math.round((samples[mid - 1] + samples[mid]) / 2)
                 : samples[mid],
+            wer_n: sortedWers.length,
+            median_wer: !sortedWers.length
+              ? null
+              : (sortedWers.length % 2 === 0
+                  ? (sortedWers[werMid - 1] + sortedWers[werMid]) / 2
+                  : sortedWers[werMid]) / 1000,
           };
         }
       );

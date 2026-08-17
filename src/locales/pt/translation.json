@@ -3115,6 +3115,9 @@
     "kinds": {
       "transcription": "Transcrição",
       "reconcile": "Combinação (modo duplo)"
-    }
+    },
+    "wer": "WER",
+    "werTooltip": "mediana de {{count}} ditados mesclados",
+    "werNone": "ainda não há ditados mesclados"
   }
 }

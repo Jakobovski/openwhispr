@@ -3110,6 +3110,9 @@
     "kinds": {
       "transcription": "轉錄",
       "reconcile": "合併（雙重模式）"
-    }
+    },
+    "wer": "WER",
+    "werTooltip": "{{count}} 次合併口述的中位數",
+    "werNone": "尚無合併的口述"
   }
 }

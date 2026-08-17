@@ -67,6 +67,10 @@ export interface ScreenRecordingAccessResult {
 }
 
 export interface ModelLatencyStat {
+  /** Median word error rate against the merged transcript, or null when never merged. */
+  median_wer?: number | null;
+  /** How many dictations contributed a rate, which is fewer than n. */
+  wer_n?: number;
   kind: string;
   provider: string | null;
   model: string | null;

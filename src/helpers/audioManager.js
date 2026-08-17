@@ -31,6 +31,7 @@ import {
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree } from "../utils/transcriptReconcile";
+import { wordErrorRate } from "../utils/wordErrorRate";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
 import { concatFrames } from "../utils/pcmAudio";
 import settingsDefaults from "../config/settingsDefaults.json";
@@ -3525,6 +3526,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     });
     timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
+    // How far each lane sat from the merged result, scored only when a merge actually
+    // produced one. When the lanes agreed, or the merge was dropped or failed, the final
+    // text *is* one lane's own output — scoring against it would hand that lane a
+    // flawless zero and penalise the others for losing a coin toss.
+    const werReference = multi.reconciled ? multi.text : null;
+
     // Every lane is recorded whatever became of it, but only an answer carries a timing:
     // a dropped lane's elapsed time is the wait budget and a failed one has none, so both
     // are counted for the rates instead of averaged into the median.
@@ -3534,7 +3541,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         side.provider,
         side.model,
         side.ms,
-        side.status === "ok" ? "ok" : side.status === "failed" ? "failed" : "dropped"
+        side.status === "ok" ? "ok" : side.status === "failed" ? "failed" : "dropped",
+        werReference && side.text ? wordErrorRate(side.text, werReference) : null
       );
     }
     if (multi.reconciled && multi.reconcileMs != null) {
@@ -4025,10 +4033,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
 
   // Fire-and-forget: a latency sample is never worth failing or delaying a dictation
   // for, and the stats page treats a missing sample as simply not measured.
-  recordModelLatency(kind, provider, model, ms, outcome = "ok") {
+  recordModelLatency(kind, provider, model, ms, outcome = "ok", wer = null) {
     if (outcome === "ok" && (typeof ms !== "number" || !Number.isFinite(ms) || ms < 0)) return;
     window.electronAPI
-      ?.recordModelLatency?.({ kind, provider, model, ms, outcome })
+      ?.recordModelLatency?.({ kind, provider, model, ms, outcome, wer })
       .catch(() => {});
   }
 

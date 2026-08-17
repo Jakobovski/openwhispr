@@ -3115,6 +3115,9 @@
     "kinds": {
       "transcription": "Transcription",
       "reconcile": "Merge (dual mode)"
-    }
+    },
+    "wer": "WER",
+    "werTooltip": "median of {{count}} merged dictations",
+    "werNone": "no merged dictations yet"
   }
 }

@@ -3115,6 +3115,9 @@
     "kinds": {
       "transcription": "文字起こし",
       "reconcile": "統合（デュアルモード）"
-    }
+    },
+    "wer": "WER",
+    "werTooltip": "統合された {{count}} 件の口述の中央値",
+    "werNone": "統合された口述はまだありません"
   }
 }

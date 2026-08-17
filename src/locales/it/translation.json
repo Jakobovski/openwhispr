@@ -3115,6 +3115,9 @@
     "kinds": {
       "transcription": "Trascrizione",
       "reconcile": "Unione (modalità doppia)"
-    }
+    },
+    "wer": "WER",
+    "werTooltip": "mediana di {{count}} dettature unite",
+    "werNone": "ancora nessuna dettatura unita"
   }
 }

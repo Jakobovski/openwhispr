@@ -3115,6 +3115,9 @@
     "kinds": {
       "transcription": "Transcription",
       "reconcile": "Fusion (mode double)"
-    }
+    },
+    "wer": "WER",
+    "werTooltip": "médiane de {{count}} dictées fusionnées",
+    "werNone": "aucune dictée fusionnée pour l’instant"
   }
 }

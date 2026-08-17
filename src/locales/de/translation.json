@@ -3115,6 +3115,9 @@
     "kinds": {
       "transcription": "Transkription",
       "reconcile": "Zusammenführung (Dual-Modus)"
-    }
+    },
+    "wer": "WER",
+    "werTooltip": "Median aus {{count}} zusammengeführten Diktaten",
+    "werNone": "noch keine zusammengeführten Diktate"
   }
 }
