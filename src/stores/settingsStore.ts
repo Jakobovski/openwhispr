@@ -24,6 +24,7 @@ import {
   DEFAULT_DUAL_PROVIDER_B,
   DEFAULT_DUAL_PROVIDER_C,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
+  DEFAULT_RECONCILE_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_MODEL,
 } from "../config/dualTranscription";
@@ -182,6 +183,11 @@ const ARRAY_SETTINGS = new Set([
 ]);
 
 const NUMERIC_SETTINGS = new Set([
+  // Both timeouts belong here or a cross-window sync delivers them as strings, and
+  // `Number.isFinite("750")` is false — so the reader would silently fall back to the
+  // default and the user's choice would not apply until the next launch.
+  "dualTranscriptionSecondTimeoutMs",
+  "dualTranscriptionReconcileTimeoutMs",
   "audioRetentionDays",
   "transcriptRetentionDays",
   "whisperVadThreshold",
@@ -677,6 +683,9 @@ export interface SettingsState
   // How long the second provider gets after the first answers, before it is
   // dropped and dual degrades to the single result already in hand.
   dualTranscriptionSecondTimeoutMs: number;
+  // How long the merge model gets before it is abandoned and the best single
+  // transcript is pasted instead.
+  dualTranscriptionReconcileTimeoutMs: number;
   setMultiTranscriptionEnabled: (value: boolean) => void;
   setDualTranscriptionProviderA: (value: string) => void;
   setDualTranscriptionProviderB: (value: string) => void;
@@ -687,6 +696,7 @@ export interface SettingsState
   setDualTranscriptionReconcileProvider: (value: string) => void;
   setDualTranscriptionReconcileModel: (value: string) => void;
   setDualTranscriptionSecondTimeoutMs: (value: number) => void;
+  setDualTranscriptionReconcileTimeoutMs: (value: number) => void;
 
   // Enterprise providers
   bedrockAuthMode: string;
@@ -1075,6 +1085,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dualTranscriptionSecondTimeoutMs: readNumber(
     "dualTranscriptionSecondTimeoutMs",
     DEFAULT_DUAL_SECOND_TIMEOUT_MS
+  ),
+  dualTranscriptionReconcileTimeoutMs: readNumber(
+    "dualTranscriptionReconcileTimeoutMs",
+    DEFAULT_RECONCILE_TIMEOUT_MS
   ),
   customDictionary: readStringArray("customDictionary", []),
   snippets: (() => {
@@ -1629,6 +1643,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
   setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
   setDualTranscriptionSecondTimeoutMs: createNumberSetter("dualTranscriptionSecondTimeoutMs"),
+  setDualTranscriptionReconcileTimeoutMs: createNumberSetter("dualTranscriptionReconcileTimeoutMs"),
   setCortiTenant: createStringSetter("cortiTenant"),
   setTinfoilApiKey: createSecretSetter("tinfoilApiKey", "tinfoil", "tinfoil"),
   setCustomTranscriptionApiKey: (key: string) => {

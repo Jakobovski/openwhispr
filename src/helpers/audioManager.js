@@ -19,7 +19,7 @@ import { ActiveMicRecoveryController } from "./activeMicRecovery";
 import { followsSystemDefaultMic, reconcileSavedMicSelection } from "./micSelectionRecovery";
 import { isStaleDeviceError } from "./staleMicDevice";
 import { shouldSaveDiscardedRecording } from "./discardedRecording";
-import { awaitLanesWithBudget } from "./multiTranscriptionRace";
+import { awaitLanesWithBudget, raceWithBudget } from "./multiTranscriptionRace";
 import {
   getSettings,
   getEffectiveCleanupModel,
@@ -45,6 +45,7 @@ import {
   resolveMultiTranscriptionLanes,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
+  DEFAULT_RECONCILE_TIMEOUT_MS,
   resolveDualTranscriptionModel,
 } from "../config/dualTranscription";
 
@@ -3395,6 +3396,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       })),
       reconciled: multi.reconciled,
       reconcileMs: multi.reconcileMs ?? null,
+      // A merge that ran out of time is not the same as one that was never needed, and
+      // history says so rather than showing both as "no merge".
+      reconcileDropped: !!multi.reconcileDropped,
       droppedProviders: multi.droppedProviders ?? [],
     };
 
@@ -3404,7 +3408,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       {
         providers: multi.sides.map((side) => `${side.provider}:${side.status}`),
         reconciled: multi.reconciled,
-        agreed: !multi.reconciled && answered.length > 1,
+        reconcileDropped: !!multi.reconcileDropped,
+        agreed: !multi.reconciled && !multi.reconcileDropped && answered.length > 1,
         transcribeMs: multi.transcribeMs,
         reconcileMs: multi.reconcileMs,
         durationSeconds: metadata.durationSeconds ?? null,
@@ -3596,8 +3601,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
 
     const reconcileStart = performance.now();
+    const reconcileBudgetMs = Number.isFinite(settings.dualTranscriptionReconcileTimeoutMs)
+      ? settings.dualTranscriptionReconcileTimeoutMs
+      : DEFAULT_RECONCILE_TIMEOUT_MS;
+
     try {
-      const merged = await ReasoningService.processText(
+      const mergePromise = ReasoningService.processText(
         // Slot order is preserved, which is what makes the prompt's tie-break meaningful.
         wrapReconcileVersions(answered.map((side) => ({ text: side.text, provider: side.label }))),
         getEffectiveReconcileModel(),
@@ -3621,7 +3630,31 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           disableThinking: true,
         }
       );
-      const trimmed = typeof merged === "string" ? merged.trim() : "";
+
+      // The merge sits in the paste path, so it gets a deadline like the lanes do.
+      const { timedOut, value: outcome } = await raceWithBudget(mergePromise, reconcileBudgetMs);
+
+      if (timedOut) {
+        // The best single transcript, not an error: `answered` is in slot order, so this
+        // is the highest-priority provider that actually returned — xAI by default.
+        logger.info(
+          "Multi transcription: merge took too long, using the best single transcript",
+          {
+            budgetMs: reconcileBudgetMs,
+            using: answered[0].provider,
+            candidates: answered.map((side) => side.provider),
+          },
+          "transcription"
+        );
+        return {
+          ...base,
+          text: answered[0].text,
+          reconciled: false,
+          reconcileDropped: true,
+        };
+      }
+
+      const trimmed = typeof outcome === "string" ? outcome.trim() : "";
       if (!trimmed) throw new Error("Reconcile returned empty text");
 
       return {

@@ -418,7 +418,9 @@
       "screenContextRead": "{{words}} términos leídos de la pantalla",
       "screenContextNoCorrections": "No hubo nada que corregir",
       "screenContextTerms": "Términos leídos de la pantalla ({{words}})",
-      "screenContextUsedLegend": "usados para corregir la transcripción"
+      "screenContextUsedLegend": "usados para corregir la transcripción",
+      "dualMergeDroppedShort": "la combinación caducó",
+      "dualMergeDropped": "Resultado (la combinación caducó)"
     },
     "cloudMigration": {
       "title": "Bienvenido a OpenWhispr Cloud",
@@ -1908,7 +1910,9 @@
       "screenContext": "Contexto de pantalla",
       "screenContextDescription": "Lee la ventana que estás mirando mientras dictas y usa los nombres que aparecen en ella para corregir la transcripción. Nada sale de tu Mac.",
       "screenContextPermissionNeeded": "Se necesita el permiso de Grabación de pantalla para poder leer la ventana que estás mirando.",
-      "screenContextOpenSettings": "Abrir Ajustes"
+      "screenContextOpenSettings": "Abrir Ajustes",
+      "dualReconcileTimeout": "Espera de la combinación",
+      "dualReconcileTimeoutDescription": "Cuánto tiempo tiene el modelo de combinación antes de usar la mejor transcripción individual."
     },
     "intelligence": {
       "gpuDevice": {

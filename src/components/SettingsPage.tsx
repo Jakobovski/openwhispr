@@ -420,6 +420,11 @@ function TranscriptionSection({
   // list reads 0.5 / 0.75 / 1 / 1.5 and every option says exactly what it is.
   const formatTimeoutSeconds = (ms: number) => String(Number((ms / 1000).toFixed(2)));
 
+  const dualReconcileTimeoutMs = useSettingsStore((s) => s.dualTranscriptionReconcileTimeoutMs);
+  const setDualReconcileTimeoutMs = useSettingsStore(
+    (s) => s.setDualTranscriptionReconcileTimeoutMs
+  );
+
   const dualReconcileProvider = useSettingsStore((s) => s.dualTranscriptionReconcileProvider);
   const setDualReconcileProvider = useSettingsStore((s) => s.setDualTranscriptionReconcileProvider);
   const dualReconcileModel = useSettingsStore((s) => s.dualTranscriptionReconcileModel);
@@ -635,6 +640,30 @@ function TranscriptionSection({
                   {reconcileModels.map((model) => (
                     <SelectItem key={model.value} value={model.value}>
                       {model.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          <SettingsPanelRow>
+            <SettingsRow
+              label={t("settingsPage.transcription.dualReconcileTimeout")}
+              description={t("settingsPage.transcription.dualReconcileTimeoutDescription")}
+            >
+              <Select
+                value={String(dualReconcileTimeoutMs)}
+                onValueChange={(value) => setDualReconcileTimeoutMs(Number(value))}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DUAL_TIMEOUT_CHOICES.map((ms) => (
+                    <SelectItem key={ms} value={String(ms)}>
+                      {t("settingsPage.transcription.dualSecondTimeoutValue", {
+                        seconds: formatTimeoutSeconds(ms),
+                      })}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -107,7 +107,21 @@ export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "ge
 // Lives here because two defaults have to agree: the settings store seeds
 // dualTranscriptionSecondTimeoutMs from it, and audioManager falls back to it when
 // the setting is absent. When they disagreed, the store's value silently won.
-export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 1000;
+export const DEFAULT_DUAL_SECOND_TIMEOUT_MS = 750;
+
+// How long the merge itself gets before it is abandoned and the best single transcript
+// is used instead.
+//
+// A separate budget from the one above, because it bounds a different wait: that one is
+// "how long a usable answer waits for a second opinion", this is "how long a second
+// opinion waits for the model that combines them". Both sit in the paste path after the
+// user has stopped speaking, so both are felt directly, but they fail differently — a
+// dropped lane costs a comparison, a dropped merge costs the merge.
+//
+// 750ms is chosen against the measured spread: the default reconcile model returned in
+// 600-660ms over the real prompt, so this allows the normal case and cuts the tail.
+// Dropping it is cheap because the fallback is a real transcript, not an error.
+export const DEFAULT_RECONCILE_TIMEOUT_MS = 750;
 
 export function getDualTranscriptionProvider(id: string): DualTranscriptionProvider | undefined {
   return DUAL_TRANSCRIPTION_PROVIDERS.find((provider) => provider.id === id);

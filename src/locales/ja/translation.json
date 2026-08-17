@@ -418,7 +418,9 @@
       "screenContextRead": "画面から {{words}} 語を読み取り",
       "screenContextNoCorrections": "修正の必要はありませんでした",
       "screenContextTerms": "画面から読み取った語 ({{words}})",
-      "screenContextUsedLegend": "修正に使用"
+      "screenContextUsedLegend": "修正に使用",
+      "dualMergeDroppedShort": "統合がタイムアウト",
+      "dualMergeDropped": "結果（統合がタイムアウト）"
     },
     "cloudMigration": {
       "title": "OpenWhispr Cloud へようこそ",
@@ -1860,7 +1862,9 @@
       "screenContext": "画面コンテキスト",
       "screenContextDescription": "口述中に見ているウィンドウを読み取り、そこにある名前で文字起こしを修正します。データはMacの外に出ません。",
       "screenContextPermissionNeeded": "見ているウィンドウを読み取るには、画面収録の許可が必要です。",
-      "screenContextOpenSettings": "設定を開く"
+      "screenContextOpenSettings": "設定を開く",
+      "dualReconcileTimeout": "統合の待ち時間",
+      "dualReconcileTimeoutDescription": "最良の単一文字起こしを使うまでに統合モデルに与える時間。"
     },
     "intelligence": {
       "gpuDevice": {

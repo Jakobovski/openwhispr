@@ -1,7 +1,10 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { awaitLanesWithBudget } = require("../../src/helpers/multiTranscriptionRace");
+const {
+  awaitLanesWithBudget,
+  raceWithBudget,
+} = require("../../src/helpers/multiTranscriptionRace");
 
 // Builds the pair of structures transcribeMulti passes in: one promise per lane that
 // resolves to its own index once it settles, and the `settled` array the caller fills
@@ -123,4 +126,51 @@ test("a single lane needs no budget", async () => {
 
   assert.equal(result.firstSuccessIndex, 0);
   assert.deepEqual(result.droppedIndexes, []);
+});
+
+// --- the merge deadline ---
+
+const after = (ms, value) => new Promise((resolve) => setTimeout(() => resolve(value), ms));
+const failsAfter = (ms, message) =>
+  new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms));
+
+test("a merge that finishes inside its budget is used", async () => {
+  const result = await raceWithBudget(after(20, "merged text"), 200);
+  assert.deepEqual(result, { timedOut: false, value: "merged text" });
+});
+
+test("a merge that overruns is abandoned rather than waited on", async () => {
+  const startedAt = Date.now();
+  const result = await raceWithBudget(after(5000, "too late"), 100);
+  const elapsed = Date.now() - startedAt;
+
+  assert.equal(result.timedOut, true);
+  assert.equal(result.value, undefined, "the late answer is not used");
+  assert.ok(elapsed < 1000, `gave up after ${elapsed}ms instead of waiting`);
+});
+
+test("an abandoned merge that later fails does not become an unhandled rejection", async () => {
+  // The reason the loser's rejection is swallowed: it settles long after the dictation
+  // it belonged to, and an unhandled rejection there would take the renderer down.
+  const rejections = [];
+  const onRejection = (error) => rejections.push(error);
+  process.on("unhandledRejection", onRejection);
+
+  try {
+    const result = await raceWithBudget(failsAfter(40, "merge blew up"), 10);
+    assert.equal(result.timedOut, true);
+
+    // Long enough for the abandoned promise to reject and for the microtask queue to
+    // have surfaced it if nothing were catching.
+    await after(120);
+    assert.deepEqual(rejections, []);
+  } finally {
+    process.off("unhandledRejection", onRejection);
+  }
+});
+
+test("a merge that fails before the deadline still reports the failure", async () => {
+  // Distinct from timing out: the caller falls back either way, but must not mistake a
+  // failure for a usable result.
+  await assert.rejects(() => raceWithBudget(failsAfter(10, "bad request"), 500), /bad request/);
 });

@@ -418,7 +418,9 @@
       "screenContextRead": "{{words}} terms read from screen",
       "screenContextNoCorrections": "Nothing needed correcting",
       "screenContextTerms": "Terms read from screen ({{words}})",
-      "screenContextUsedLegend": "used to fix the transcript"
+      "screenContextUsedLegend": "used to fix the transcript",
+      "dualMergeDroppedShort": "merge timed out",
+      "dualMergeDropped": "Result (merge timed out)"
     },
     "cloudMigration": {
       "title": "Welcome to OpenWhispr Cloud",
@@ -2033,7 +2035,9 @@
       "screenContext": "Screen context",
       "screenContextDescription": "Read the window you're looking at while you dictate, and use the names on it to correct the transcript. Nothing leaves your Mac.",
       "screenContextPermissionNeeded": "Screen Recording permission is needed before this can read the window you're looking at.",
-      "screenContextOpenSettings": "Open Settings"
+      "screenContextOpenSettings": "Open Settings",
+      "dualReconcileTimeout": "Wait for the merge",
+      "dualReconcileTimeoutDescription": "How long the merge model gets before the best single transcript is used instead."
     },
     "intelligence": {
       "gpuDevice": {

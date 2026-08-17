@@ -418,7 +418,9 @@
       "screenContextRead": "从屏幕读取了 {{words}} 个词",
       "screenContextNoCorrections": "没有需要更正的内容",
       "screenContextTerms": "从屏幕读取的词（{{words}}）",
-      "screenContextUsedLegend": "已用于更正转录"
+      "screenContextUsedLegend": "已用于更正转录",
+      "dualMergeDroppedShort": "合并超时",
+      "dualMergeDropped": "结果（合并超时）"
     },
     "cloudMigration": {
       "title": "欢迎使用 OpenWhispr 云端",
@@ -1855,7 +1857,9 @@
       "screenContext": "屏幕上下文",
       "screenContextDescription": "在你口述时读取你正在查看的窗口，并用其中的名称更正转录内容。所有处理都在本机完成。",
       "screenContextPermissionNeeded": "需要「屏幕录制」权限才能读取你正在查看的窗口。",
-      "screenContextOpenSettings": "打开设置"
+      "screenContextOpenSettings": "打开设置",
+      "dualReconcileTimeout": "合并等待时间",
+      "dualReconcileTimeoutDescription": "在改用最佳单份转录之前，留给合并模型的时间。"
     },
     "intelligence": {
       "gpuDevice": {

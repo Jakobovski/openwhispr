@@ -418,7 +418,9 @@
       "screenContextRead": "Считано с экрана терминов: {{words}}",
       "screenContextNoCorrections": "Исправлять было нечего",
       "screenContextTerms": "Термины, считанные с экрана ({{words}})",
-      "screenContextUsedLegend": "использованы для исправления"
+      "screenContextUsedLegend": "использованы для исправления",
+      "dualMergeDroppedShort": "объединение прервано",
+      "dualMergeDropped": "Результат (объединение прервано)"
     },
     "cloudMigration": {
       "title": "Добро пожаловать в OpenWhispr Cloud",
@@ -1862,7 +1864,9 @@
       "screenContext": "Контекст экрана",
       "screenContextDescription": "Читает окно, на которое вы смотрите во время диктовки, и исправляет расшифровку по именам из него. Ничего не покидает ваш Mac.",
       "screenContextPermissionNeeded": "Для чтения окна требуется разрешение на запись экрана.",
-      "screenContextOpenSettings": "Открыть настройки"
+      "screenContextOpenSettings": "Открыть настройки",
+      "dualReconcileTimeout": "Ожидание объединения",
+      "dualReconcileTimeoutDescription": "Сколько времени даётся модели объединения, прежде чем будет использован лучший отдельный транскрипт."
     },
     "intelligence": {
       "gpuDevice": {

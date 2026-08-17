@@ -67,4 +67,39 @@ async function awaitLanesWithBudget(tracked, settled, budgetMs) {
   return { firstSuccessIndex, droppedIndexes };
 }
 
-module.exports = { awaitLanesWithBudget };
+/**
+ * Awaits a promise, giving up after `budgetMs`.
+ *
+ * Used for the merge, which sits in the paste path and so gets a deadline like the
+ * lanes do. An in-flight LLM request cannot be cancelled, so a promise abandoned here
+ * is left to settle on its own and its result ignored — with its rejection swallowed,
+ * because an abandoned failure would otherwise surface as an unhandled rejection long
+ * after the dictation it belonged to is finished.
+ *
+ * A rejection that arrives *before* the budget expires still propagates: the caller
+ * needs to distinguish "the merge failed" from "the merge was too slow" only in what it
+ * logs, but it must not mistake a failure for a success either way.
+ *
+ * @returns {Promise<{timedOut: boolean, value?: unknown}>}
+ */
+async function raceWithBudget(promise, budgetMs) {
+  let timer;
+  const expired = Symbol("expired");
+  try {
+    const outcome = await Promise.race([
+      promise,
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(expired), budgetMs);
+      }),
+    ]);
+    if (outcome === expired) {
+      promise.catch(() => {});
+      return { timedOut: true };
+    }
+    return { timedOut: false, value: outcome };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+module.exports = { awaitLanesWithBudget, raceWithBudget };

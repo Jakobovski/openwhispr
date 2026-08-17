@@ -40,6 +40,8 @@ interface DualSide {
 interface DualDetail {
   sides: DualSide[];
   reconciled: boolean;
+  /** The merge ran out of time, which is not the same as never having been needed. */
+  reconcileDropped: boolean;
   reconcileMs?: number | null;
   mergedText?: string | null;
 }
@@ -73,6 +75,7 @@ function parseDual(raw?: string | null): DualDetail | null {
     return {
       sides,
       reconciled: !!d.reconciled,
+      reconcileDropped: !!d.reconcileDropped,
       reconcileMs: d.reconcileMs ?? null,
       mergedText: d.mergedText ?? null,
     };
@@ -415,7 +418,9 @@ export default function TranscriptionItem({
                 <span className="whitespace-nowrap">
                   {dual.reconciled
                     ? `${t("controlPanel.history.dualMergedShort")} ${formatMs(dual.reconcileMs)}`
-                    : t("controlPanel.history.dualNoMergeShort")}
+                    : dual.reconcileDropped
+                      ? t("controlPanel.history.dualMergeDroppedShort")
+                      : t("controlPanel.history.dualNoMergeShort")}
                 </span>
                 {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
               </button>
@@ -653,7 +658,9 @@ export default function TranscriptionItem({
                     <span className="text-[10px] font-medium text-primary/70 uppercase tracking-wider">
                       {dual.reconciled
                         ? t("controlPanel.history.dualMerged")
-                        : t("controlPanel.history.dualNotMerged")}
+                        : dual.reconcileDropped
+                          ? t("controlPanel.history.dualMergeDropped")
+                          : t("controlPanel.history.dualNotMerged")}
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
                       {pairDiff && pairDiff.changeRatio > 0 && (
