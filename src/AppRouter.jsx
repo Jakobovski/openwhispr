@@ -11,7 +11,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useTheme } from "./hooks/useTheme";
 
 const ControlPanel = React.lazy(() => import("./components/ControlPanel.tsx"));
-const OnboardingFlow = React.lazy(() => import("./components/OnboardingFlow.tsx"));
+const FirstRunPermissions = React.lazy(() => import("./components/FirstRunPermissions.tsx"));
 const AgentOverlay = React.lazy(() => import("./components/AgentOverlay.tsx"));
 
 export default function AppRouter() {
@@ -39,7 +39,6 @@ function MainApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [needsReauth, setNeedsReauth] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [postOnboardingSettingsSection, setPostOnboardingSettingsSection] = useState(undefined);
 
   const isAgentPanel = window.location.search.includes("agent=true");
   const isControlPanel =
@@ -54,7 +53,7 @@ function MainApp() {
       import("./components/ControlPanel.tsx").catch(() => {});
 
       if (!localStorage.getItem("onboardingCompleted")) {
-        import("./components/OnboardingFlow.tsx").catch(() => {});
+        import("./components/FirstRunPermissions.tsx").catch(() => {});
       }
     }
 
@@ -93,20 +92,24 @@ function MainApp() {
     }
 
     if (isDictationPanel && !resolved) {
-      // Keep the dictation overlay hidden during onboarding — OnboardingFlow
-      // shows it explicitly when the user reaches the activation step.
+      // Keep the dictation overlay hidden until permissions are granted —
+      // FirstRunPermissions reveals it when the user finishes.
       window.electronAPI?.hideWindow?.();
     }
 
     setIsLoading(false);
   }, [authLoaded, isControlPanel, isDictationPanel, isGracePeriodOnly, isSignedIn]);
 
-  const handleOnboardingComplete = (options) => {
-    if (options?.openSettings) {
-      setPostOnboardingSettingsSection("transcription");
-    }
-    setShowOnboarding(false);
+  // The wizard used to do all of this on its last step. It no longer runs, so the same
+  // state has to be written here or first-run users land on the re-auth screen and the
+  // post-migration modal fires on their next launch.
+  const handleFirstRunComplete = () => {
     localStorage.setItem("onboardingCompleted", "true");
+    localStorage.setItem("authenticationSkipped", "true");
+    localStorage.setItem("skipAuth", "true");
+    void window.electronAPI?.markBundleMigrated?.();
+    window.electronAPI?.showDictationPanel?.();
+    setShowOnboarding(false);
   };
 
   if (isAgentPanel) {
@@ -124,7 +127,7 @@ function MainApp() {
   if (isControlPanel && showOnboarding) {
     return (
       <Suspense fallback={<LoadingFallback />}>
-        <OnboardingFlow onComplete={handleOnboardingComplete} />
+        <FirstRunPermissions onDone={handleFirstRunComplete} />
       </Suspense>
     );
   }
@@ -168,7 +171,7 @@ function MainApp() {
 
   return isControlPanel ? (
     <Suspense fallback={<LoadingFallback />}>
-      <ControlPanel initialSettingsSection={postOnboardingSettingsSection} />
+      <ControlPanel />
     </Suspense>
   ) : (
     <App />

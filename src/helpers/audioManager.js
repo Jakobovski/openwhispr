@@ -237,7 +237,7 @@ function resolveActiveTranscriptionProvider(settings) {
 }
 
 function isMultiTranscriptionEnabled(settings) {
-  if (!settings?.dualTranscriptionEnabled) return false;
+  if (!settings?.multiTranscriptionEnabled) return false;
   if (settings.useLocalWhisper) return false;
   if (settings.cloudTranscriptionMode !== "byok") return false;
   // At least two lanes that actually have a key. One lane is the single-provider path with

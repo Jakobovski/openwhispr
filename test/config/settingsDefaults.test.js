@@ -206,3 +206,13 @@ test("a fresh install and a cleared setting resolve to the same thing", () => {
 
   assert.deepEqual(cleared, fresh);
 });
+
+test("a fresh install can actually reach multi transcription", () => {
+  // isMultiTranscriptionEnabled() bails unless multi is on, local whisper is off, and
+  // the cloud mode is byok. Those three defaults sit in different parts of the store,
+  // and the wizard that used to fix up the cloud mode no longer runs — so a change to
+  // any one of them silently drops every new install back to single-provider.
+  assert.equal(DEFAULTS.get("multiTranscriptionEnabled")?.expression, "true");
+  assert.equal(DEFAULTS.get("useLocalWhisper")?.expression, "false");
+  assert.equal(DEFAULTS.get("cloudTranscriptionMode")?.expression, '"byok"');
+});

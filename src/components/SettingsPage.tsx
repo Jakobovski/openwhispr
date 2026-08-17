@@ -355,8 +355,8 @@ function TranscriptionSection({
   const setSilenceTrimEnabled = useSettingsStore((s) => s.setSilenceTrimEnabled);
   const silenceTrimStrength = useSettingsStore((s) => s.silenceTrimStrength);
   const setSilenceTrimStrength = useSettingsStore((s) => s.setSilenceTrimStrength);
-  const dualTranscriptionEnabled = useSettingsStore((s) => s.dualTranscriptionEnabled);
-  const setDualTranscriptionEnabled = useSettingsStore((s) => s.setDualTranscriptionEnabled);
+  const multiTranscriptionEnabled = useSettingsStore((s) => s.multiTranscriptionEnabled);
+  const setMultiTranscriptionEnabled = useSettingsStore((s) => s.setMultiTranscriptionEnabled);
   const dualTranscriptionProviderA = useSettingsStore((s) => s.dualTranscriptionProviderA);
   const setDualTranscriptionProviderA = useSettingsStore((s) => s.setDualTranscriptionProviderA);
   const dualTranscriptionProviderB = useSettingsStore((s) => s.dualTranscriptionProviderB);
@@ -503,10 +503,10 @@ function TranscriptionSection({
           label={t("settingsPage.transcription.multiTranscription")}
           description={t("settingsPage.transcription.multiTranscriptionDescription")}
         >
-          <Toggle checked={dualTranscriptionEnabled} onChange={setDualTranscriptionEnabled} />
+          <Toggle checked={multiTranscriptionEnabled} onChange={setMultiTranscriptionEnabled} />
         </SettingsRow>
       </SettingsPanelRow>
-      {dualTranscriptionEnabled && (
+      {multiTranscriptionEnabled && (
         <>
           {multiSlots.map(({ slot, provider, setProvider, model, setModel }, index) => {
             const taken = multiSlots
@@ -692,7 +692,7 @@ function TranscriptionSection({
       setCloudTranscriptionBaseUrl={setCloudTranscriptionBaseUrl}
       variant="settings"
       modelSelectionNote={
-        mode === "cloud" && dualTranscriptionEnabled
+        mode === "cloud" && multiTranscriptionEnabled
           ? t("settingsPage.transcription.multiOverridesModel", {
               providers: activeMultiProviders.map((provider) => provider.label).join(", "),
             })

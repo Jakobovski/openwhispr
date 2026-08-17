@@ -129,7 +129,7 @@ migrateMeetingFollowFlags();
 
 const BOOLEAN_SETTINGS = new Set([
   "silenceTrimEnabled",
-  "dualTranscriptionEnabled",
+  "multiTranscriptionEnabled",
   "useLocalWhisper",
   "meetingUseLocalWhisper",
   "uploadUseLocalWhisper",
@@ -215,6 +215,19 @@ function migratePreferredLanguage() {
 }
 
 migratePreferredLanguage();
+
+// "dual" became "multi" when a third provider slot was added. Renaming the stored key
+// would silently reset the toggle for everyone who had turned it off, so carry the old
+// value across once. The slot keys (dualTranscriptionProviderA and friends) keep their
+// legacy names deliberately — see MULTI_TRANSCRIPTION_SLOTS.
+function migrateMultiTranscriptionEnabled() {
+  if (!isBrowser) return;
+  if (localStorage.getItem("multiTranscriptionEnabled") !== null) return;
+  const legacy = localStorage.getItem("dualTranscriptionEnabled");
+  if (legacy !== null) localStorage.setItem("multiTranscriptionEnabled", legacy);
+}
+
+migrateMultiTranscriptionEnabled();
 
 // Map the underlying transcription fields to the InferenceMode the Settings
 // tabs select on. Single source of truth shared by the provider-settings
@@ -654,7 +667,7 @@ export interface SettingsState
 
   // Dual transcription (BYOK): send the recording to two providers and have an
   // LLM combine the results. Batch-only, since it compares finished transcripts.
-  dualTranscriptionEnabled: boolean;
+  multiTranscriptionEnabled: boolean;
   dualTranscriptionProviderA: string;
   dualTranscriptionProviderB: string;
   dualTranscriptionProviderC: string;
@@ -667,7 +680,7 @@ export interface SettingsState
   // How long the second provider gets after the first answers, before it is
   // dropped and dual degrades to the single result already in hand.
   dualTranscriptionSecondTimeoutMs: number;
-  setDualTranscriptionEnabled: (value: boolean) => void;
+  setMultiTranscriptionEnabled: (value: boolean) => void;
   setDualTranscriptionProviderA: (value: string) => void;
   setDualTranscriptionProviderB: (value: string) => void;
   setDualTranscriptionProviderC: (value: string) => void;
@@ -991,21 +1004,32 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   parakeetModel: readString("parakeetModel", ""),
   allowOpenAIFallback: readBoolean("allowOpenAIFallback", false),
   allowLocalFallback: readBoolean("allowLocalFallback", false),
-  fallbackWhisperModel: readString("fallbackWhisperModel", settingsDefaults.storeDefaults.fallbackWhisperModel),
+  fallbackWhisperModel: readString(
+    "fallbackWhisperModel",
+    settingsDefaults.storeDefaults.fallbackWhisperModel
+  ),
   // English rather than "auto": every provider here takes an optional language hint,
   // and naming the language beats asking the recogniser to detect it — auto-detection
   // is where short dictations get scored as the wrong language entirely. Anyone who
   // dictates in another language sets it once in Settings.
-  preferredLanguage: readString("preferredLanguage", settingsDefaults.storeDefaults.preferredLanguage),
-  cloudTranscriptionProvider: readString("cloudTranscriptionProvider", settingsDefaults.storeDefaults.cloudTranscriptionProvider),
+  preferredLanguage: readString(
+    "preferredLanguage",
+    settingsDefaults.storeDefaults.preferredLanguage
+  ),
+  cloudTranscriptionProvider: readString(
+    "cloudTranscriptionProvider",
+    settingsDefaults.storeDefaults.cloudTranscriptionProvider
+  ),
   cloudTranscriptionModel: readString("cloudTranscriptionModel", "gpt-4o-mini-transcribe"),
   cloudTranscriptionBaseUrl: readString(
     "cloudTranscriptionBaseUrl",
     API_ENDPOINTS.TRANSCRIPTION_BASE
   ),
-  // Secrets aren't hydrated yet at construction; the BYOK default is set
-  // post-hydration in initializeSettings.
-  cloudTranscriptionMode: readString("cloudTranscriptionMode", "openwhispr"),
+  // BYOK by default: multi-transcription requires it (isMultiTranscriptionEnabled bails
+  // on any other mode), and OpenWhispr cloud mode needs a sign-in a fresh install has
+  // not done. This used to be flipped to byok inside the onboarding wizard, which no
+  // longer runs — the default has to be right on its own.
+  cloudTranscriptionMode: readString("cloudTranscriptionMode", "byok"),
   cleanupCloudMode: readString("cleanupCloudMode", settingsDefaults.storeDefaults.cleanupCloudMode),
   cleanupCloudBaseUrl: readString("cleanupCloudBaseUrl", API_ENDPOINTS.OPENAI_BASE),
   cortiEnvironment: readString("cortiEnvironment", settingsDefaults.storeDefaults.cortiEnvironment),
@@ -1016,7 +1040,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   // On by default. It needs a BYOK key for each side, and isDualTranscriptionEnabled
   // returns false without them, so a new user with one key silently gets the normal
   // single-provider path rather than a broken one.
-  dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", true),
+  multiTranscriptionEnabled: readBoolean("multiTranscriptionEnabled", true),
   dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_DUAL_PROVIDER_A),
   dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_DUAL_PROVIDER_B),
   dualTranscriptionProviderC: readString("dualTranscriptionProviderC", DEFAULT_DUAL_PROVIDER_C),
@@ -1136,7 +1160,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   })(),
   gcalPrimaryOnly: readBoolean("gcalPrimaryOnly", true),
   meetingProcessDetection: readBoolean("meetingProcessDetection", true),
-  speakerDiarizationEnabled: readBoolean("speakerDiarizationEnabled", settingsDefaults.storeDefaults.speakerDiarizationEnabled),
+  speakerDiarizationEnabled: readBoolean(
+    "speakerDiarizationEnabled",
+    settingsDefaults.storeDefaults.speakerDiarizationEnabled
+  ),
   dictationSileroEnabled: readBoolean("dictationSileroEnabled", true),
   noteRecordingSileroEnabled: readBoolean("noteRecordingSileroEnabled", true),
   meetingSileroEnabled: readBoolean("meetingSileroEnabled", true),
@@ -1275,7 +1302,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   translationCustomApiKey: readString("translationCustomApiKey", ""),
   translationDisableThinking: readBoolean("translationDisableThinking", true),
   useDictationTranslation: readBoolean("useDictationTranslation", false),
-  translationSourceLanguage: readString("translationSourceLanguage", settingsDefaults.storeDefaults.translationSourceLanguage),
+  translationSourceLanguage: readString(
+    "translationSourceLanguage",
+    settingsDefaults.storeDefaults.translationSourceLanguage
+  ),
   translationTargetLanguage: readString("translationTargetLanguage", ""),
   translationTargets: (() => {
     // Seed from the saved array; otherwise from the single active target if set.
@@ -1569,7 +1599,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
   setSilenceTrimEnabled: createBooleanSetter("silenceTrimEnabled"),
   setSilenceTrimStrength: createStringSetter("silenceTrimStrength"),
-  setDualTranscriptionEnabled: createBooleanSetter("dualTranscriptionEnabled"),
+  setMultiTranscriptionEnabled: createBooleanSetter("multiTranscriptionEnabled"),
   setDualTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),
   setDualTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),
   setDualTranscriptionProviderC: createStringSetter("dualTranscriptionProviderC"),

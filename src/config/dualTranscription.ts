@@ -7,6 +7,8 @@
 // about the second. That is also why the settings UI has to describe these — a user
 // looking at the single-provider picker while dual is on is reading a selection that
 // does not apply.
+import modelRegistryData from "../models/modelRegistryData.json" with { type: "json" };
+
 export interface DualTranscriptionProvider {
   id: string;
   label: string;
@@ -26,7 +28,7 @@ export interface DualTranscriptionProvider {
 export const DUAL_TRANSCRIPTION_PROVIDERS: DualTranscriptionProvider[] = [
   { id: "xai", label: "xAI", model: "grok-stt", apiKeyField: "xaiApiKey" },
   { id: "openai", label: "OpenAI", model: "gpt-transcribe", apiKeyField: "openaiApiKey" },
-  { id: "groq", label: "Groq", model: "whisper-large-v3-turbo", apiKeyField: "groqApiKey" },
+  { id: "groq", label: "Groq", model: "whisper-large-v3", apiKeyField: "groqApiKey" },
 ];
 
 /**
@@ -107,14 +109,6 @@ export function getDualTranscriptionProvider(id: string): DualTranscriptionProvi
 }
 
 /**
- * The model a dual side actually runs: the user's choice when they made one, and
- * otherwise the provider's default from the table above.
- *
- * Stored empty rather than pre-filled so a provider change does not leave the other
- * provider's model id behind, and so changing a default here reaches everyone who
- * never picked a model.
- */
-/**
  * The lanes a multi-provider dictation will actually run, in slot order.
  *
  * Resolution has to be deduplicated, and not only for tidiness: a stored slot combined
@@ -155,8 +149,29 @@ export function resolveMultiTranscriptionLanes(
   return lanes;
 }
 
+/** provider id -> the transcription model ids that provider actually serves. */
+const SERVED_TRANSCRIPTION_MODELS: Record<string, Set<string>> = Object.fromEntries(
+  (
+    (
+      modelRegistryData as {
+        transcriptionProviders?: Array<{ id: string; models?: Array<{ id: string }> }>;
+      }
+    ).transcriptionProviders ?? []
+  ).map((provider) => [provider.id, new Set((provider.models ?? []).map((model) => model.id))])
+);
+
 export function resolveDualTranscriptionModel(providerId: string, storedModel?: string): string {
+  const fallback = getDualTranscriptionProvider(providerId)?.model ?? "";
   const chosen = storedModel?.trim();
-  if (chosen) return chosen;
-  return getDualTranscriptionProvider(providerId)?.model ?? "";
+  if (!chosen) return fallback;
+
+  // A stored model id outlives the provider that was selected when it was picked: older
+  // builds did not clear it on a provider change, and a slot still on its default can be
+  // substituted to a different provider. Sending one provider's model id to another's
+  // endpoint fails every time, and the settings picker — a closed list of this provider's
+  // models — would show a selection that is not in it. Trust the stored id only if this
+  // provider serves it; a provider the registry does not describe keeps the stored value.
+  const served = SERVED_TRANSCRIPTION_MODELS[providerId];
+  if (served && !served.has(chosen)) return fallback;
+  return chosen;
 }
