@@ -617,7 +617,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       let samples = mono;
       let trimmedSeconds = length / decoded.sampleRate;
       let percentRemoved = 0;
-      if (trimSettings.silenceTrimEnabled !== false) {
+      // `=== true`, not `!== false`: the latter treated an absent setting as enabled,
+      // which is a second default and now the opposite of the store's.
+      if (trimSettings.silenceTrimEnabled === true) {
         const plan = planSilenceTrim(
           mono,
           decoded.sampleRate,

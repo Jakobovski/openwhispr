@@ -1038,7 +1038,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cortiEnvironment: readString("cortiEnvironment", settingsDefaults.storeDefaults.cortiEnvironment),
   cortiTenant: readString("cortiTenant", settingsDefaults.storeDefaults.cortiTenant),
   xaiTranscriptionMode: readString("xaiTranscriptionMode", "streaming"),
-  silenceTrimEnabled: readBoolean("silenceTrimEnabled", true),
+  // Off by default. It cut little in practice, and what it did cut was suspected of
+  // costing accuracy: the pauses it removes are partly what a recogniser uses to place
+  // sentence boundaries, and an onset clipped at the front of a quiet consonant is a
+  // mishearing that no later stage can recover. The upload is resampled to 16 kHz
+  // either way, so leaving it off does not cost bandwidth. Still available in Settings.
+  silenceTrimEnabled: readBoolean("silenceTrimEnabled", false),
   // On by default: the names it fixes are the ones a recogniser reliably gets
   // wrong, so the feature is worth having on rather than discovering.
   //
