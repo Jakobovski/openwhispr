@@ -24,3 +24,14 @@ test("empty input never agrees, so it is never mistaken for a settled merge", ()
   assert.equal(transcriptsAgree("", "something"), false);
   assert.equal(transcriptsAgree(null, null), false);
 });
+
+test("three transcriptions agree only when all of them match", () => {
+  // Multi transcription asks the same question of two or three candidates.
+  assert.equal(transcriptsAgree("one two three", "One two three.", "ONE TWO THREE!"), true);
+  assert.equal(transcriptsAgree("one two three", "one two three", "one two four"), false);
+});
+
+test("a blank among several candidates is disagreement, not agreement", () => {
+  assert.equal(transcriptsAgree("one two", "one two", ""), false);
+  assert.equal(transcriptsAgree("only one"), false);
+});

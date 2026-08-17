@@ -30,6 +30,7 @@ import {
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree } from "../utils/transcriptReconcile";
+import { PcmBatchRecorder } from "./pcmBatchRecorder";
 import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/prompts";
 import {
   DUAL_TRANSCRIPTION_MODELS,
@@ -1141,28 +1142,24 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   createBatchRecorder(micStream) {
-    const recorder = new MediaRecorder(micStream);
-    const segmentChunks = [];
+    // 16 kHz mono PCM, captured rather than encoded: see pcmBatchRecorder for why Opus is
+    // gone. The interface matches what this path expected of MediaRecorder, so rotation,
+    // cancel and discard behaviour below are unchanged.
+    const recorder = new PcmBatchRecorder(micStream, () => {
+      this._receivedAudioData = true;
+    });
     this.mediaRecorder = recorder;
-    this.audioChunks = segmentChunks;
-    this.recordingMimeType = recorder.mimeType || "audio/webm";
+    this.audioChunks = [];
+    this.recordingMimeType = "audio/wav";
 
-    recorder.ondataavailable = (event) => {
-      if (event.data && event.data.size > 0) {
-        this._receivedAudioData = true;
-        segmentChunks.push(event.data);
-      }
-    };
-
-    recorder.onstop = async () => {
-      const segment = new Blob(segmentChunks, { type: recorder.mimeType || "audio/webm" });
-      segmentChunks.length = 0;
+    recorder.onstop = async ({ blob }) => {
+      const segment = blob;
       const rotating = this._rotatingBatchRecorder === recorder;
-      // The recorder also stops on its own when its mic track dies (the stream
-      // goes inactive). While recovery is armed, treat that like a rotation:
-      // bank the segment and keep the recording alive for the replacement mic.
+      // A dying mic used to stop MediaRecorder on its own; the PCM recorder has to be
+      // stopped explicitly, which micRecovery does. Either way, while recovery is armed a
+      // stop means "bank this segment and keep the recording alive for the new mic".
       if (rotating || this.micRecovery.started) {
-        if (segment.size > 0) this._batchSegments.push(segment);
+        if (!isEmptyRecording(segment.size)) this._batchSegments.push(segment);
         micStream.getTracks().forEach((track) => track.stop());
         if (rotating) {
           this._rotatingBatchRecorder = null;
@@ -1178,7 +1175,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       await this.finalizeBatchRecording(segment);
     };
 
-    recorder.start(RECORDING_TIMESLICE_MS);
+    // Asynchronous, unlike MediaRecorder.start(): the worklet module has to load first.
+    // Failing here leaves isRecording true with nothing capturing, so it is surfaced the
+    // same way a mic error is rather than swallowed.
+    recorder.start().catch((error) => {
+      logger.error("PCM recorder failed to start", { error: error.message }, "audio");
+      this.onError?.({
+        title: "Recording Error",
+        description: `Could not start the microphone: ${error.message}`,
+      });
+      this.isRecording = false;
+      this.onStateChange?.({
+        isRecording: false,
+        isProcessing: false,
+        micCaptureStatus: "inactive",
+      });
+    });
     return recorder;
   }
 
@@ -1207,7 +1219,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // Salvage the largest segment rather than dropping the whole recording.
       audioBlob = this.getLargestRecordedSegment(segments);
     }
-    audioBlob = audioBlob || new Blob([], { type: this.recordingMimeType || "audio/webm" });
+    audioBlob = audioBlob || new Blob([], { type: this.recordingMimeType || "audio/wav" });
     this.lastAudioBlob = audioBlob;
 
     logger.info(
