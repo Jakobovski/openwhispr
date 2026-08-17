@@ -1987,10 +1987,6 @@
           }
         }
       },
-      "dualTranscription": "Dual transcription",
-      "dualTranscriptionDescription": "Send audio to two providers and have an LLM combine the results. More accurate, slower, and costs both providers.",
-      "dualProviderA": "First provider",
-      "dualProviderB": "Second provider",
       "dualProviderModel": "{{provider}} model",
       "dualReconcileProvider": "Merge provider",
       "dualReconcileModel": "Merge model",
@@ -1998,9 +1994,7 @@
       "dualSecondTimeout": "Wait for the slower side",
       "dualSecondTimeoutDescription": "Once one provider answers, how long the other gets before it is dropped.",
       "dualSecondTimeoutValue": "{{seconds}}s",
-      "dualOverridesModel": "Dual transcription is on, so dictation uses {{providerA}} and {{providerB}} instead of a model selected here.",
       "dualMissingKeys": "Add an API key for {{providers}} — dual transcription stays off until both providers have one.",
-      "dualSameProvider": "Pick two different providers — dual transcription stays off while both sides are the same.",
       "silenceTrim": "Trim silence",
       "silenceTrimDescription": "Remove silence before uploading, so you are not billed for pauses.",
       "silenceTrimStrength": "Trim strength",
@@ -2009,7 +2003,13 @@
         "light": "Light",
         "balanced": "Balanced",
         "aggressive": "Aggressive"
-      }
+      },
+      "multiTranscription": "Multi transcription",
+      "multiTranscriptionDescription": "Send audio to several providers in parallel and have an LLM combine the results. More accurate, slower, and costs every provider.",
+      "multiProvider": "Provider {{position}}",
+      "multiProviderNone": "None",
+      "multiNeedsTwo": "Pick at least two providers — multi transcription stays off with only one.",
+      "multiOverridesModel": "Multi transcription is on, so dictation uses {{providers}} instead of a model selected here."
     },
     "intelligence": {
       "gpuDevice": {

@@ -9,12 +9,25 @@ export interface DictationStatsData {
   reconcileDurationMs?: number | null;
   /** Provider that transcribed, for the single-provider case. Dual reports its own. */
   provider?: string | null;
+  /** Per-lane detail for a multi-provider dictation. */
+  multi?: {
+    sides?: Array<{
+      provider?: string | null;
+      model?: string | null;
+      /** "ok" | "failed" | "dropped" — why a lane has no timing. */
+      status?: string | null;
+      ms?: number | null;
+    }> | null;
+    reconcileMs?: number | null;
+    reconciled?: boolean;
+    droppedProviders?: string[] | null;
+  } | null;
+  /** Payload shape before slots existed; still arrives from an older renderer. */
   dual?: {
     providerA?: string;
     providerB?: string;
     msA?: number | null;
     msB?: number | null;
-    /** "ok" | "failed" | "dropped" — why a side has no timing. */
     statusA?: string | null;
     statusB?: string | null;
     reconcileMs?: number | null;
@@ -70,46 +83,61 @@ export default function DictationStats({ stats }: { stats: DictationStatsData | 
     value: `${typeof stats.trimmedPercent === "number" ? stats.trimmedPercent : 0}%`,
   });
 
-  const dual = stats.dual;
-  if (dual) {
-    // Every provider that took part gets a row, whatever became of it. A side that
-    // was dropped for being slow, or failed outright, has no timing to show — and
-    // omitting it made a pair look like a single provider, which is the opposite of
-    // what this readout is for. Its state goes in the value column instead.
-    const sides = [
-      { provider: dual.providerA, ms: dual.msA, status: dual.statusA, fallbackLabel: "A" },
-      { provider: dual.providerB, ms: dual.msB, status: dual.statusB, fallbackLabel: "B" },
-    ];
+  // One row per provider that took part, whatever became of it. A lane dropped for being
+  // slow, or failed outright, has no timing to show — and omitting it made a three-way
+  // run look like a single provider, which is the opposite of what this readout is for.
+  const sides =
+    stats.multi?.sides ??
+    (stats.dual
+      ? [
+          {
+            provider: stats.dual.providerA,
+            ms: stats.dual.msA,
+            status: stats.dual.statusA,
+          },
+          {
+            provider: stats.dual.providerB,
+            ms: stats.dual.msB,
+            status: stats.dual.statusB,
+          },
+        ]
+      : null);
+  const reconcileMs = stats.multi?.reconcileMs ?? stats.dual?.reconcileMs ?? null;
+  const droppedProvider = stats.dual?.droppedProvider ?? null;
 
-    for (const side of sides) {
+  if (sides && sides.length > 0) {
+    sides.forEach((side, index) => {
       const time = formatMs(side.ms);
       if (time) {
-        rows.push({ label: providerLabel(side.provider, side.fallbackLabel), value: time });
-        continue;
+        rows.push({
+          label: providerLabel(side.provider, String.fromCharCode(65 + index)),
+          value: time,
+        });
+        return;
       }
-      // Older payloads carry no per-side status, so fall back to the dropped
-      // provider's name to tell "slow" apart from "errored".
+      // Older payloads carry no per-lane status, so fall back to the dropped provider's
+      // name to tell "slow" apart from "errored".
       const failed =
         side.status === "failed" ||
-        (!side.status && !!side.provider && dual.droppedProvider !== side.provider);
+        (!side.status && !!side.provider && droppedProvider !== side.provider);
       rows.push({
-        label: providerLabel(side.provider, side.fallbackLabel),
+        label: providerLabel(side.provider, String.fromCharCode(65 + index)),
         value: failed ? t("app.stats.failed") : t("app.stats.dropped"),
         muted: true,
       });
-    }
+    });
 
-    // Always present, reading 0 when the merge was skipped — the providers agreed,
-    // or one was dropped. An absent row was ambiguous: it could not be told apart
-    // from a merge that ran but reported no timing.
+    // Always present, reading 0 when the merge was skipped — the providers agreed, or
+    // only one answered. An absent row was ambiguous: it could not be told apart from a
+    // merge that ran but reported no timing.
     rows.push({
       label: t("app.stats.reconcile"),
-      value: formatMs(dual.reconcileMs) ?? "0ms",
+      value: formatMs(reconcileMs) ?? "0ms",
     });
   } else {
     const transcription = formatMs(stats.transcriptionProcessingDurationMs);
-    // Named with the provider that did the work, so the readout says the same kind
-    // of thing in single mode as in dual. Falls back to the generic label when the
+    // Named with the provider that did the work, so the readout says the same kind of
+    // thing for one provider as for three. Falls back to the generic label when the
     // provider is unknown — a self-hosted endpoint, say.
     if (transcription) {
       rows.push({

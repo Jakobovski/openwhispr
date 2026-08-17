@@ -1814,10 +1814,6 @@
           }
         }
       },
-      "dualTranscription": "Trascrizione doppia",
-      "dualTranscriptionDescription": "Invia l'audio a due provider e lascia che un LLM combini i risultati. Più accurato, più lento, ed entrambi i provider addebitano.",
-      "dualProviderA": "Primo provider",
-      "dualProviderB": "Secondo provider",
       "dualProviderModel": "Modello {{provider}}",
       "dualReconcileProvider": "Provider di unione",
       "dualReconcileModel": "Modello di unione",
@@ -1825,9 +1821,7 @@
       "dualSecondTimeout": "Attendi il lato più lento",
       "dualSecondTimeoutDescription": "Quando un provider risponde, quanto tempo ha l'altro prima di essere scartato.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualOverridesModel": "La trascrizione doppia è attiva, quindi la dettatura usa {{providerA}} e {{providerB}} invece di un modello selezionato qui.",
       "dualMissingKeys": "Aggiungi una chiave API per {{providers}}: la trascrizione doppia resta disattivata finché entrambi i provider non ne hanno una.",
-      "dualSameProvider": "Scegli due provider diversi: la trascrizione doppia resta disattivata finché i due lati sono uguali.",
       "silenceTrim": "Taglia i silenzi",
       "silenceTrimDescription": "Rimuove i silenzi prima dell'invio, per non pagare le pause.",
       "silenceTrimStrength": "Intensità",
@@ -1836,7 +1830,13 @@
         "light": "Bassa",
         "balanced": "Media",
         "aggressive": "Alta"
-      }
+      },
+      "multiTranscription": "Trascrizione multipla",
+      "multiTranscriptionDescription": "Invia l'audio a più provider in parallelo e fa unire i risultati da un LLM. Più precisa, più lenta e a pagamento su ogni provider.",
+      "multiProvider": "Provider {{position}}",
+      "multiProviderNone": "Nessuno",
+      "multiNeedsTwo": "Scegli almeno due provider: con uno solo la trascrizione multipla resta disattivata.",
+      "multiOverridesModel": "La trascrizione multipla è attiva, quindi la dettatura usa {{providers}} invece di un modello selezionato qui."
     },
     "intelligence": {
       "gpuDevice": {

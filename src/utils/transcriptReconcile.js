@@ -28,21 +28,24 @@ function normalizeForCompare(text) {
 }
 
 /**
- * Do the two transcriptions say the same thing, ignoring case and punctuation?
+ * Do all the transcriptions say the same thing, ignoring case and punctuation?
  * When they do there is nothing to reconcile, so the LLM call can be skipped —
  * the common case for clean audio, and one less round trip before pasting.
  *
- * @param {string} a
- * @param {string} b
+ * Variadic so a two-provider and a three-provider dictation ask the same question.
+ * Anything blank, or fewer than two candidates, is reported as disagreement — see below.
+ *
+ * @param {...string} texts
  * @returns {boolean}
  */
-function transcriptsAgree(a, b) {
-  const na = normalizeForCompare(a);
-  const nb = normalizeForCompare(b);
-  return na.length > 0 && na === nb;
+function transcriptsAgree(...texts) {
+  // Fewer than two candidates, or any blank one, is not agreement: the caller must not
+  // mistake "nothing to compare" for "settled", or it would skip the merge and paste an
+  // empty transcript. The caller filters blanks before asking.
+  if (texts.length < 2) return false;
+  const normalized = texts.map(normalizeForCompare);
+  if (normalized.some((text) => !text)) return false;
+  return normalized.every((text) => text === normalized[0]);
 }
 
-module.exports = {
-  transcriptsAgree,
-  normalizeForCompare,
-};
+module.exports = { transcriptsAgree };

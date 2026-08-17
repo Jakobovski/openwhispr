@@ -1862,10 +1862,6 @@
           }
         }
       },
-      "dualTranscription": "Transcription double",
-      "dualTranscriptionDescription": "Envoie l'audio à deux fournisseurs et laisse un LLM combiner les résultats. Plus précis, plus lent, et les deux fournisseurs sont facturés.",
-      "dualProviderA": "Premier fournisseur",
-      "dualProviderB": "Second fournisseur",
       "dualProviderModel": "Modèle {{provider}}",
       "dualReconcileProvider": "Fournisseur de fusion",
       "dualReconcileModel": "Modèle de fusion",
@@ -1873,9 +1869,7 @@
       "dualSecondTimeout": "Attendre le côté le plus lent",
       "dualSecondTimeoutDescription": "Quand un fournisseur a répondu, combien de temps l'autre obtient avant d'être abandonné.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualOverridesModel": "La transcription double est activée : la dictée utilise {{providerA}} et {{providerB}} au lieu d'un modèle choisi ici.",
       "dualMissingKeys": "Ajoutez une clé API pour {{providers}} — la transcription double reste inactive tant que les deux fournisseurs n'en ont pas une.",
-      "dualSameProvider": "Choisissez deux fournisseurs différents — la transcription double reste inactive tant que les deux côtés sont identiques.",
       "silenceTrim": "Rogner les silences",
       "silenceTrimDescription": "Supprime les silences avant l'envoi, pour ne pas payer les pauses.",
       "silenceTrimStrength": "Intensité",
@@ -1884,7 +1878,13 @@
         "light": "Faible",
         "balanced": "Moyenne",
         "aggressive": "Élevée"
-      }
+      },
+      "multiTranscription": "Transcription multiple",
+      "multiTranscriptionDescription": "Envoie l'audio à plusieurs fournisseurs en parallèle et fait fusionner les résultats par un LLM. Plus précis, plus lent, et facturé par chaque fournisseur.",
+      "multiProvider": "Fournisseur {{position}}",
+      "multiProviderNone": "Aucun",
+      "multiNeedsTwo": "Choisissez au moins deux fournisseurs — avec un seul, la transcription multiple reste inactive.",
+      "multiOverridesModel": "La transcription multiple est activée : la dictée utilise {{providers}} au lieu d'un modèle choisi ici."
     },
     "intelligence": {
       "gpuDevice": {

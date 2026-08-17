@@ -1814,10 +1814,6 @@
           }
         }
       },
-      "dualTranscription": "デュアル文字起こし",
-      "dualTranscriptionDescription": "音声を2つのプロバイダーに送信し、LLM が結果を統合します。精度は上がりますが、遅くなり、両方のプロバイダーに料金が発生します。",
-      "dualProviderA": "1つ目のプロバイダー",
-      "dualProviderB": "2つ目のプロバイダー",
       "dualProviderModel": "{{provider}} のモデル",
       "dualReconcileProvider": "統合プロバイダー",
       "dualReconcileModel": "統合モデル",
@@ -1825,9 +1821,7 @@
       "dualSecondTimeout": "遅い側を待つ時間",
       "dualSecondTimeoutDescription": "一方のプロバイダーが応答してから、もう一方が破棄されるまでの猶予時間。",
       "dualSecondTimeoutValue": "{{seconds}} 秒",
-      "dualOverridesModel": "デュアル文字起こしが有効なため、ディクテーションはここで選択したモデルではなく {{providerA}} と {{providerB}} を使用します。",
       "dualMissingKeys": "{{providers}} の API キーを追加してください。両方のプロバイダーにキーがそろうまで、デュアル文字起こしは無効のままです。",
-      "dualSameProvider": "異なるプロバイダーを2つ選んでください。両方が同じ間、デュアル文字起こしは無効のままです。",
       "silenceTrim": "無音を除去",
       "silenceTrimDescription": "アップロード前に無音を除去し、間の時間に課金されないようにします。",
       "silenceTrimStrength": "除去の強さ",
@@ -1836,7 +1830,13 @@
         "light": "弱",
         "balanced": "標準",
         "aggressive": "強"
-      }
+      },
+      "multiTranscription": "マルチ文字起こし",
+      "multiTranscriptionDescription": "音声を複数のプロバイダーに並行して送り、結果を LLM が統合します。精度は高く、遅く、各プロバイダーに課金されます。",
+      "multiProvider": "プロバイダー {{position}}",
+      "multiProviderNone": "なし",
+      "multiNeedsTwo": "プロバイダーを2つ以上選んでください。1つだけではマルチ文字起こしは無効です。",
+      "multiOverridesModel": "マルチ文字起こしが有効なため、ディクテーションはここで選択したモデルではなく {{providers}} を使用します。"
     },
     "intelligence": {
       "gpuDevice": {

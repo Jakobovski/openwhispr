@@ -42,18 +42,30 @@ interface DualDetail {
 }
 
 /**
- * The per-side detail stored for a dual-provider dictation, or null for every other
- * row. Parsed defensively: it is opaque JSON written by whichever version of the app
- * recorded the row, so a shape change must not take the history list down with it.
+ * The per-lane detail stored for a multi-provider dictation, or null for every other row.
+ *
+ * Reads both shapes: the current `sides` array, and the A/B pair written before slots
+ * existed. Parsed defensively either way — it is opaque JSON written by whichever version
+ * of the app recorded the row, so a shape change must not take the history list down.
  */
 function parseDual(raw?: string | null): DualDetail | null {
   if (!raw) return null;
   try {
     const d = JSON.parse(raw);
-    const sides: DualSide[] = [
-      { provider: d.providerA, model: d.modelA, text: d.textA, status: d.statusA, ms: d.msA },
-      { provider: d.providerB, model: d.modelB, text: d.textB, status: d.statusB, ms: d.msB },
-    ].filter((side) => side.provider);
+    const sides: DualSide[] = Array.isArray(d.sides)
+      ? d.sides
+          .filter((side: DualSide) => side && side.provider)
+          .map((side: DualSide) => ({
+            provider: side.provider,
+            model: side.model,
+            text: side.text,
+            status: side.status,
+            ms: side.ms,
+          }))
+      : [
+          { provider: d.providerA, model: d.modelA, text: d.textA, status: d.statusA, ms: d.msA },
+          { provider: d.providerB, model: d.modelB, text: d.textB, status: d.statusB, ms: d.msB },
+        ].filter((side) => side.provider);
     if (sides.length === 0) return null;
     return {
       sides,
@@ -177,14 +189,38 @@ export default function TranscriptionItem({
       ? formatMmSs(Math.round(item.audio_duration_ms / 1000))
       : null;
 
-  // Only meaningful with two transcripts to compare: a dropped or failed side has
-  // nothing to disagree with, and a merged result is a third text rather than a
-  // second opinion.
-  const sideDiff = useMemo(() => {
-    const [a, b] = dual?.sides ?? [];
-    if (!a?.text || !b?.text) return null;
-    return diffTranscripts(a.text, b.text);
+  // With two lanes the interesting comparison is against each other. With three there is
+  // no single "other side", so each lane is compared against the merged result instead —
+  // which answers the question that actually matters: what did this provider get wrong?
+  const sideDiffs = useMemo(() => {
+    const sides = dual?.sides ?? [];
+    const withText = sides.filter((side) => side.text);
+    if (withText.length < 2) return null;
+    if (withText.length === 2) {
+      const pair = diffTranscripts(withText[0].text as string, withText[1].text as string);
+      return new Map<number, DiffToken[]>([
+        [sides.indexOf(withText[0]), pair.a],
+        [sides.indexOf(withText[1]), pair.b],
+      ]);
+    }
+    const reference = dual?.mergedText;
+    if (!reference) return null;
+    return new Map<number, DiffToken[]>(
+      withText.map((side) => [
+        sides.indexOf(side),
+        diffTranscripts(side.text as string, reference).a,
+      ])
+    );
   }, [dual]);
+
+  // The disagreement figure only means something for a pair; with three lanes there is no
+  // single ratio to quote, so the label is left off rather than made up.
+  const pairDiff = useMemo(() => {
+    const withText = (dual?.sides ?? []).filter((side) => side.text);
+    if (withText.length !== 2) return null;
+    return diffTranscripts(withText[0].text as string, withText[1].text as string);
+  }, [dual]);
+
   const showUtilityGroup = hasExpandable || hasAudio;
 
   const errorCode = item.error_code as TranscriptionErrorCode;
@@ -512,8 +548,8 @@ export default function TranscriptionItem({
                         {side.text ? (
                           // Highlighted against the other side, so the words the two
                           // providers disagreed on are the ones that stand out.
-                          sideDiff ? (
-                            <DiffText tokens={index === 0 ? sideDiff.a : sideDiff.b} />
+                          sideDiffs?.get(index) ? (
+                            <DiffText tokens={sideDiffs.get(index) as DiffToken[]} />
                           ) : (
                             side.text
                           )
@@ -534,14 +570,14 @@ export default function TranscriptionItem({
                         : t("controlPanel.history.dualNotMerged")}
                     </span>
                     <span className="flex items-center gap-2 shrink-0">
-                      {sideDiff && sideDiff.changeRatio > 0 && (
+                      {pairDiff && pairDiff.changeRatio > 0 && (
                         <span className="text-[10px] tabular-nums text-muted-foreground/50">
                           {t("controlPanel.history.dualDisagreement", {
-                            percent: Math.max(1, Math.round(sideDiff.changeRatio * 100)),
+                            percent: Math.max(1, Math.round(pairDiff.changeRatio * 100)),
                           })}
                         </span>
                       )}
-                      {sideDiff?.punctuationOnly && (
+                      {pairDiff?.punctuationOnly && (
                         <span className="text-[10px] text-muted-foreground/50">
                           {t("controlPanel.history.dualPunctuationOnly")}
                         </span>

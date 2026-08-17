@@ -20,6 +20,7 @@ import { buildProviderModelIndex, resolveUsableModel } from "../helpers/modelAva
 import {
   DEFAULT_DUAL_PROVIDER_A,
   DEFAULT_DUAL_PROVIDER_B,
+  DEFAULT_DUAL_PROVIDER_C,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_MODEL,
@@ -655,9 +656,11 @@ export interface SettingsState
   dualTranscriptionEnabled: boolean;
   dualTranscriptionProviderA: string;
   dualTranscriptionProviderB: string;
+  dualTranscriptionProviderC: string;
   // Empty means "the provider's default", from DUAL_TRANSCRIPTION_PROVIDERS.
   dualTranscriptionModelA: string;
   dualTranscriptionModelB: string;
+  dualTranscriptionModelC: string;
   dualTranscriptionReconcileProvider: string;
   dualTranscriptionReconcileModel: string;
   // How long the second provider gets after the first answers, before it is
@@ -666,8 +669,10 @@ export interface SettingsState
   setDualTranscriptionEnabled: (value: boolean) => void;
   setDualTranscriptionProviderA: (value: string) => void;
   setDualTranscriptionProviderB: (value: string) => void;
+  setDualTranscriptionProviderC: (value: string) => void;
   setDualTranscriptionModelA: (value: string) => void;
   setDualTranscriptionModelB: (value: string) => void;
+  setDualTranscriptionModelC: (value: string) => void;
   setDualTranscriptionReconcileProvider: (value: string) => void;
   setDualTranscriptionReconcileModel: (value: string) => void;
   setDualTranscriptionSecondTimeoutMs: (value: number) => void;
@@ -1013,8 +1018,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dualTranscriptionEnabled: readBoolean("dualTranscriptionEnabled", true),
   dualTranscriptionProviderA: readString("dualTranscriptionProviderA", DEFAULT_DUAL_PROVIDER_A),
   dualTranscriptionProviderB: readString("dualTranscriptionProviderB", DEFAULT_DUAL_PROVIDER_B),
+  dualTranscriptionProviderC: readString("dualTranscriptionProviderC", DEFAULT_DUAL_PROVIDER_C),
   dualTranscriptionModelA: readString("dualTranscriptionModelA", ""),
   dualTranscriptionModelB: readString("dualTranscriptionModelB", ""),
+  dualTranscriptionModelC: readString("dualTranscriptionModelC", ""),
   dualTranscriptionReconcileProvider: readString(
     "dualTranscriptionReconcileProvider",
     DEFAULT_RECONCILE_PROVIDER
@@ -1564,8 +1571,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionEnabled: createBooleanSetter("dualTranscriptionEnabled"),
   setDualTranscriptionProviderA: createStringSetter("dualTranscriptionProviderA"),
   setDualTranscriptionProviderB: createStringSetter("dualTranscriptionProviderB"),
+  setDualTranscriptionProviderC: createStringSetter("dualTranscriptionProviderC"),
   setDualTranscriptionModelA: createStringSetter("dualTranscriptionModelA"),
   setDualTranscriptionModelB: createStringSetter("dualTranscriptionModelB"),
+  setDualTranscriptionModelC: createStringSetter("dualTranscriptionModelC"),
   setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
   setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
   setDualTranscriptionSecondTimeoutMs: createNumberSetter("dualTranscriptionSecondTimeoutMs"),

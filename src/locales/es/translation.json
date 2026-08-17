@@ -1862,10 +1862,6 @@
           }
         }
       },
-      "dualTranscription": "Transcripción doble",
-      "dualTranscriptionDescription": "Envía el audio a dos proveedores y deja que un LLM combine los resultados. Más preciso, más lento y cobran ambos proveedores.",
-      "dualProviderA": "Primer proveedor",
-      "dualProviderB": "Segundo proveedor",
       "dualProviderModel": "Modelo de {{provider}}",
       "dualReconcileProvider": "Proveedor de combinación",
       "dualReconcileModel": "Modelo de combinación",
@@ -1873,9 +1869,7 @@
       "dualSecondTimeout": "Esperar al lado más lento",
       "dualSecondTimeoutDescription": "Cuando un proveedor responde, cuánto tiempo tiene el otro antes de descartarse.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualOverridesModel": "La transcripción doble está activada, por lo que el dictado usa {{providerA}} y {{providerB}} en lugar de un modelo seleccionado aquí.",
       "dualMissingKeys": "Añade una clave de API para {{providers}}: la transcripción doble seguirá desactivada hasta que ambos proveedores tengan una.",
-      "dualSameProvider": "Elige dos proveedores distintos: la transcripción doble seguirá desactivada mientras ambos lados sean el mismo.",
       "silenceTrim": "Recortar silencios",
       "silenceTrimDescription": "Elimina los silencios antes de enviar, para no pagar por las pausas.",
       "silenceTrimStrength": "Intensidad",
@@ -1884,7 +1878,13 @@
         "light": "Baja",
         "balanced": "Media",
         "aggressive": "Alta"
-      }
+      },
+      "multiTranscription": "Transcripción múltiple",
+      "multiTranscriptionDescription": "Envía el audio a varios proveedores en paralelo y combina los resultados con un LLM. Más preciso, más lento y se paga a cada proveedor.",
+      "multiProvider": "Proveedor {{position}}",
+      "multiProviderNone": "Ninguno",
+      "multiNeedsTwo": "Elige al menos dos proveedores: con uno solo la transcripción múltiple no se activa.",
+      "multiOverridesModel": "La transcripción múltiple está activada, por lo que el dictado usa {{providers}} en lugar de un modelo seleccionado aquí."
     },
     "intelligence": {
       "gpuDevice": {

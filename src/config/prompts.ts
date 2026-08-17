@@ -30,8 +30,28 @@ export function getReconcileSystemPrompt(
 }
 
 // Mirrors wrapCleanupTranscript, which tags the single-transcript input.
-export function wrapReconcileVersions(a: string, b: string): string {
-  return `<version_a>\n${a}\n</version_a>\n\n<version_b>\n${b}\n</version_b>\n\nOutput only the reconciled, cleaned transcript.`;
+export interface ReconcileVersion {
+  text: string;
+  /** Recogniser behind this version, labelled in the prompt so its tie-break applies. */
+  provider?: string;
+}
+
+/**
+ * Wraps two or more candidate transcripts for the merge.
+ *
+ * Tags are version_a, version_b, version_c… in the order given, and that order matters:
+ * asked to choose between readings it cannot separate on the merits, the model favours
+ * the earlier version, so callers pass their most trusted recogniser first.
+ */
+export function wrapReconcileVersions(versions: ReconcileVersion[]): string {
+  const letters = "abcdefghijklmnopqrstuvwxyz";
+  const blocks = versions.map((version, index) => {
+    const tag = `version_${letters[index] ?? index + 1}`;
+    // Omitted rather than guessed when unknown: a wrong label is worse than none.
+    const open = version.provider ? `<${tag} recogniser="${version.provider}">` : `<${tag}>`;
+    return `${open}\n${version.text}\n</${tag}>`;
+  });
+  return `${blocks.join("\n\n")}\n\nOutput only the reconciled, cleaned transcript.`;
 }
 
 export function getWordBoost(customDictionary?: string[]): string[] {

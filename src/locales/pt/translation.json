@@ -1793,10 +1793,6 @@
           }
         }
       },
-      "dualTranscription": "Transcrição dupla",
-      "dualTranscriptionDescription": "Envia o áudio para dois provedores e deixa um LLM combinar os resultados. Mais preciso, mais lento e ambos os provedores cobram.",
-      "dualProviderA": "Primeiro provedor",
-      "dualProviderB": "Segundo provedor",
       "dualProviderModel": "Modelo do {{provider}}",
       "dualReconcileProvider": "Provedor de combinação",
       "dualReconcileModel": "Modelo de combinação",
@@ -1804,9 +1800,7 @@
       "dualSecondTimeout": "Esperar pelo lado mais lento",
       "dualSecondTimeoutDescription": "Quando um provedor responde, quanto tempo o outro tem antes de ser descartado.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualOverridesModel": "A transcrição dupla está ativada, por isso o ditado usa {{providerA}} e {{providerB}} em vez de um modelo selecionado aqui.",
       "dualMissingKeys": "Adicione uma chave de API para {{providers}} — a transcrição dupla continua desativada até que ambos os provedores tenham uma.",
-      "dualSameProvider": "Escolha dois provedores diferentes — a transcrição dupla continua desativada enquanto os dois lados forem iguais.",
       "silenceTrim": "Cortar silêncios",
       "silenceTrimDescription": "Remove silêncios antes do envio, para não pagar pelas pausas.",
       "silenceTrimStrength": "Intensidade",
@@ -1815,7 +1809,13 @@
         "light": "Baixa",
         "balanced": "Média",
         "aggressive": "Alta"
-      }
+      },
+      "multiTranscription": "Transcrição múltipla",
+      "multiTranscriptionDescription": "Envia o áudio a vários provedores em paralelo e combina os resultados com um LLM. Mais preciso, mais lento e cobrado por cada provedor.",
+      "multiProvider": "Provedor {{position}}",
+      "multiProviderNone": "Nenhum",
+      "multiNeedsTwo": "Escolha pelo menos dois provedores — com apenas um, a transcrição múltipla fica desativada.",
+      "multiOverridesModel": "A transcrição múltipla está ativada, por isso o ditado usa {{providers}} em vez de um modelo selecionado aqui."
     },
     "intelligence": {
       "gpuDevice": {

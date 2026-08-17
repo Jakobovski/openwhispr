@@ -1816,10 +1816,6 @@
           }
         }
       },
-      "dualTranscription": "Двойная транскрипция",
-      "dualTranscriptionDescription": "Отправляет аудио двум провайдерам, а LLM объединяет результаты. Точнее, медленнее, и оплачиваются оба провайдера.",
-      "dualProviderA": "Первый провайдер",
-      "dualProviderB": "Второй провайдер",
       "dualProviderModel": "Модель {{provider}}",
       "dualReconcileProvider": "Провайдер объединения",
       "dualReconcileModel": "Модель объединения",
@@ -1827,9 +1823,7 @@
       "dualSecondTimeout": "Ожидание более медленной стороны",
       "dualSecondTimeoutDescription": "После ответа одного провайдера — сколько времени есть у второго, прежде чем он будет отброшен.",
       "dualSecondTimeoutValue": "{{seconds}} с",
-      "dualOverridesModel": "Двойная транскрипция включена, поэтому диктовка использует {{providerA}} и {{providerB}}, а не выбранную здесь модель.",
       "dualMissingKeys": "Добавьте API-ключ для {{providers}} — двойная транскрипция останется отключённой, пока ключа нет у обоих провайдеров.",
-      "dualSameProvider": "Выберите двух разных провайдеров — двойная транскрипция не работает, пока обе стороны одинаковы.",
       "silenceTrim": "Обрезать тишину",
       "silenceTrimDescription": "Удаляет тишину перед отправкой, чтобы не платить за паузы.",
       "silenceTrimStrength": "Интенсивность",
@@ -1838,7 +1832,13 @@
         "light": "Низкая",
         "balanced": "Средняя",
         "aggressive": "Высокая"
-      }
+      },
+      "multiTranscription": "Мультитранскрипция",
+      "multiTranscriptionDescription": "Отправляет аудио нескольким провайдерам параллельно, а результаты объединяет LLM. Точнее, медленнее и оплачивается у каждого провайдера.",
+      "multiProvider": "Провайдер {{position}}",
+      "multiProviderNone": "Нет",
+      "multiNeedsTwo": "Выберите хотя бы двух провайдеров — с одним мультитранскрипция не работает.",
+      "multiOverridesModel": "Мультитранскрипция включена, поэтому диктовка использует {{providers}}, а не выбранную здесь модель."
     },
     "intelligence": {
       "gpuDevice": {

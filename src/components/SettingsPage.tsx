@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { Fragment, useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -48,6 +48,7 @@ import SelfHostedPanel from "./SelfHostedPanel";
 import {
   DUAL_TRANSCRIPTION_PROVIDERS,
   RECONCILE_PROVIDER_IDS,
+  NO_PROVIDER,
   getDualTranscriptionProvider,
   resolveDualTranscriptionModel,
 } from "../config/dualTranscription";
@@ -364,28 +365,37 @@ function TranscriptionSection({
   const xaiApiKey = useSettingsStore((s) => s.xaiApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
 
-  const dualProviderA = getDualTranscriptionProvider(dualTranscriptionProviderA);
-  const dualProviderB = getDualTranscriptionProvider(dualTranscriptionProviderB);
+  const dualModelA = useSettingsStore((s) => s.dualTranscriptionModelA);
+  const setDualModelA = useSettingsStore((s) => s.setDualTranscriptionModelA);
+  const dualModelB = useSettingsStore((s) => s.dualTranscriptionModelB);
+  const setDualModelB = useSettingsStore((s) => s.setDualTranscriptionModelB);
+  const dualTranscriptionProviderC = useSettingsStore((s) => s.dualTranscriptionProviderC);
+  const setDualTranscriptionProviderC = useSettingsStore((s) => s.setDualTranscriptionProviderC);
+  const dualModelC = useSettingsStore((s) => s.dualTranscriptionModelC);
+  const setDualModelC = useSettingsStore((s) => s.setDualTranscriptionModelC);
 
-  // Dual mode needs a key for each side, and stays off without them (see
-  // isDualTranscriptionEnabled). Silently reverting to one provider while the toggle
-  // reads "on" is the confusing part, so name whichever key is missing.
+  // Multi mode needs a key for each configured lane and at least two lanes, and stays off
+  // otherwise (see isMultiTranscriptionEnabled). Silently reverting to one provider while
+  // the toggle reads "on" is the confusing part, so name what is missing.
   const dualApiKeys: Record<string, string> = {
     groqApiKey,
     xaiApiKey,
     openaiApiKey,
   };
-  const dualProvidersMissingKeys = [dualProviderA, dualProviderB].filter(
-    (provider) => provider && !dualApiKeys[provider.apiKeyField]?.trim()
+  const activeMultiProviders = [
+    dualTranscriptionProviderA,
+    dualTranscriptionProviderB,
+    dualTranscriptionProviderC,
+  ]
+    .filter((provider) => provider && provider !== NO_PROVIDER)
+    .map((provider) => getDualTranscriptionProvider(provider))
+    .filter((provider): provider is NonNullable<typeof provider> => !!provider);
+  const multiProvidersMissingKeys = activeMultiProviders.filter(
+    (provider) => !dualApiKeys[provider.apiKeyField]?.trim()
   );
 
-  const dualModelA = useSettingsStore((s) => s.dualTranscriptionModelA);
-  const setDualModelA = useSettingsStore((s) => s.setDualTranscriptionModelA);
-  const dualModelB = useSettingsStore((s) => s.dualTranscriptionModelB);
-  const setDualModelB = useSettingsStore((s) => s.setDualTranscriptionModelB);
-
-  // Whatever the provider offers for transcription, so this list grows with the
-  // registry instead of being a second hardcoded table.
+  // Whatever the provider offers for transcription, so this list grows with the registry
+  // instead of being a second hardcoded table.
   const dualModelOptions = (providerId: string) =>
     getTranscriptionProviders().find((provider) => provider.id === providerId)?.models ?? [];
 
@@ -458,114 +468,111 @@ function TranscriptionSection({
     </SettingsPanel>
   );
 
-  const renderDualTranscription = () => (
+  // One provider+model pair per slot, built from a table so a fourth slot is a config
+  // change rather than another copy of this markup.
+  const multiSlots = [
+    {
+      slot: "A",
+      provider: dualTranscriptionProviderA,
+      setProvider: setDualTranscriptionProviderA,
+      model: dualModelA,
+      setModel: setDualModelA,
+    },
+    {
+      slot: "B",
+      provider: dualTranscriptionProviderB,
+      setProvider: setDualTranscriptionProviderB,
+      model: dualModelB,
+      setModel: setDualModelB,
+    },
+    {
+      slot: "C",
+      provider: dualTranscriptionProviderC,
+      setProvider: setDualTranscriptionProviderC,
+      model: dualModelC,
+      setModel: setDualModelC,
+    },
+  ];
+
+  const renderMultiTranscription = () => (
     <SettingsPanel>
       <SettingsPanelRow>
         <SettingsRow
-          label={t("settingsPage.transcription.dualTranscription")}
-          description={t("settingsPage.transcription.dualTranscriptionDescription")}
+          label={t("settingsPage.transcription.multiTranscription")}
+          description={t("settingsPage.transcription.multiTranscriptionDescription")}
         >
           <Toggle checked={dualTranscriptionEnabled} onChange={setDualTranscriptionEnabled} />
         </SettingsRow>
       </SettingsPanelRow>
       {dualTranscriptionEnabled && (
         <>
-          <SettingsPanelRow>
-            <SettingsRow label={t("settingsPage.transcription.dualProviderA")}>
-              <Select
-                value={dualTranscriptionProviderA}
-                onValueChange={changeDualProvider(setDualTranscriptionProviderA, setDualModelA)}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DUAL_TRANSCRIPTION_PROVIDERS.filter(
-                    // The other side's provider is not offered here — two of the same
-                    // is not a pair, and dual quietly stays off. Kept when it is also
-                    // this side's stored value, so a pre-existing same-same selection
-                    // still renders instead of showing an empty trigger.
-                    (provider) =>
-                      provider.id !== dualTranscriptionProviderB ||
-                      provider.id === dualTranscriptionProviderA
-                  ).map((provider) => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      {provider.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </SettingsPanelRow>
-          <SettingsPanelRow>
-            <SettingsRow
-              label={t("settingsPage.transcription.dualProviderModel", {
-                provider: dualProviderA?.label ?? dualTranscriptionProviderA,
-              })}
-            >
-              <Select
-                value={resolveDualTranscriptionModel(dualTranscriptionProviderA, dualModelA)}
-                onValueChange={setDualModelA}
-              >
-                <SelectTrigger className="w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {dualModelOptions(dualTranscriptionProviderA).map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </SettingsPanelRow>
-          <SettingsPanelRow>
-            <SettingsRow label={t("settingsPage.transcription.dualProviderB")}>
-              <Select
-                value={dualTranscriptionProviderB}
-                onValueChange={changeDualProvider(setDualTranscriptionProviderB, setDualModelB)}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DUAL_TRANSCRIPTION_PROVIDERS.filter(
-                    (provider) =>
-                      provider.id !== dualTranscriptionProviderA ||
-                      provider.id === dualTranscriptionProviderB
-                  ).map((provider) => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      {provider.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </SettingsPanelRow>
-          <SettingsPanelRow>
-            <SettingsRow
-              label={t("settingsPage.transcription.dualProviderModel", {
-                provider: dualProviderB?.label ?? dualTranscriptionProviderB,
-              })}
-            >
-              <Select
-                value={resolveDualTranscriptionModel(dualTranscriptionProviderB, dualModelB)}
-                onValueChange={setDualModelB}
-              >
-                <SelectTrigger className="w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {dualModelOptions(dualTranscriptionProviderB).map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </SettingsPanelRow>
+          {multiSlots.map(({ slot, provider, setProvider, model, setModel }, index) => {
+            const taken = multiSlots
+              .filter((other) => other.slot !== slot)
+              .map((other) => other.provider);
+            const definition = getDualTranscriptionProvider(provider);
+            return (
+              <Fragment key={slot}>
+                <SettingsPanelRow>
+                  <SettingsRow
+                    label={t("settingsPage.transcription.multiProvider", { position: index + 1 })}
+                  >
+                    <Select
+                      value={provider || NO_PROVIDER}
+                      onValueChange={changeDualProvider(setProvider, setModel)}
+                    >
+                      <SelectTrigger className="w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {/* Slots after the first can be switched off; running the same
+                            provider twice is not a second opinion, so a provider already
+                            in another slot is not offered — unless it is this slot's own
+                            stored value, which would otherwise render an empty trigger. */}
+                        {index > 0 && (
+                          <SelectItem value={NO_PROVIDER}>
+                            {t("settingsPage.transcription.multiProviderNone")}
+                          </SelectItem>
+                        )}
+                        {DUAL_TRANSCRIPTION_PROVIDERS.filter(
+                          (candidate) => !taken.includes(candidate.id) || candidate.id === provider
+                        ).map((candidate) => (
+                          <SelectItem key={candidate.id} value={candidate.id}>
+                            {candidate.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </SettingsRow>
+                </SettingsPanelRow>
+                {provider && provider !== NO_PROVIDER && (
+                  <SettingsPanelRow>
+                    <SettingsRow
+                      label={t("settingsPage.transcription.dualProviderModel", {
+                        provider: definition?.label ?? provider,
+                      })}
+                    >
+                      <Select
+                        value={resolveDualTranscriptionModel(provider, model)}
+                        onValueChange={setModel}
+                      >
+                        <SelectTrigger className="w-56">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {dualModelOptions(provider).map((option) => (
+                            <SelectItem key={option.id} value={option.id}>
+                              {option.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </SettingsRow>
+                  </SettingsPanelRow>
+                )}
+              </Fragment>
+            );
+          })}
           <SettingsPanelRow>
             <SettingsRow
               label={t("settingsPage.transcription.dualSecondTimeout")}
@@ -590,8 +597,8 @@ function TranscriptionSection({
               </Select>
             </SettingsRow>
           </SettingsPanelRow>
-          {/* Only consulted when the two transcripts disagree — when they match, or
-              one side is dropped, nothing is merged and this model is never called. */}
+          {/* Only consulted when the transcripts disagree — when they match, or only one
+              lane answers, nothing is merged and this model is never called. */}
           <SettingsPanelRow>
             <SettingsRow
               label={t("settingsPage.transcription.dualReconcileProvider")}
@@ -627,19 +634,19 @@ function TranscriptionSection({
               </Select>
             </SettingsRow>
           </SettingsPanelRow>
-          {dualTranscriptionProviderA === dualTranscriptionProviderB && (
-            <SettingsPanelRow>
-              <p className="text-xs text-warning">
-                {t("settingsPage.transcription.dualSameProvider")}
-              </p>
-            </SettingsPanelRow>
-          )}
-          {dualProvidersMissingKeys.length > 0 && (
+          {multiProvidersMissingKeys.length > 0 && (
             <SettingsPanelRow>
               <p className="text-xs text-warning">
                 {t("settingsPage.transcription.dualMissingKeys", {
-                  providers: dualProvidersMissingKeys.map((provider) => provider!.label).join(", "),
+                  providers: multiProvidersMissingKeys.map((provider) => provider.label).join(", "),
                 })}
+              </p>
+            </SettingsPanelRow>
+          )}
+          {activeMultiProviders.length < 2 && (
+            <SettingsPanelRow>
+              <p className="text-xs text-warning">
+                {t("settingsPage.transcription.multiNeedsTwo")}
               </p>
             </SettingsPanelRow>
           )}
@@ -674,9 +681,8 @@ function TranscriptionSection({
       variant="settings"
       modelSelectionNote={
         mode === "cloud" && dualTranscriptionEnabled
-          ? t("settingsPage.transcription.dualOverridesModel", {
-              providerA: dualProviderA?.label ?? dualTranscriptionProviderA,
-              providerB: dualProviderB?.label ?? dualTranscriptionProviderB,
+          ? t("settingsPage.transcription.multiOverridesModel", {
+              providers: activeMultiProviders.map((provider) => provider.label).join(", "),
             })
           : undefined
       }
@@ -695,7 +701,7 @@ function TranscriptionSection({
         <>
           {/* Dual comes first: it decides whether the provider/model picker below it
               applies at all, so reading it second is what made the page confusing. */}
-          {renderDualTranscription()}
+          {renderMultiTranscription()}
           {renderTranscriptionPicker("cloud")}
           {renderSilenceTrim()}
         </>

@@ -1809,10 +1809,6 @@
           }
         }
       },
-      "dualTranscription": "雙重轉錄",
-      "dualTranscriptionDescription": "將音訊傳送給兩個供應商，並由 LLM 合併結果。更準確、更慢，且兩個供應商都會計費。",
-      "dualProviderA": "第一個供應商",
-      "dualProviderB": "第二個供應商",
       "dualProviderModel": "{{provider}} 模型",
       "dualReconcileProvider": "合併供應商",
       "dualReconcileModel": "合併模型",
@@ -1820,9 +1816,7 @@
       "dualSecondTimeout": "等待較慢的一方",
       "dualSecondTimeoutDescription": "一個供應商回傳結果後，另一個還有多久才會被放棄。",
       "dualSecondTimeoutValue": "{{seconds}} 秒",
-      "dualOverridesModel": "雙重轉錄已開啟，因此聽寫會使用 {{providerA}} 和 {{providerB}}，而不是在此選擇的模型。",
       "dualMissingKeys": "請為 {{providers}} 新增 API 金鑰 — 在兩個供應商都有金鑰之前，雙重轉錄不會生效。",
-      "dualSameProvider": "請選擇兩個不同的供應商 — 兩邊相同時，雙重轉錄不會生效。",
       "silenceTrim": "裁剪靜音",
       "silenceTrimDescription": "上傳前移除靜音，避免為停頓付費。",
       "silenceTrimStrength": "裁剪強度",
@@ -1831,7 +1825,13 @@
         "light": "弱",
         "balanced": "標準",
         "aggressive": "強"
-      }
+      },
+      "multiTranscription": "多重轉錄",
+      "multiTranscriptionDescription": "並行把音訊傳送給多個供應商，並由 LLM 合併結果。更精確、更慢，且每個供應商都會計費。",
+      "multiProvider": "供應商 {{position}}",
+      "multiProviderNone": "無",
+      "multiNeedsTwo": "請至少選擇兩個供應商 — 只有一個時多重轉錄不會生效。",
+      "multiOverridesModel": "多重轉錄已開啟，因此聽寫會使用 {{providers}}，而不是在此選擇的模型。"
     },
     "intelligence": {
       "gpuDevice": {

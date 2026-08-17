@@ -1809,10 +1809,6 @@
           }
         }
       },
-      "dualTranscription": "双重转录",
-      "dualTranscriptionDescription": "将音频发送给两个提供商，并由 LLM 合并结果。更准确、更慢，且两个提供商都会计费。",
-      "dualProviderA": "第一个提供商",
-      "dualProviderB": "第二个提供商",
       "dualProviderModel": "{{provider}} 模型",
       "dualReconcileProvider": "合并提供商",
       "dualReconcileModel": "合并模型",
@@ -1820,9 +1816,7 @@
       "dualSecondTimeout": "等待较慢的一方",
       "dualSecondTimeoutDescription": "一个提供商返回结果后，另一个还有多久才会被放弃。",
       "dualSecondTimeoutValue": "{{seconds}} 秒",
-      "dualOverridesModel": "双重转录已开启，因此听写将使用 {{providerA}} 和 {{providerB}}，而不是在此选择的模型。",
       "dualMissingKeys": "请为 {{providers}} 添加 API 密钥 — 在两个提供商都有密钥之前，双重转录不会生效。",
-      "dualSameProvider": "请选择两个不同的提供商 — 两边相同时，双重转录不会生效。",
       "silenceTrim": "裁剪静音",
       "silenceTrimDescription": "上传前移除静音，避免为停顿付费。",
       "silenceTrimStrength": "裁剪强度",
@@ -1831,7 +1825,13 @@
         "light": "弱",
         "balanced": "标准",
         "aggressive": "强"
-      }
+      },
+      "multiTranscription": "多重转录",
+      "multiTranscriptionDescription": "并行把音频发送给多个提供商，并由 LLM 合并结果。更准确、更慢，且每个提供商都会计费。",
+      "multiProvider": "提供商 {{position}}",
+      "multiProviderNone": "无",
+      "multiNeedsTwo": "请至少选择两个提供商 — 只有一个时多重转录不会生效。",
+      "multiOverridesModel": "多重转录已开启，因此听写将使用 {{providers}}，而不是在此选择的模型。"
     },
     "intelligence": {
       "gpuDevice": {

@@ -34,8 +34,13 @@ import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/promp
 import {
   DUAL_TRANSCRIPTION_MODELS,
   DUAL_TRANSCRIPTION_API_KEY_FIELDS,
+  getDualTranscriptionProvider,
   DEFAULT_DUAL_PROVIDER_A,
   DEFAULT_DUAL_PROVIDER_B,
+  DEFAULT_DUAL_PROVIDER_C,
+  MULTI_TRANSCRIPTION_SLOTS,
+  DEFAULT_SLOT_PROVIDERS,
+  NO_PROVIDER,
   DEFAULT_DUAL_SECOND_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   resolveDualTranscriptionModel,
@@ -230,20 +235,57 @@ function resolveActiveTranscriptionProvider(settings) {
   return settings.cloudTranscriptionProvider || null;
 }
 
-function isDualTranscriptionEnabled(settings) {
+function isMultiTranscriptionEnabled(settings) {
   if (!settings?.dualTranscriptionEnabled) return false;
   if (settings.useLocalWhisper) return false;
   if (settings.cloudTranscriptionMode !== "byok") return false;
-  const keyFor = (provider) => settings[DUAL_TRANSCRIPTION_API_KEY_FIELDS[provider]];
-  const a = settings.dualTranscriptionProviderA || DEFAULT_DUAL_PROVIDER_A;
-  const b = settings.dualTranscriptionProviderB || DEFAULT_DUAL_PROVIDER_B;
-  return a !== b && !!keyFor(a) && !!keyFor(b);
+  // Needs at least two distinct providers that actually have a key. One configured lane
+  // is just the single-provider path with extra machinery, and a lane without a key is a
+  // guaranteed failure rather than a second opinion.
+  const usable = new Set();
+  for (const { slot, providerKey } of MULTI_TRANSCRIPTION_SLOTS) {
+    const provider = settings[providerKey] || DEFAULT_SLOT_PROVIDERS[slot];
+    if (!provider || provider === NO_PROVIDER) continue;
+    const keyField = DUAL_TRANSCRIPTION_API_KEY_FIELDS[provider];
+    if (keyField && settings[keyField]) usable.add(provider);
+  }
+  return usable.size >= 2;
 }
 
 // Minimal 16-bit PCM WAV writer. The trimmed audio only exists as samples, and
 // every provider here accepts WAV, so re-encoding to the original codec would be
 // work for nothing. Larger in bytes than WebM, shorter in the duration that gets
 // billed.
+// Every provider here resamples to 16 kHz internally — Groq documents preprocessing to
+// it, xAI warns that anything else costs a server-side resample — so sending 48 kHz is
+// three times the bytes for identical transcripts. Measured across all three providers on
+// 2026-08-04: 16 kHz produced byte-identical text and cut OpenAI's median from 2278ms to
+// 1064ms.
+const UPLOAD_SAMPLE_RATE = 16000;
+
+/**
+ * Resamples mono samples to UPLOAD_SAMPLE_RATE using the browser's own resampler, which
+ * band-limits properly; decimating by hand would alias the speech it is meant to preserve.
+ *
+ * Returns the input untouched when it is already at or below the target — upsampling to
+ * hit a number would add bytes and no information.
+ */
+async function resampleForUpload(samples, sampleRate) {
+  if (!samples.length || sampleRate <= UPLOAD_SAMPLE_RATE) {
+    return { samples, sampleRate };
+  }
+  const frames = Math.max(1, Math.round((samples.length * UPLOAD_SAMPLE_RATE) / sampleRate));
+  const offline = new OfflineAudioContext(1, frames, UPLOAD_SAMPLE_RATE);
+  const buffer = offline.createBuffer(1, samples.length, sampleRate);
+  buffer.copyToChannel(samples, 0);
+  const source = offline.createBufferSource();
+  source.buffer = buffer;
+  source.connect(offline.destination);
+  source.start();
+  const rendered = await offline.startRendering();
+  return { samples: rendered.getChannelData(0), sampleRate: UPLOAD_SAMPLE_RATE };
+}
+
 function encodeWavPcm16(samples, sampleRate) {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
@@ -499,11 +541,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // Returns the original blob on any failure or if the plan looks unsafe: a
   // shorter upload is never worth risking a mangled recording, and the caller
   // cannot tell afterwards that audio went missing.
-  async trimSilenceForUpload(audioBlob) {
+  /**
+   * Prepares the recording for upload: mono, optionally silence-trimmed, always 16 kHz.
+   *
+   * Resampling happens whether or not anything was trimmed. Two reasons: the bytes are
+   * three times smaller than the 48 kHz the microphone hands over, and it makes every
+   * dictation arrive in the same encoding — previously a trimmed one uploaded WAV while an
+   * untrimmed one uploaded the recorder's Opus, and Opus produced *different transcripts*
+   * on Groq and xAI in testing, so which path ran changed the text.
+   *
+   * The bytes do go up for the untrimmed case (Opus is far smaller than PCM), but the
+   * measurements say that costs nothing: 16 kHz WAV beat Opus on OpenAI and tied on xAI.
+   */
+  async prepareAudioForUpload(audioBlob) {
     this._lastTrim = null;
     if (!audioBlob?.size) return audioBlob;
     const trimSettings = getSettings();
-    if (trimSettings.silenceTrimEnabled === false) return audioBlob;
     try {
       const context = new AudioContext();
       let decoded;
@@ -513,8 +566,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         context.close().catch(() => {});
       }
 
-      // Mono: every provider here transcribes a single channel, and mixing down
-      // first means the plan is computed on what is actually uploaded.
+      // Mono: every provider here transcribes a single channel, and mixing down first
+      // means the trim plan is computed on what is actually uploaded.
       const channels = decoded.numberOfChannels;
       const length = decoded.length;
       const mono = new Float32Array(length);
@@ -523,37 +576,52 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         for (let i = 0; i < length; i++) mono[i] += data[i] / channels;
       }
 
-      const plan = planSilenceTrim(
-        mono,
-        decoded.sampleRate,
-        resolveSilenceTrimOptions(trimSettings.silenceTrimStrength)
-      );
-      if (!plan.trimmed) {
-        logger.debug(
-          "Silence trim skipped",
-          {
-            reason: plan.reason || "unknown",
-            threshold: plan.threshold?.toFixed(5),
-            seconds: +(length / decoded.sampleRate).toFixed(2),
-          },
-          "transcription"
+      // Trimming is the user's setting; the resample is not, so a disabled trim still
+      // gets the smaller, consistent upload.
+      let samples = mono;
+      let trimmedSeconds = length / decoded.sampleRate;
+      let percentRemoved = 0;
+      if (trimSettings.silenceTrimEnabled !== false) {
+        const plan = planSilenceTrim(
+          mono,
+          decoded.sampleRate,
+          resolveSilenceTrimOptions(trimSettings.silenceTrimStrength)
         );
-        return audioBlob;
+        if (plan.trimmed) {
+          samples = applySilenceTrim(mono, plan);
+          trimmedSeconds = samples.length / decoded.sampleRate;
+          percentRemoved = Math.round(((length - samples.length) / length) * 100);
+        } else {
+          logger.debug(
+            "Silence trim skipped",
+            {
+              reason: plan.reason || "unknown",
+              threshold: plan.threshold?.toFixed(5),
+              seconds: +(length / decoded.sampleRate).toFixed(2),
+            },
+            "transcription"
+          );
+        }
       }
 
-      const trimmed = applySilenceTrim(mono, plan);
-      const wav = encodeWavPcm16(trimmed, decoded.sampleRate);
+      const resampled = await resampleForUpload(samples, decoded.sampleRate);
+      const wav = encodeWavPcm16(resampled.samples, resampled.sampleRate);
+
+      // Reported even at 0%, so the stats readout can tell "nothing to trim" apart from
+      // "trimming did not run".
       this._lastTrim = {
         originalSeconds: length / decoded.sampleRate,
-        trimmedSeconds: trimmed.length / decoded.sampleRate,
-        percentRemoved: Math.round(((length - trimmed.length) / length) * 100),
+        trimmedSeconds,
+        percentRemoved,
       };
       logger.info(
-        "Silence trimmed before upload",
+        "Audio prepared for upload",
         {
           originalSeconds: +(length / decoded.sampleRate).toFixed(2),
-          trimmedSeconds: +(trimmed.length / decoded.sampleRate).toFixed(2),
-          segments: plan.segments.length,
+          trimmedSeconds: +trimmedSeconds.toFixed(2),
+          percentRemoved,
+          fromSampleRate: decoded.sampleRate,
+          toSampleRate: resampled.sampleRate,
           originalBytes: audioBlob.size,
           uploadBytes: wav.size,
         },
@@ -562,7 +630,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return wav;
     } catch (error) {
       logger.debug(
-        "Silence trim failed, uploading as recorded",
+        "Audio preparation failed, uploading as recorded",
         { error: error.message },
         "transcription"
       );
@@ -1437,9 +1505,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
         activeModel = "openwhispr-cloud";
         result = await this.processWithOpenWhisprCloud(audioBlob, metadata);
-      } else if (isDualTranscriptionEnabled(settings)) {
-        activeModel = "dual";
-        result = await this.processWithDualTranscription(audioBlob, metadata);
+      } else if (isMultiTranscriptionEnabled(settings)) {
+        activeModel = "multi";
+        result = await this.processWithMultiTranscription(audioBlob, metadata);
       } else {
         activeModel = this.getTranscriptionModel();
         result = await this.processWithOpenAIAPI(audioBlob, metadata);
@@ -1471,13 +1539,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           // instead of saying "Transcription". Read from the same settings the
           // pickers write, so a provider added to the registry labels itself.
           // Null for dual, which reports a provider per side of the pair.
-          provider: activeModel === "dual" ? null : resolveActiveTranscriptionProvider(settings),
+          provider: activeModel === "multi" ? null : resolveActiveTranscriptionProvider(settings),
           ...(result.timings || {}),
         };
 
-        // Dual records a sample per side inside transcribeDual, where the per-provider
-        // timings live; every other path has exactly one leg to record here.
-        if (activeModel !== "dual") {
+        // Multi records a sample per lane inside processWithMultiTranscription, where the
+        // per-provider timings live; every other path has exactly one leg to record here.
+        if (activeModel !== "multi") {
           this.recordModelLatency(
             "transcription",
             resolveActiveTranscriptionProvider(settings),
@@ -2591,7 +2659,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       );
 
       const apiKey = await this.getAPIKey();
-      const optimizedAudio = await this.trimSilenceForUpload(audioBlob);
+      const optimizedAudio = await this.prepareAudioForUpload(audioBlob);
 
       // Dispatch before endpoint resolution (which defaults to OpenAI and would leak
       // the key). Self-hosted wins, so a leftover "tinfoil" provider isn't diverted here.
@@ -3122,61 +3190,54 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // Dual transcription as a transcription source: raw text from two providers,
   // merged, then handed to the same cleanup and reasoning every other source
   // uses. Shaped to match processWithOpenAIAPI's return so callers don't branch.
-  async processWithDualTranscription(audioBlob, metadata = {}) {
+  async processWithMultiTranscription(audioBlob, metadata = {}) {
     const timings = {};
     const settings = getSettings();
     const language = getBaseLanguageCode(this.getEffectiveSttLanguage(settings));
 
-    const dual = await this.transcribeDual(audioBlob, { language });
-    timings.transcriptionProcessingDurationMs = dual.transcribeMs;
-    if (dual.reconcileMs != null) timings.reconcileDurationMs = dual.reconcileMs;
-    timings.dual = {
-      providerA: dual.providerA,
-      providerB: dual.providerB,
-      msA: dual.msA,
-      msB: dual.msB,
-      reconcileMs: dual.reconcileMs ?? null,
-      reconciled: dual.reconciled,
-      droppedProvider: dual.droppedProvider ?? null,
-      modelA: dual.modelA ?? null,
-      modelB: dual.modelB ?? null,
-      statusA: dual.statusA ?? null,
-      statusB: dual.statusB ?? null,
+    const multi = await this.transcribeMulti(audioBlob, { language });
+    timings.transcriptionProcessingDurationMs = multi.transcribeMs;
+    if (multi.reconcileMs != null) timings.reconcileDurationMs = multi.reconcileMs;
+    timings.multi = {
+      sides: multi.sides.map((side) => ({
+        provider: side.provider,
+        model: side.model,
+        status: side.status,
+        ms: side.ms,
+      })),
+      reconciled: multi.reconciled,
+      reconcileMs: multi.reconcileMs ?? null,
+      droppedProviders: multi.droppedProviders ?? [],
     };
 
+    const answered = multi.sides.filter((side) => side.text);
     logger.info(
-      "Dual transcription complete",
+      "Multi transcription complete",
       {
-        providerA: dual.providerA,
-        providerB: dual.providerB,
-        reconciled: dual.reconciled,
-        agreed: !dual.reconciled && !!dual.textA && !!dual.textB,
-        transcribeMs: dual.transcribeMs,
-        reconcileMs: dual.reconcileMs,
+        providers: multi.sides.map((side) => `${side.provider}:${side.status}`),
+        reconciled: multi.reconciled,
+        agreed: !multi.reconciled && answered.length > 1,
+        transcribeMs: multi.transcribeMs,
+        reconcileMs: multi.reconcileMs,
         durationSeconds: metadata.durationSeconds ?? null,
       },
       "transcription"
     );
 
     const reasoningStart = performance.now();
-    // A reconciled transcript has already been through the cleanup rules (the
-    // reconcile prompt merges *and* cleans), so cleaning it again changes nothing
-    // and costs a second LLM call in the paste path. Providers that agreed, or a
-    // dropped/failed side, leave reconciled false — those are raw and still get
-    // cleaned.
-    const text = await this.processTranscription(dual.text, "dual", {
-      alreadyCleaned: dual.reconciled,
+    // A reconciled transcript has already been through the cleanup rules (the reconcile
+    // prompt merges *and* cleans), so cleaning it again changes nothing and costs a
+    // second LLM call in the paste path. Providers that agreed, or a single surviving
+    // lane, leave reconciled false — those are raw and still get cleaned.
+    const text = await this.processTranscription(multi.text, "multi", {
+      alreadyCleaned: multi.reconciled,
     });
     timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
-    // Each side is recorded whatever became of it, but only an answer carries a timing:
-    // a dropped side's elapsed time is the wait budget and a failed side has none, so
-    // both are counted for the rates instead of averaged into the median.
-    for (const side of [
-      { provider: dual.providerA, model: dual.modelA, ms: dual.msA, status: dual.statusA },
-      { provider: dual.providerB, model: dual.modelB, ms: dual.msB, status: dual.statusB },
-    ]) {
-      if (!side.provider) continue;
+    // Every lane is recorded whatever became of it, but only an answer carries a timing:
+    // a dropped lane's elapsed time is the wait budget and a failed one has none, so both
+    // are counted for the rates instead of averaged into the median.
+    for (const side of multi.sides) {
       this.recordModelLatency(
         "transcription",
         side.provider,
@@ -3185,39 +3246,37 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         side.status === "ok" ? "ok" : side.status === "failed" ? "failed" : "dropped"
       );
     }
-    if (dual.reconciled && dual.reconcileMs != null) {
+    if (multi.reconciled && multi.reconcileMs != null) {
       const settingsNow = getSettings();
       this.recordModelLatency(
         "reconcile",
         settingsNow.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
         getEffectiveReconcileModel(),
-        dual.reconcileMs
+        multi.reconcileMs
       );
     }
 
-    const source = (await this.isReasoningAvailable()) ? "dual-reasoned" : "dual";
+    const source = (await this.isReasoningAvailable()) ? "multi-reasoned" : "multi";
     // Kept alongside the transcript so history can show what each provider actually
     // heard, which is the only place the disagreement the merge resolved is visible.
-    const dualDetail = {
-      providerA: dual.providerA,
-      providerB: dual.providerB,
-      modelA: dual.modelA ?? null,
-      modelB: dual.modelB ?? null,
-      textA: dual.textA ?? null,
-      textB: dual.textB ?? null,
-      statusA: dual.statusA ?? null,
-      statusB: dual.statusB ?? null,
-      msA: dual.msA ?? null,
-      msB: dual.msB ?? null,
-      reconciled: !!dual.reconciled,
-      reconcileMs: dual.reconcileMs ?? null,
-      droppedProvider: dual.droppedProvider ?? null,
-      mergedText: dual.text ?? null,
+    const multiDetail = {
+      sides: multi.sides.map((side) => ({
+        provider: side.provider,
+        model: side.model,
+        status: side.status,
+        ms: side.ms,
+        text: side.text ?? null,
+      })),
+      reconciled: !!multi.reconciled,
+      reconcileMs: multi.reconcileMs ?? null,
+      droppedProviders: multi.droppedProviders ?? [],
+      mergedText: multi.text ?? null,
     };
-    return { success: true, text, rawText: dual.text, source, timings, dual: dualDetail };
+    return { success: true, text, rawText: multi.text, source, timings, dual: multiDetail };
   }
 
-  // Runs two providers over the same audio and has an LLM combine the results.
+  // Runs every configured provider over the same audio, in parallel, and has an LLM
+  // combine whichever answers arrive in time.
   //
   // Returns raw text only — the caller still applies the normal cleanup and
   // reasoning, so this behaves like any other transcription source.
@@ -3226,26 +3285,28 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // is used (better than today, where one outage means no transcript), if the two
   // agree the LLM is skipped, and if the reconcile call fails provider A's text
   // stands. Only both providers failing is an error.
-  async transcribeDual(audioBlob, { language } = {}) {
+  async transcribeMulti(audioBlob, { language } = {}) {
     const settings = getSettings();
-    const providerA = settings.dualTranscriptionProviderA || DEFAULT_DUAL_PROVIDER_A;
-    const providerB = settings.dualTranscriptionProviderB || DEFAULT_DUAL_PROVIDER_B;
-    const modelA = resolveDualTranscriptionModel(providerA, settings.dualTranscriptionModelA);
-    const modelB = resolveDualTranscriptionModel(providerB, settings.dualTranscriptionModelB);
 
-    // Trimmed once, before the fan-out: both providers get the same shorter
-    // audio, and the saving counts twice.
-    const trimmedBlob = await this.trimSilenceForUpload(audioBlob);
+    // One entry per configured slot, in slot order — which is also the tie-break order
+    // the merge prompt applies, so slot A should hold the most trusted recogniser.
+    const lanes = MULTI_TRANSCRIPTION_SLOTS.map(({ slot, providerKey, modelKey }) => {
+      const provider = settings[providerKey] || DEFAULT_SLOT_PROVIDERS[slot] || NO_PROVIDER;
+      return {
+        slot,
+        provider,
+        model: resolveDualTranscriptionModel(provider, settings[modelKey]),
+      };
+    }).filter((lane) => lane.provider && lane.provider !== NO_PROVIDER);
+
+    // Trimmed once, before the fan-out: every provider gets the same shorter audio, and
+    // the saving counts once per lane.
+    const trimmedBlob = await this.prepareAudioForUpload(audioBlob);
 
     const startedAt = performance.now();
-    const providers = [providerA, providerB];
-    const models = [modelA, modelB];
-    const settled = [null, null];
+    const settled = lanes.map(() => null);
 
-    // Deliberately not a deadline on the pair: that would drop both when the
-    // network is merely slow. The budget is how long the *second* provider gets
-    // once the first has answered, which is exactly the tail latency dual mode
-    // adds over single mode.
+    // All lanes upload and transcribe concurrently; nothing waits its turn.
     const track = (promise, index) =>
       promise.then(
         (value) => {
@@ -3257,103 +3318,122 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           return index;
         }
       );
-    const tracked = providers.map((provider, index) =>
+    const tracked = lanes.map((lane, index) =>
       track(
-        this.transcribeRawWithProvider(trimmedBlob, provider, { language, model: models[index] }),
+        this.transcribeRawWithProvider(trimmedBlob, lane.provider, {
+          language,
+          model: lane.model,
+        }),
         index
       )
     );
 
+    // Deliberately not a deadline on the whole fan-out: that would drop every lane when
+    // the network is merely slow. The budget starts when the first lane *answers*, and
+    // whatever has not finished by then is abandoned — exactly the tail latency this mode
+    // adds over a single provider, regardless of how many lanes there are.
     const firstIndex = await Promise.race(tracked);
-    const otherIndex = firstIndex === 0 ? 1 : 0;
-    let droppedProvider = null;
+    const droppedProviders = [];
 
-    if (settled[firstIndex].status === "fulfilled") {
+    if (settled[firstIndex]?.status === "fulfilled") {
       const budgetMs = Number.isFinite(settings.dualTranscriptionSecondTimeoutMs)
         ? settings.dualTranscriptionSecondTimeoutMs
         : DEFAULT_DUAL_SECOND_TIMEOUT_MS;
-      let timer;
-      const expired = Symbol("expired");
-      const raced = await Promise.race([
-        tracked[otherIndex],
-        new Promise((resolve) => {
-          timer = setTimeout(() => resolve(expired), budgetMs);
-        }),
-      ]);
-      clearTimeout(timer);
-      if (raced === expired) {
-        droppedProvider = providers[otherIndex];
-        logger.info(
-          "Dual transcription: dropped slow provider, using single result",
-          { dropped: droppedProvider, kept: providers[firstIndex], budgetMs },
-          "transcription"
-        );
+      const outstanding = tracked.filter((_, index) => settled[index] === null);
+      if (outstanding.length > 0) {
+        let timer;
+        const expired = Symbol("expired");
+        await Promise.race([
+          Promise.all(outstanding),
+          new Promise((resolve) => {
+            timer = setTimeout(() => resolve(expired), budgetMs);
+          }),
+        ]);
+        clearTimeout(timer);
+        lanes.forEach((lane, index) => {
+          if (settled[index] === null) droppedProviders.push(lane.provider);
+        });
+        if (droppedProviders.length > 0) {
+          logger.info(
+            "Multi transcription: dropped slow providers",
+            {
+              dropped: droppedProviders,
+              kept: lanes.filter((_, i) => settled[i] !== null).map((lane) => lane.provider),
+              budgetMs,
+            },
+            "transcription"
+          );
+        }
       }
     } else {
-      // The first to answer failed, so there is nothing to fall back to and no
-      // point enforcing a budget — the other result is the only chance of text.
-      await tracked[otherIndex];
+      // The first to answer failed, so there is nothing to fall back to and no point
+      // enforcing a budget — another lane is the only chance of any text at all.
+      await Promise.all(tracked);
     }
 
-    const resultA = settled[0];
-    const resultB = settled[1];
-    const textA = resultA?.status === "fulfilled" ? resultA.value.text : null;
-    const textB = resultB?.status === "fulfilled" ? resultB.value.text : null;
-    const msA = resultA?.status === "fulfilled" ? resultA.value.ms : null;
-    const msB = resultB?.status === "fulfilled" ? resultB.value.ms : null;
-
-    for (const [index, result] of [resultA, resultB].entries()) {
-      if (result?.status === "rejected") {
-        logger.warn(
-          "Dual transcription: provider failed",
-          { provider: providers[index], error: result.reason?.message },
-          "transcription"
-        );
-      }
-    }
-
-    if (!textA && !textB) {
-      throw resultA?.reason || resultB?.reason || new Error("Dual transcription produced no text");
-    }
-
-    // Every side gets a status, because a side that produced no timing is exactly the
-    // one worth reporting: dropped for being slow, or failed outright. Without this
-    // the readout simply omitted it and the pair looked like a single provider.
-    const statusFor = (result) => {
+    // A lane that never settled was dropped; one that rejected failed outright. Both are
+    // reported rather than omitted, and neither carries a timing worth averaging.
+    const statusFor = (index) => {
+      const result = settled[index];
       if (result?.status === "fulfilled") return "ok";
       if (result?.status === "rejected") return "failed";
       return "dropped";
     };
 
+    const sides = lanes.map((lane, index) => {
+      const result = settled[index];
+      const ok = result?.status === "fulfilled";
+      if (result?.status === "rejected") {
+        logger.warn(
+          "Multi transcription: provider failed",
+          { provider: lane.provider, error: result.reason?.message },
+          "transcription"
+        );
+      }
+      return {
+        slot: lane.slot,
+        provider: lane.provider,
+        model: lane.model,
+        label: getDualTranscriptionProvider(lane.provider)?.label || lane.provider,
+        status: statusFor(index),
+        text: ok ? result.value.text : null,
+        ms: ok ? result.value.ms : null,
+      };
+    });
+
+    const answered = sides.filter((side) => side.text && side.text.trim());
+    if (answered.length === 0) {
+      const firstRejection = settled.find((result) => result?.status === "rejected");
+      throw firstRejection?.reason || new Error("Multi transcription produced no text");
+    }
+
     const transcribeMs = Math.round(performance.now() - startedAt);
     const base = {
-      providerA,
-      providerB,
-      modelA,
-      modelB,
-      statusA: statusFor(resultA),
-      statusB: statusFor(resultB),
-      textA,
-      textB,
-      msA,
-      msB,
+      sides,
       transcribeMs,
-      droppedProvider,
+      // Kept for the stats readout and history rows written before slots existed.
+      droppedProvider: droppedProviders[0] ?? null,
+      droppedProviders,
     };
 
-    // One side missing, or both sides identical: nothing for the LLM to decide.
-    if (!textA || !textB) {
-      return { ...base, text: textA || textB, reconciled: false };
+    // Nothing to merge: one lane answered, or every answer says the same thing.
+    if (answered.length === 1) {
+      return { ...base, text: answered[0].text, reconciled: false };
     }
-    if (transcriptsAgree(textA, textB)) {
-      logger.debug("Dual transcription: providers agree, skipping reconcile", {}, "transcription");
-      return { ...base, text: textA, reconciled: false };
+    if (transcriptsAgree(...answered.map((side) => side.text))) {
+      logger.debug(
+        "Multi transcription: providers agree, skipping reconcile",
+        { providers: answered.map((side) => side.provider) },
+        "transcription"
+      );
+      return { ...base, text: answered[0].text, reconciled: false };
     }
 
     const reconcileStart = performance.now();
     try {
       const merged = await ReasoningService.processText(
-        wrapReconcileVersions(textA, textB),
+        // Slot order is preserved, which is what makes the prompt's tie-break meaningful.
+        wrapReconcileVersions(answered.map((side) => ({ text: side.text, provider: side.label }))),
         getEffectiveReconcileModel(),
         null,
         {
@@ -3362,9 +3442,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           // the paste path, after the user has stopped speaking, so the reconcile is
           // felt directly.
           provider: settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
-          // The app's own cleanup prompt, adapted for two candidate transcripts:
-          // keeps its localisation, {{agentName}} handling, custom dictionary
-          // suffix, prompt-injection resistance and few-shot examples.
+          // The app's own cleanup prompt, adapted for candidate transcripts: keeps its
+          // localisation, {{agentName}} handling, custom dictionary suffix,
+          // prompt-injection resistance and few-shot examples.
           systemPrompt: getReconcileSystemPrompt(
             localStorage.getItem("agentName") || null,
             this.getCustomDictionaryArray(),
@@ -3386,11 +3466,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       };
     } catch (error) {
       logger.warn(
-        "Dual transcription: reconcile failed, using first provider",
+        "Multi transcription: reconcile failed, using the first answer",
         { error: error.message },
         "transcription"
       );
-      return { ...base, text: textA, reconciled: false };
+      return { ...base, text: answered[0].text, reconciled: false };
     }
   }
 
@@ -3801,7 +3881,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     if (s.useLocalWhisper) return false;
 
     // Dual transcription compares two finished transcripts, so it is batch-only.
-    if (isDualTranscriptionEnabled(s)) return false;
+    if (isMultiTranscriptionEnabled(s)) return false;
 
     // Self-hosted transcription is batch HTTP to the user's server, never cloud realtime WS.
     if (isSelfHostedTranscription(s)) return false;

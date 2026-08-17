@@ -1814,10 +1814,6 @@
           }
         }
       },
-      "dualTranscription": "Doppelte Transkription",
-      "dualTranscriptionDescription": "Sendet Audio an zwei Anbieter und lässt ein LLM die Ergebnisse kombinieren. Genauer, langsamer, und beide Anbieter berechnen Kosten.",
-      "dualProviderA": "Erster Anbieter",
-      "dualProviderB": "Zweiter Anbieter",
       "dualProviderModel": "{{provider}}-Modell",
       "dualReconcileProvider": "Anbieter für Zusammenführung",
       "dualReconcileModel": "Modell für Zusammenführung",
@@ -1825,9 +1821,7 @@
       "dualSecondTimeout": "Auf die langsamere Seite warten",
       "dualSecondTimeoutDescription": "Wenn ein Anbieter geantwortet hat, wie lange der andere noch bekommt, bevor er verworfen wird.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualOverridesModel": "Doppelte Transkription ist aktiv, daher verwendet das Diktat {{providerA}} und {{providerB}} statt eines hier ausgewählten Modells.",
       "dualMissingKeys": "Füge einen API-Schlüssel für {{providers}} hinzu – die doppelte Transkription bleibt aus, bis beide Anbieter einen haben.",
-      "dualSameProvider": "Wähle zwei verschiedene Anbieter – die doppelte Transkription bleibt aus, solange beide Seiten identisch sind.",
       "silenceTrim": "Stille kürzen",
       "silenceTrimDescription": "Entfernt Stille vor dem Upload, damit Pausen nicht berechnet werden.",
       "silenceTrimStrength": "Stärke",
@@ -1836,7 +1830,13 @@
         "light": "Gering",
         "balanced": "Mittel",
         "aggressive": "Hoch"
-      }
+      },
+      "multiTranscription": "Mehrfach-Transkription",
+      "multiTranscriptionDescription": "Audio parallel an mehrere Anbieter senden und die Ergebnisse von einem LLM zusammenführen. Genauer, langsamer, und kostet bei jedem Anbieter.",
+      "multiProvider": "Anbieter {{position}}",
+      "multiProviderNone": "Keiner",
+      "multiNeedsTwo": "Wähle mindestens zwei Anbieter – mit nur einem bleibt die Mehrfach-Transkription aus.",
+      "multiOverridesModel": "Mehrfach-Transkription ist aktiv, daher verwendet das Diktat {{providers}} statt eines hier ausgewählten Modells."
     },
     "intelligence": {
       "gpuDevice": {
