@@ -1774,7 +1774,17 @@ declare global {
 
       // Focused-window OCR (screen context for transcript correction)
       windowOcrStart?: () => void;
-      windowOcrCollect?: () => Promise<{ text: string; window: string } | null>;
+      /**
+       * The capture, already reduced to candidate vocabulary in the main process —
+       * the raw screen text never crosses to the renderer. Null means the capture
+       * failed; an empty `terms` means the window had nothing worth matching.
+       */
+      windowOcrCollect?: () => Promise<{
+        window: string;
+        terms: string[];
+        termCount: number;
+        ocrChars: number;
+      } | null>;
       windowOcrCancel?: () => void;
       /** Hands the OCR'd vocabulary to the main process, which holds it in memory only. */
       recordScreenContextTerms?: (transcriptionId: number, detail: ScreenContextTerms) => void;

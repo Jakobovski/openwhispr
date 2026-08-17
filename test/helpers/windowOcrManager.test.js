@@ -22,16 +22,23 @@ function managerWith(script) {
   return manager;
 }
 
-test("a successful capture returns text and the window label", async () => {
+test("a successful capture returns vocabulary, not the raw screen text", async () => {
+  // The OCR text is reduced to candidate terms here, in the main process, and the
+  // text itself is deliberately not handed back: the renderer has no use for it, and
+  // not passing it keeps the contents of the user's screen in one process.
   const { script, cleanup } = fakeSidecar(
-    `echo '{"ok":true,"text":"OpenWhispr Sinead","window":"Safari — PR","durationMs":42}'`
+    `echo '{"ok":true,"text":"OpenWhispr Sinead settings download","window":"Safari — PR","durationMs":42}'`
   );
   try {
     const manager = managerWith(script);
     manager.start();
     const result = await manager.collect();
-    assert.equal(result.text, "OpenWhispr Sinead");
+
     assert.equal(result.window, "Safari — PR");
+    assert.deepEqual(result.terms, ["OpenWhispr", "Sinead"], "chrome is filtered out");
+    assert.equal(result.termCount, 2);
+    assert.equal(result.ocrChars, "OpenWhispr Sinead settings download".length);
+    assert.equal(result.text, undefined, "the raw screen text must not cross processes");
   } finally {
     cleanup();
   }
@@ -138,7 +145,7 @@ test("a capture nobody collected is not handed to the next dictation", async () 
     `#!/bin/sh
 echo x >> ${counter}
 n=$(wc -l < ${counter} | tr -d ' ')
-echo "{\\"ok\\":true,\\"text\\":\\"window $n\\",\\"window\\":\\"W$n\\"}"
+echo "{\\"ok\\":true,\\"text\\":\\"Distinctive$n\\",\\"window\\":\\"W$n\\"}"
 `
   );
   fs.chmodSync(script, 0o755);
@@ -152,7 +159,7 @@ echo "{\\"ok\\":true,\\"text\\":\\"window $n\\",\\"window\\":\\"W$n\\"}"
     // Dictation 2 must get its own capture, not the abandoned one.
     manager.start();
     const second = await manager.collect();
-    assert.equal(second.text, "window 2");
+    assert.deepEqual(second.terms, ["Distinctive2"]);
     assert.equal(second.window, "W2");
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
@@ -172,11 +179,11 @@ test("an explicit cancel clears the capture", async () => {
 });
 
 test("collect clears the capture so the next dictation starts fresh", async () => {
-  const { script, cleanup } = fakeSidecar(`echo '{"ok":true,"text":"a","window":"W"}'`);
+  const { script, cleanup } = fakeSidecar(`echo '{"ok":true,"text":"Kubernetes","window":"W"}'`);
   try {
     const manager = managerWith(script);
     manager.start();
-    assert.equal((await manager.collect()).text, "a");
+    assert.deepEqual((await manager.collect()).terms, ["Kubernetes"]);
     assert.equal(await manager.collect(), null, "second collect has nothing pending");
   } finally {
     cleanup();

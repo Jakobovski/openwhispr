@@ -17,6 +17,14 @@
 // the custom dictionary for the durable vocabulary.
 
 const { COMMON_WORDS } = require("./commonWords");
+const { SCREEN_CHROME_WORDS } = require("./screenChromeWords");
+
+// Both lists, because they answer the question for different vocabularies: function
+// words and safe-to-lowercase words in one, UI chrome and modern computing terms in
+// the other. See screenChromeWords for why they are not merged.
+function isOrdinaryWord(lower) {
+  return COMMON_WORDS.has(lower) || SCREEN_CHROME_WORDS.has(lower);
+}
 
 // Screen text is mostly chrome — menu labels, prose, button text. Only terms a
 // recognizer would plausibly get wrong are worth matching against.
@@ -80,16 +88,26 @@ function phoneticKey(word) {
   return head + s.slice(1).replace(/[aeiou]/g, "");
 }
 
+// Identifier-shaped: an internal capital ("OpenWhispr"), a digit ("gpt5"), or
+// internal punctuation ("api_key"). These are kept even when the word spelled out is
+// ordinary English, because the shape is the signal — "Rust" is a dictionary word
+// and chrome, "RustLang" is a name.
+function isIdentifierShaped(term) {
+  return /[A-Z]/.test(term.slice(1)) || /[0-9._\-/]/.test(term);
+}
+
 // Distinctive = unlikely to be in the recognizer's vocabulary, so a near-miss is
-// probably a mishearing of it rather than a coincidence. Mixed case ("OpenWhispr"),
-// digits ("s3"), internal punctuation ("api_key") or simply not-a-common-word.
+// probably a mishearing of it rather than a coincidence.
+//
+// Note what this used to be: every branch returned true, so the shape checks below
+// decided nothing and the only real filter was a 204-word list. That is why "Three",
+// "Error" and "move" showed up as candidate vocabulary. Ordinary words are now
+// rejected outright, and the shape checks are what rescues an identifier that
+// happens to spell one.
 function isDistinctiveTerm(term) {
   if (term.length < MIN_TERM_LENGTH) return false;
-  if (COMMON_WORDS.has(term.toLowerCase())) return false;
-  if (/[A-Z]/.test(term.slice(1))) return true; // internal capital
-  if (/[0-9._\-/]/.test(term)) return true;
-  if (/^[A-Z]/.test(term)) return true; // proper-noun shaped
-  return true;
+  if (isIdentifierShaped(term)) return true;
+  return !isOrdinaryWord(term.toLowerCase());
 }
 
 /**
@@ -170,7 +188,7 @@ function applyScreenTermCorrections(transcript, screenTerms) {
     // A real English word is never touched by either tier: "from" must survive a
     // screen full of "Form", and ordinary prose must not pick up UI capitalisation
     // ("pull request" -> "Pull request") just because a button said so.
-    if (COMMON_WORDS.has(lower)) return token;
+    if (isOrdinaryWord(lower)) return token;
 
     // Tier 1 — same word, different casing. Semantically a no-op.
     const exact = byLower.get(lower);
@@ -185,7 +203,7 @@ function applyScreenTermCorrections(transcript, screenTerms) {
 
     const candidate = byPhonetic.get(phoneticKey(core));
     if (!candidate) return token;
-    if (COMMON_WORDS.has(candidate.toLowerCase())) return token;
+    if (isOrdinaryWord(candidate.toLowerCase())) return token;
 
     const dist = editDistance(lower, candidate.toLowerCase());
     const maxLen = Math.max(core.length, candidate.length);

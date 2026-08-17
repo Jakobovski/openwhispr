@@ -26,6 +26,61 @@ test("extraction keeps distinctive terms and drops chrome", () => {
   }
 });
 
+test("extraction drops ordinary English and UI chrome", () => {
+  // Reported as noise: the filter was a 204-word list, and every branch of
+  // isDistinctiveTerm returned true, so the shape checks gated nothing. These are
+  // the exact words that leaked, plus the modern vocabulary the system dictionary
+  // predates and therefore cannot catch on its own.
+  const terms = extractScreenTerms(`
+    Three Error move message account folder Settings Download Inbox Online
+    username password dashboard timeline notification Kubernetes Sinead
+  `);
+
+  for (const word of [
+    "Three",
+    "Error",
+    "move",
+    "message",
+    "account",
+    "folder",
+    "Settings",
+    "Download",
+    "Inbox",
+    "Online",
+    "username",
+    "password",
+    "dashboard",
+    "timeline",
+    "notification",
+  ]) {
+    assert.ok(!terms.includes(word), `${word} is chrome and should not be a term`);
+  }
+
+  assert.deepEqual(terms, ["Kubernetes", "Sinead"], "only the distinctive terms remain");
+});
+
+test("an identifier is kept even when it spells an ordinary word", () => {
+  // The shape is the signal, and it has to survive *both* filter stages: the curated
+  // lists here, and the system dictionary applied afterwards in the main process.
+  // "Rust" is an ordinary word and only the dictionary knows it — which is exactly
+  // why the two stages exist — while "RustLang" and "rust-analyzer" are names a
+  // recognizer will mangle and neither stage may touch.
+  const { dropDictionaryWords } = require("../../src/helpers/englishLexicon");
+
+  const candidates = extractScreenTerms("Rust RustLang rust-analyzer gpt5 s3bucket");
+  for (const word of ["RustLang", "rust-analyzer", "gpt5", "s3bucket"]) {
+    assert.ok(candidates.includes(word), `${word} should survive extraction`);
+  }
+
+  const { terms, available } = dropDictionaryWords(candidates);
+  for (const word of ["RustLang", "rust-analyzer", "gpt5", "s3bucket"]) {
+    assert.ok(terms.includes(word), `${word} should survive the dictionary too`);
+  }
+  if (available) {
+    assert.ok(!terms.includes("Rust"), "the bare word is ordinary English");
+  }
+});
+
 test("extraction keeps identifiers and short-circuits tiny tokens", () => {
   const terms = extractScreenTerms("api_key s3 bucket kubernetes-admin v2 x");
   assert.ok(terms.includes("api_key"));

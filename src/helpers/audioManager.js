@@ -2245,25 +2245,25 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     if (!text || !getSettings().screenContextEnabled) return text;
 
     try {
+      // The capture arrives already reduced to vocabulary: the main process extracts
+      // and filters it while the user is still speaking, so the raw screen text never
+      // reaches this process. A null capture is a failure; an empty term list is a
+      // window with nothing worth matching, which is a normal outcome.
       const capture = await this.collectScreenContext();
-      if (!capture?.text) {
+      if (!capture) {
         await this.warnIfScreenContextBlocked();
         return text;
       }
 
-      const { extractScreenTerms, applyScreenTermCorrections } =
-        await import("../utils/screenTermMatcher.js");
-      const terms = extractScreenTerms(capture.text);
+      const terms = Array.isArray(capture.terms) ? capture.terms : [];
+      const { applyScreenTermCorrections } = await import("../utils/screenTermMatcher.js");
       const { text: corrected, replacements } = applyScreenTermCorrections(text, terms);
 
-      // The whole candidate list is kept. It is held in memory and never written
-      // anywhere, so there is no storage cost to trade against completeness —
-      // extractScreenTerms has already capped it at MAX_TERMS.
       this._lastScreenContext = {
         window: capture.window || "",
         replacements,
         terms,
-        termCount: terms.length,
+        termCount: capture.termCount ?? terms.length,
       };
       logger.info(
         replacements.length > 0
@@ -2272,7 +2272,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         {
           source,
           window: capture.window,
-          ocrChars: capture.text.length,
+          ocrChars: capture.ocrChars,
           termCount: terms.length,
           replacements,
         },

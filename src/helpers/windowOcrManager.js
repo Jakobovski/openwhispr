@@ -2,6 +2,8 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 const debugLogger = require("./debugLogger");
+const { extractScreenTerms } = require("../utils/screenTermMatcher");
+const { dropDictionaryWords } = require("./englishLexicon");
 
 const BINARY_NAME = "macos-window-ocr";
 // Ceiling on how long the transcript will wait for screen context. The sidecar
@@ -187,17 +189,35 @@ class WindowOcrManager {
         }
 
         const text = typeof payload.text === "string" ? payload.text : "";
+
+        // Terms are extracted here, not in the renderer that consumes them, for two
+        // reasons. The dictionary filter reads 2.5 MB, and this runs while the user
+        // is still speaking — so it costs nothing on the path between "stopped
+        // talking" and "text pasted". And the raw screen text never has to leave this
+        // process: only the filtered vocabulary crosses to the renderer.
+        const candidates = extractScreenTerms(text);
+        const { terms, dropped, available } = dropDictionaryWords(candidates);
+
         debugLogger.debug(
           "Window OCR captured",
           {
             window: payload.window,
             chars: text.length,
+            candidates: candidates.length,
+            terms: terms.length,
+            droppedAsEnglish: dropped,
+            dictionaryAvailable: available,
             sidecarMs: payload.durationMs,
             totalMs: Date.now() - started,
           },
           "window-ocr"
         );
-        finish({ text, window: payload.window || "" });
+        finish({
+          window: payload.window || "",
+          terms,
+          termCount: terms.length,
+          ocrChars: text.length,
+        });
       });
     });
   }
