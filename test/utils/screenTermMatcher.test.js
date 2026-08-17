@@ -54,8 +54,13 @@ test("extraction orders by frequency and caps the list", () => {
   const terms = extractScreenTerms(text);
   assert.deepEqual(terms.slice(0, 3), ["Kubernetes", "Terraform", "Grafana"]);
 
+  // The cap is a guard against a pathological window, not a quality filter — a
+  // dense window legitimately yields hundreds of terms and all of them are kept.
   const many = Array.from({ length: 900 }, (_, i) => `Distinctive${i}`).join(" ");
-  assert.equal(extractScreenTerms(many).length, 400);
+  assert.equal(extractScreenTerms(many).length, 900, "hundreds of terms are all kept");
+
+  const pathological = Array.from({ length: 6000 }, (_, i) => `Distinctive${i}`).join(" ");
+  assert.equal(extractScreenTerms(pathological).length, 5000, "but the list is still bounded");
 });
 
 // --- Tier 1: recasing, which is semantically a no-op ---

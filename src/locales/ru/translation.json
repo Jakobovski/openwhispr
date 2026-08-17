@@ -418,7 +418,7 @@
       "screenContextRead": "Считано с экрана терминов: {{words}}",
       "screenContextNoCorrections": "Исправлять было нечего",
       "screenContextTerms": "Термины, считанные с экрана ({{words}})",
-      "screenContextTermsTruncated": "Показаны {{shown}} самых частых из {{total}}"
+      "screenContextUsedLegend": "использованы для исправления"
     },
     "cloudMigration": {
       "title": "Добро пожаловать в OpenWhispr Cloud",

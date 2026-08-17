@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronUp,
   ScanText,
+  Check,
 } from "lucide-react";
 import type {
   TranscriptionItem as TranscriptionItemType,
@@ -24,6 +25,7 @@ import { getCachedPlatform } from "../../utils/platform";
 import { formatMmSs } from "../../utils/formatDuration";
 import { getProviderDisplayName } from "../../models/ModelRegistry";
 import { diffTranscripts, type DiffToken } from "../../utils/transcriptDiff";
+import { getScreenTerms } from "../../stores/screenContextTerms";
 
 const platform = getCachedPlatform();
 
@@ -86,20 +88,20 @@ interface ScreenReplacement {
 }
 
 interface ScreenContextDetail {
-  window: string;
   replacements: ScreenReplacement[];
-  /** The candidate vocabulary the matcher had to work with, most frequent first. */
-  terms: string[];
-  /** How many were extracted, which may exceed the number persisted. */
-  termCount: number;
 }
 
 /**
  * The words screen context rewrote, or null for every row it left alone.
  *
+ * This is all that is persisted. The vocabulary those words came from is held in
+ * memory only (see screenContextTerms) and read separately below, so an expanded
+ * row shows the terms for this session and only the corrections after a restart.
+ *
  * Parsed defensively for the same reason as the dual detail: it is opaque JSON
  * written by whichever version of the app recorded the row, and a shape change
- * must not take the history list down with it.
+ * must not take the history list down with it. Rows written by earlier builds
+ * carry extra keys, which are simply ignored.
  */
 function parseScreenContext(raw?: string | null): ScreenContextDetail | null {
   if (!raw) return null;
@@ -114,18 +116,8 @@ function parseScreenContext(raw?: string | null): ScreenContextDetail | null {
             kind: entry.kind === "substitute" ? "substitute" : "recase",
           }))
       : [];
-    const terms: string[] = Array.isArray(parsed.terms)
-      ? parsed.terms.filter((term: unknown) => typeof term === "string" && term.trim())
-      : [];
-    // A row with neither is a row screen context did not touch. Rows written before
-    // terms were recorded still have replacements, so they keep rendering.
-    if (replacements.length === 0 && terms.length === 0) return null;
-    return {
-      window: typeof parsed.window === "string" ? parsed.window : "",
-      replacements,
-      terms,
-      termCount: typeof parsed.termCount === "number" ? parsed.termCount : terms.length,
-    };
+    if (replacements.length === 0) return null;
+    return { replacements };
   } catch {
     return null;
   }
@@ -203,6 +195,10 @@ export default function TranscriptionItem({
   const rawText = item.raw_text;
   const dual = parseDual(item.dual_json);
   const screenContext = parseScreenContext(item.screen_context_json);
+  // Read from memory, not from the row: the OCR'd vocabulary is deliberately never
+  // stored, so this is present for dictations made since the app started and absent
+  // for everything older.
+  const screenTerms = getScreenTerms(item.client_transcription_id);
   // Which of the candidate terms actually landed in the transcript, so the list
   // below distinguishes "was available" from "was used".
   const usedTerms = useMemo(
@@ -212,8 +208,9 @@ export default function TranscriptionItem({
   const hasRawText = rawText !== null;
   const hasAudio = item.has_audio === 1;
   // The dual breakdown lives in the same expandable panel, so a dual row with no raw
-  // text still needs the toggle. Same for a row screen context rewrote.
-  const hasExpandable = hasRawText || !!dual || !!screenContext;
+  // text still needs the toggle. Same for a row screen context rewrote, or one whose
+  // terms are still in memory from this session.
+  const hasExpandable = hasRawText || !!dual || !!screenContext || !!screenTerms;
   const canExpand = hasExpandable && !isFailed && !isDiscarded;
 
   const timestampSource = item.timestamp.endsWith("Z") ? item.timestamp : `${item.timestamp}Z`;
@@ -424,7 +421,7 @@ export default function TranscriptionItem({
             {/* Also always visible: a transcript was rewritten from what was on
                 screen, and the user should be able to tell that from the list
                 rather than only after expanding a row they had no reason to. */}
-            {screenContext && (
+            {(screenContext || screenTerms) && (
               <button
                 type="button"
                 onClick={(event) => {
@@ -435,12 +432,12 @@ export default function TranscriptionItem({
               >
                 <ScanText size={10} />
                 <span className="whitespace-nowrap">
-                  {screenContext.replacements.length > 0
+                  {screenContext
                     ? t("controlPanel.history.screenContextCount", {
                         words: screenContext.replacements.length,
                       })
                     : t("controlPanel.history.screenContextRead", {
-                        words: screenContext.termCount,
+                        words: screenTerms?.termCount ?? 0,
                       })}
                 </span>
                 {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
@@ -683,22 +680,24 @@ export default function TranscriptionItem({
             )}
             {/* Every word screen context changed, spelled out. A recase is
                 cosmetic, but a substitute replaced one word with a different one
-                on the strength of a phonetic guess — so it is named, attributed
-                to the window it came from, and labelled by which tier did it. */}
-            {screenContext && (
+                on the strength of a phonetic guess — so it is named and labelled by
+                which tier did it. */}
+            {(screenContext || screenTerms) && (
               <div className="border-t border-border/20 mt-2 pt-2">
                 <div className="flex items-center justify-between gap-2">
                   <span className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
                     <ScanText size={10} />
                     {t("controlPanel.history.screenContextTitle")}
                   </span>
-                  {screenContext.window && (
+                  {/* In-memory only, like the terms — a window title is often the
+                      most identifying thing on a screen. */}
+                  {screenTerms?.window && (
                     <span className="truncate text-[10px] text-muted-foreground/50">
-                      {screenContext.window}
+                      {screenTerms.window}
                     </span>
                   )}
                 </div>
-                {screenContext.replacements.length > 0 ? (
+                {screenContext ? (
                   <ul className="mt-1 space-y-0.5">
                     {screenContext.replacements.map((replacement, index) => (
                       <li
@@ -729,40 +728,47 @@ export default function TranscriptionItem({
                 {/* The vocabulary that was on offer, whether or not any of it was
                     used. Without this a row that corrected nothing is unreadable:
                     there is no way to tell a window with nothing worth fixing from
-                    the wrong window, or from a capture that read no text at all. */}
-                {screenContext.terms.length > 0 && (
+                    the wrong window, or from a capture that read no text at all.
+                    Never persisted, so this is here for dictations from this session
+                    and absent for anything older. */}
+                {screenTerms && screenTerms.terms.length > 0 && (
                   <div className="mt-2">
-                    <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-                      {t("controlPanel.history.screenContextTerms", {
-                        words: screenContext.termCount,
-                      })}
-                    </span>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                        {t("controlPanel.history.screenContextTerms", {
+                          words: screenTerms.termCount,
+                        })}
+                      </span>
+                      {/* Only worth saying when something is actually marked. */}
+                      {usedTerms.size > 0 && (
+                        <span className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground/60">
+                          <Check size={9} className="text-primary" />
+                          {t("controlPanel.history.screenContextUsedLegend")}
+                        </span>
+                      )}
+                    </div>
                     <div className="mt-1 flex flex-wrap gap-1">
-                      {screenContext.terms.map((term, index) => {
+                      {screenTerms.terms.map((term, index) => {
                         const used = usedTerms.has(term.toLowerCase());
                         return (
                           <span
                             key={`${index}-${term}`}
                             className={cn(
-                              "rounded-sm px-1 py-px text-[10px] leading-relaxed",
+                              "inline-flex items-center gap-0.5 rounded-sm px-1 py-px text-[10px] leading-relaxed",
+                              // A used term has to be findable at a glance in a list of
+                              // hundreds, so it gets a tick and a border rather than a
+                              // tint that disappears among its neighbours.
                               used
-                                ? "bg-primary/15 font-semibold text-foreground"
-                                : "bg-foreground/5 text-muted-foreground/70"
+                                ? "border border-primary/40 bg-primary/20 font-semibold text-foreground"
+                                : "border border-transparent bg-foreground/5 text-muted-foreground/70"
                             )}
                           >
+                            {used && <Check size={9} className="text-primary" />}
                             {term}
                           </span>
                         );
                       })}
                     </div>
-                    {screenContext.termCount > screenContext.terms.length && (
-                      <p className="mt-1 text-[10px] text-muted-foreground/50">
-                        {t("controlPanel.history.screenContextTermsTruncated", {
-                          shown: screenContext.terms.length,
-                          total: screenContext.termCount,
-                        })}
-                      </p>
-                    )}
                   </div>
                 )}
               </div>

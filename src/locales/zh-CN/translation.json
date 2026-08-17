@@ -418,7 +418,7 @@
       "screenContextRead": "从屏幕读取了 {{words}} 个词",
       "screenContextNoCorrections": "没有需要更正的内容",
       "screenContextTerms": "从屏幕读取的词（{{words}}）",
-      "screenContextTermsTruncated": "显示 {{total}} 个中最常见的 {{shown}} 个"
+      "screenContextUsedLegend": "已用于更正转录"
     },
     "cloudMigration": {
       "title": "欢迎使用 OpenWhispr 云端",

@@ -418,7 +418,7 @@
       "screenContextRead": "{{words}} termes lus à l’écran",
       "screenContextNoCorrections": "Rien à corriger",
       "screenContextTerms": "Termes lus à l’écran ({{words}})",
-      "screenContextTermsTruncated": "Affichage des {{shown}} plus fréquents sur {{total}}"
+      "screenContextUsedLegend": "utilisés pour corriger la transcription"
     },
     "cloudMigration": {
       "title": "Bienvenue sur OpenWhispr Cloud",

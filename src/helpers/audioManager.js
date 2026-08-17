@@ -28,6 +28,7 @@ import {
   isCloudTranslationMode,
 } from "../stores/settingsStore";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
+import { recordScreenTerms } from "../stores/screenContextTerms";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree } from "../utils/transcriptReconcile";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
@@ -87,12 +88,6 @@ const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"])
 // recording to finish, so anything still running here is stuck, and a stuck
 // capture must cost the paste path milliseconds rather than seconds.
 const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
-// How many candidate terms a history row keeps. The matcher considers up to
-// MAX_TERMS (400); persisting all of them on every dictation would grow the
-// database faster than the transcripts do, and the point of showing them is to
-// judge whether the right window was read — which the most frequent terms answer.
-// The full count is stored alongside, so a truncated list says so.
-const PERSISTED_SCREEN_TERMS = 200;
 
 function dictationAgentReachable(settings) {
   return resolveDictationAgentInference(settings, { isCloudAgent: isCloudDictationAgentMode() })
@@ -2262,23 +2257,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const terms = extractScreenTerms(capture.text);
       const { text: corrected, replacements } = applyScreenTermCorrections(text, terms);
 
-      // Keep the most frequent terms, but never drop one that was actually used:
-      // a correction can be drawn from anywhere in the list, and a used term
-      // missing from the stored slice would render as an unexplained edit whose
-      // source is nowhere to be seen.
-      const kept = terms.slice(0, PERSISTED_SCREEN_TERMS);
-      const keptLower = new Set(kept.map((term) => term.toLowerCase()));
-      for (const { to } of replacements) {
-        if (!keptLower.has(to.toLowerCase())) {
-          kept.push(to);
-          keptLower.add(to.toLowerCase());
-        }
-      }
-
+      // The whole candidate list is kept. It is held in memory and never written
+      // anywhere, so there is no storage cost to trade against completeness —
+      // extractScreenTerms has already capped it at MAX_TERMS.
       this._lastScreenContext = {
         window: capture.window || "",
         replacements,
-        terms: kept,
+        terms,
         termCount: terms.length,
       };
       logger.info(
@@ -3937,6 +3922,23 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const screenContext = this._lastScreenContext;
     this._lastScreenContext = null;
 
+    // The OCR'd vocabulary stays in memory for the history view to show and is
+    // never written anywhere — it is the contents of whatever window the user was
+    // looking at, which is not about what they said. See screenContextTerms. Only
+    // the replacements are persisted below, and those words are already in the
+    // stored transcript, since the correction *is* the text that got pasted.
+    if (screenContext) {
+      recordScreenTerms(clientTranscriptionId, {
+        window: screenContext.window,
+        terms: screenContext.terms,
+        termCount: screenContext.termCount,
+      });
+    }
+    const screenContextJson =
+      screenContext && screenContext.replacements.length > 0
+        ? JSON.stringify({ replacements: screenContext.replacements })
+        : null;
+
     if (!getSettings().dataRetentionEnabled) {
       logger.debug("Skipping transcription save — data retention disabled", {}, "audio");
       this.lastAudioBlob = null;
@@ -3949,7 +3951,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         clientTranscriptionId,
         routeKind: this.translationRequested ? "translation" : null,
         dualJson: dual ? JSON.stringify(dual) : null,
-        screenContextJson: screenContext ? JSON.stringify(screenContext) : null,
+        screenContextJson,
       });
       if (result?.id) syncService.debouncedPush("transcription", result.id);
 

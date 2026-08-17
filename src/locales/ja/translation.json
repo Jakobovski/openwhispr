@@ -418,7 +418,7 @@
       "screenContextRead": "画面から {{words}} 語を読み取り",
       "screenContextNoCorrections": "修正の必要はありませんでした",
       "screenContextTerms": "画面から読み取った語 ({{words}})",
-      "screenContextTermsTruncated": "{{total}} 件のうち頻出 {{shown}} 件を表示"
+      "screenContextUsedLegend": "修正に使用"
     },
     "cloudMigration": {
       "title": "OpenWhispr Cloud へようこそ",

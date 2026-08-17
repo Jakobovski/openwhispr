@@ -21,7 +21,14 @@ const { COMMON_WORDS } = require("./commonWords");
 // Screen text is mostly chrome — menu labels, prose, button text. Only terms a
 // recognizer would plausibly get wrong are worth matching against.
 const MIN_TERM_LENGTH = 4;
-const MAX_TERMS = 400;
+// A safety bound for a pathological window (a minified bundle, a log dump), not a
+// quality filter. It used to be 400, which quietly discarded the best candidates:
+// terms are ordered by frequency, so the tail is the words that appeared once —
+// exactly where an unusual name or identifier lives. Raising it costs a larger map
+// per dictation and nothing else, and it does not make tier 2 less careful: two
+// terms sharing a phonetic key are dropped rather than guessed between, so a longer
+// list detects *more* ambiguity, not less.
+const MAX_TERMS = 5000;
 // Sanity bound on a tier-2 substitution, not the precision mechanism — the
 // phonetic key is what decides whether two words could be the same utterance.
 // Kept loose enough for genuine mishearings ("Shunade"/"Sinead" is 4/7 = 0.57);
