@@ -1890,7 +1890,7 @@
       "dualSecondTimeout": "Attendre le côté le plus lent",
       "dualSecondTimeoutDescription": "Quand un fournisseur a répondu, combien de temps l'autre obtient avant d'être abandonné.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualMissingKeys": "Ajoutez une clé API pour {{providers}} — la transcription double reste inactive tant que les deux fournisseurs n'en ont pas une.",
+      "dualMissingKeys": "Ajoute une clé API pour {{providers}} : la multi-transcription reste désactivée tant que chaque fournisseur sélectionné n’en a pas une.",
       "silenceTrim": "Rogner les silences",
       "silenceTrimDescription": "Supprime les silences avant l'envoi, pour ne pas payer les pauses.",
       "silenceTrimStrength": "Intensité",
@@ -3114,7 +3114,7 @@
     "dropRate": "abandons",
     "kinds": {
       "transcription": "Transcription",
-      "reconcile": "Fusion (mode double)"
+      "reconcile": "Fusion (mode multiple)"
     },
     "wer": "WER",
     "werTooltip": "médiane de {{count}} dictées fusionnées",

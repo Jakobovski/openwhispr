@@ -1890,7 +1890,7 @@
       "dualSecondTimeout": "Esperar al lado más lento",
       "dualSecondTimeoutDescription": "Cuando un proveedor responde, cuánto tiempo tiene el otro antes de descartarse.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualMissingKeys": "Añade una clave de API para {{providers}}: la transcripción doble seguirá desactivada hasta que ambos proveedores tengan una.",
+      "dualMissingKeys": "Añade una clave de API para {{providers}}: la multitranscripción permanece desactivada hasta que cada proveedor seleccionado tenga una.",
       "silenceTrim": "Recortar silencios",
       "silenceTrimDescription": "Elimina los silencios antes de enviar, para no pagar por las pausas.",
       "silenceTrimStrength": "Intensidad",
@@ -3114,7 +3114,7 @@
     "dropRate": "descartados",
     "kinds": {
       "transcription": "Transcripción",
-      "reconcile": "Combinación (modo doble)"
+      "reconcile": "Combinación (modo múltiple)"
     },
     "wer": "WER",
     "werTooltip": "mediana de {{count}} dictados combinados",

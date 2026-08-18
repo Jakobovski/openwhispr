@@ -2448,6 +2448,7 @@ export async function initializeSettings(): Promise<void> {
         bedrockSessionToken,
         azureApiKey,
         vertexApiKey,
+        azureSpeech,
       ] = await Promise.all([
         window.electronAPI.getOpenAIKey?.(),
         window.electronAPI.getAnthropicKey?.(),
@@ -2467,6 +2468,7 @@ export async function initializeSettings(): Promise<void> {
         window.electronAPI.getBedrockSessionToken?.(),
         window.electronAPI.getAzureApiKey?.(),
         window.electronAPI.getVertexApiKey?.(),
+        window.electronAPI.getAzurespeechKey?.(),
       ]);
 
       useSettingsStore.setState({
@@ -2488,6 +2490,7 @@ export async function initializeSettings(): Promise<void> {
         bedrockSessionToken: bedrockSessionToken || "",
         azureApiKey: azureApiKey || "",
         vertexApiKey: vertexApiKey || "",
+        azureSpeechApiKey: azureSpeech || "",
       });
 
       for (const key of STALE_SECRET_LOCALSTORAGE_KEYS) {

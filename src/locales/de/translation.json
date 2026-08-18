@@ -1842,7 +1842,7 @@
       "dualSecondTimeout": "Auf die langsamere Seite warten",
       "dualSecondTimeoutDescription": "Wenn ein Anbieter geantwortet hat, wie lange der andere noch bekommt, bevor er verworfen wird.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualMissingKeys": "Füge einen API-Schlüssel für {{providers}} hinzu – die doppelte Transkription bleibt aus, bis beide Anbieter einen haben.",
+      "dualMissingKeys": "Füge einen API-Schlüssel für {{providers}} hinzu — Multi-Transkription bleibt aus, bis jeder ausgewählte Anbieter einen hat.",
       "silenceTrim": "Stille kürzen",
       "silenceTrimDescription": "Entfernt Stille vor dem Upload, damit Pausen nicht berechnet werden.",
       "silenceTrimStrength": "Stärke",
@@ -3114,7 +3114,7 @@
     "dropRate": "verworfen",
     "kinds": {
       "transcription": "Transkription",
-      "reconcile": "Zusammenführung (Dual-Modus)"
+      "reconcile": "Zusammenführung (Multi-Modus)"
     },
     "wer": "WER",
     "werTooltip": "Median aus {{count}} zusammengeführten Diktaten",

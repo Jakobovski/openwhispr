@@ -2015,7 +2015,7 @@
       "dualSecondTimeout": "Wait for the slower side",
       "dualSecondTimeoutDescription": "Once one provider answers, how long the other gets before it is dropped.",
       "dualSecondTimeoutValue": "{{seconds}}s",
-      "dualMissingKeys": "Add an API key for {{providers}} — dual transcription stays off until both providers have one.",
+      "dualMissingKeys": "Add an API key for {{providers}} — multi-transcription stays off until every selected provider has one.",
       "silenceTrim": "Trim silence",
       "silenceTrimDescription": "Remove silence before uploading, so you are not billed for pauses.",
       "silenceTrimStrength": "Trim strength",
@@ -3114,7 +3114,7 @@
     "dropRate": "dropped",
     "kinds": {
       "transcription": "Transcription",
-      "reconcile": "Merge (dual mode)"
+      "reconcile": "Merge (multi mode)"
     },
     "wer": "WER",
     "werTooltip": "median of {{count}} merged dictations",

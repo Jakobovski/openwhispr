@@ -91,6 +91,11 @@ const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"])
 // capture must cost the paste path milliseconds rather than seconds.
 const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
 
+// How many screen terms the merge prompt carries. The phrase list Azure gets is capped
+// separately and higher: biasing a recogniser is cheap, while every term here is prompt
+// input on a call the user is waiting through.
+const RECONCILE_SCREEN_TERM_LIMIT = 200;
+
 // Providers whose transcription endpoint is OpenAI's: multipart POST to
 // /audio/transcriptions with `file` and `model`, answering `{ text }`. xAI is absent
 // on purpose — it goes through a main-process proxy and takes no model.
@@ -3730,7 +3735,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             localStorage.getItem("agentName") || null,
             this.getCustomDictionaryArray(),
             language,
-            settings.uiLanguage
+            settings.uiLanguage,
+            // The vocabulary that was on screen, so a disagreement about a name can be
+            // settled by the spelling the speaker was looking at. Capped by frequency
+            // rather than sent whole: this rides in the paste path behind a one-second
+            // budget, and the tail of a dense window is single-occurrence noise that
+            // costs tokens without helping. The list is already frequency-ordered.
+            (this._screenContext?.terms ?? []).slice(0, RECONCILE_SCREEN_TERM_LIMIT)
           ),
           temperature: 0,
           disableThinking: true,

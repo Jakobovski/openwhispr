@@ -1842,7 +1842,7 @@
       "dualSecondTimeout": "Attendi il lato più lento",
       "dualSecondTimeoutDescription": "Quando un provider risponde, quanto tempo ha l'altro prima di essere scartato.",
       "dualSecondTimeoutValue": "{{seconds}} s",
-      "dualMissingKeys": "Aggiungi una chiave API per {{providers}}: la trascrizione doppia resta disattivata finché entrambi i provider non ne hanno una.",
+      "dualMissingKeys": "Aggiungi una chiave API per {{providers}}: la multi-trascrizione resta disattivata finché ogni provider selezionato non ne ha una.",
       "silenceTrim": "Taglia i silenzi",
       "silenceTrimDescription": "Rimuove i silenzi prima dell'invio, per non pagare le pause.",
       "silenceTrimStrength": "Intensità",
@@ -3114,7 +3114,7 @@
     "dropRate": "scartati",
     "kinds": {
       "transcription": "Trascrizione",
-      "reconcile": "Unione (modalità doppia)"
+      "reconcile": "Unione (modalità multipla)"
     },
     "wer": "WER",
     "werTooltip": "mediana di {{count}} dettature unite",

@@ -1192,6 +1192,8 @@ declare global {
       getGroqKey: () => Promise<string | null>;
       saveGroqKey: (key: string) => Promise<void>;
       getOpenrouterKey: () => Promise<string | null>;
+      getAzurespeechKey: () => Promise<string | null>;
+      saveAzurespeechKey: (key: string) => Promise<{ success: boolean }>;
       saveOpenrouterKey: (key: string) => Promise<void>;
 
       // xAI API key management

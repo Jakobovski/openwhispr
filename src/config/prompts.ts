@@ -24,9 +24,16 @@ export function getReconcileSystemPrompt(
   agentName: string | null,
   customDictionary?: string[],
   language?: string,
-  uiLanguage?: string
+  uiLanguage?: string,
+  screenTerms?: string[]
 ): string {
-  return resolvePrompt("reconcile", { agentName, language, customDictionary, uiLanguage });
+  return resolvePrompt("reconcile", {
+    agentName,
+    language,
+    customDictionary,
+    uiLanguage,
+    screenTerms,
+  });
 }
 
 // Mirrors wrapCleanupTranscript, which tags the single-transcript input.

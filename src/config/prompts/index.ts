@@ -11,6 +11,13 @@ export interface ResolvePromptOptions {
   uiLanguage?: string;
   language?: string;
   customDictionary?: string[];
+  /**
+   * Distinctive terms read from the window the user dictated into. Given to the merge so
+   * it can settle a disagreement about a name using the spelling that was on screen.
+   * Single tokens by construction — extractScreenTerms splits on whitespace — so this
+   * cannot smuggle a sentence into the prompt.
+   */
+  screenTerms?: string[];
   targetLanguageLabel?: string;
 }
 
@@ -49,6 +56,28 @@ export function appendDictionarySuffix(
   return prompt + suffix + customDictionary.join(", ");
 }
 
+/**
+ * Appends the vocabulary that was on screen.
+ *
+ * Separate from the dictionary suffix rather than merged into it, because the two carry
+ * different authority: the dictionary is what the user deliberately curated, the screen
+ * is whatever happened to be visible. Telling the model which is which lets it weigh
+ * them differently, and keeps a stray word from a browser tab from being presented as
+ * the user's own preferred spelling.
+ */
+export function appendScreenTermsSuffix(
+  prompt: string,
+  screenTerms?: string[],
+  uiLanguage?: string
+): string {
+  if (!screenTerms?.length) return prompt;
+  const locale = normalizeUiLanguage(uiLanguage || "en");
+  const suffix = i18n.getFixedT(locale, "prompts")("screenTermsSuffix", {
+    defaultValue: enPrompts.screenTermsSuffix,
+  });
+  return prompt + suffix + screenTerms.join(", ");
+}
+
 function applySubstitutions(template: string, opts: ResolvePromptOptions): string {
   const name = opts.agentName?.trim() || "Assistant";
   let prompt = template.replace(/\{\{agentName\}\}/g, name);
@@ -60,5 +89,6 @@ function applySubstitutions(template: string, opts: ResolvePromptOptions): strin
   const langInstruction = getLanguageInstruction(opts.language);
   if (langInstruction) prompt += "\n\n" + langInstruction;
 
-  return appendDictionarySuffix(prompt, opts.customDictionary, opts.uiLanguage);
+  const withDictionary = appendDictionarySuffix(prompt, opts.customDictionary, opts.uiLanguage);
+  return appendScreenTermsSuffix(withDictionary, opts.screenTerms, opts.uiLanguage);
 }

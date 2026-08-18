@@ -82,9 +82,11 @@ export const MULTI_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object
 
 export const DEFAULT_MULTI_PROVIDER_A = "xai";
 export const DEFAULT_MULTI_PROVIDER_B = "openai";
-// Slot C is OpenRouter's MAI-Transcribe rather than Groq's Whisper. Groq is still
-// selectable; it is no longer the third opinion by default.
-export const DEFAULT_MULTI_PROVIDER_C = "openrouter";
+// Slot C is Azure's MAI-Transcribe. Same model as the OpenRouter lane, reached
+// directly — which is the only route that accepts a phrase list, so this lane is the
+// one that gets the speaker's own vocabulary before it listens. OpenRouter and Groq
+// stay selectable.
+export const DEFAULT_MULTI_PROVIDER_C = "azure-speech";
 
 /** Slot defaults, keyed the way the fan-out reads them. */
 export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = {

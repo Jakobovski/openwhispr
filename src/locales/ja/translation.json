@@ -1842,7 +1842,7 @@
       "dualSecondTimeout": "遅い側を待つ時間",
       "dualSecondTimeoutDescription": "一方のプロバイダーが応答してから、もう一方が破棄されるまでの猶予時間。",
       "dualSecondTimeoutValue": "{{seconds}} 秒",
-      "dualMissingKeys": "{{providers}} の API キーを追加してください。両方のプロバイダーにキーがそろうまで、デュアル文字起こしは無効のままです。",
+      "dualMissingKeys": "{{providers}} の API キーを追加してください。選択したすべてのプロバイダーにキーが揃うまでマルチ文字起こしは無効のままです。",
       "silenceTrim": "無音を除去",
       "silenceTrimDescription": "アップロード前に無音を除去し、間の時間に課金されないようにします。",
       "silenceTrimStrength": "除去の強さ",
@@ -3114,7 +3114,7 @@
     "dropRate": "破棄",
     "kinds": {
       "transcription": "文字起こし",
-      "reconcile": "統合（デュアルモード）"
+      "reconcile": "統合（マルチモード）"
     },
     "wer": "WER",
     "werTooltip": "統合された {{count}} 件の口述の中央値",

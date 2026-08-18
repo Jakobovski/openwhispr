@@ -1837,7 +1837,7 @@
       "dualSecondTimeout": "等待较慢的一方",
       "dualSecondTimeoutDescription": "一个提供商返回结果后，另一个还有多久才会被放弃。",
       "dualSecondTimeoutValue": "{{seconds}} 秒",
-      "dualMissingKeys": "请为 {{providers}} 添加 API 密钥 — 在两个提供商都有密钥之前，双重转录不会生效。",
+      "dualMissingKeys": "请为 {{providers}} 添加 API 密钥——在所选的每个提供商都有密钥之前，多重转录将保持关闭。",
       "silenceTrim": "裁剪静音",
       "silenceTrimDescription": "上传前移除静音，避免为停顿付费。",
       "silenceTrimStrength": "裁剪强度",
@@ -3109,7 +3109,7 @@
     "dropRate": "丢弃",
     "kinds": {
       "transcription": "转录",
-      "reconcile": "合并（双重模式）"
+      "reconcile": "合并（多重模式）"
     },
     "wer": "WER",
     "werTooltip": "{{count}} 次合并口述的中位数",
