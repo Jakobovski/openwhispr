@@ -158,6 +158,15 @@ export const TRANSCRIPTION_QUALITY_ORDER = ["azure-speech", "xai", "openai", "gr
 // fastest of everything tried, but two content failures reproduced across two
 // clean benchmark runs — it drops the frequency-bias rule with reasoning fully
 // off, and once returned a different test case's answer outright.
+//
+// xAI's own model list (cloudProviders, not this array) drops Grok 4.3 and keeps
+// the other two, at the user's request. Grok 4.3 is the one with a measured reason
+// to leave out: `reasoning_effort: "low"` is sent automatically whenever the merge
+// runs (see thinkingSuppressionDialects.ts), and verified live it barely responds —
+// 331 → 329 reasoning tokens, no latency change — where the same hint cuts Grok
+// 4.5's reasoning tokens 324 → 86 and its latency 6.1s → 2.6s. The non-reasoning
+// variant needs no hint at all and was the fastest of the three measured
+// (641-902ms median across earlier benchmark runs).
 export const RECONCILE_PROVIDER_IDS = ["openrouter", "xai"];
 
 // How long the second provider gets *after* the first has answered. Past this the
