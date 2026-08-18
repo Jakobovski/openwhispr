@@ -3842,13 +3842,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       });
     });
 
-    const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
-      reconcileTracked,
-      reconcileSettled,
-      reconcileBudgetMs
-    );
+    const { firstSuccessIndex: reconcileFirstSuccessIndex, droppedIndexes: reconcileDroppedIndexes } =
+      await awaitLanesWithBudget(reconcileTracked, reconcileSettled, reconcileBudgetMs);
 
-    if (firstSuccessIndex === -1) {
+    if (reconcileFirstSuccessIndex === -1) {
       // Every merge lane failed outright — not the same as timing out, but the same
       // fallback: the best single transcript stands.
       logger.warn(
@@ -3862,8 +3859,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return { ...base, text: fallback.text, reconciled: false, mergedFrom: answered.length, agreed };
     }
 
-    const winner = reconcileLanes[firstSuccessIndex];
-    if (droppedIndexes.length > 0) {
+    const winner = reconcileLanes[reconcileFirstSuccessIndex];
+    if (reconcileDroppedIndexes.length > 0) {
       // Only reachable with dual cleanup on: the other slot did not answer within its
       // grace period after the first one did. It keeps running in the background — see
       // the stats recording above — but this dictation does not wait for it.
@@ -3872,7 +3869,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         {
           budgetMs: reconcileBudgetMs,
           won: `${winner.provider}/${winner.model}`,
-          stillRunning: droppedIndexes.map(
+          stillRunning: reconcileDroppedIndexes.map(
             (index) => `${reconcileLanes[index].provider}/${reconcileLanes[index].model}`
           ),
         },
@@ -3881,8 +3878,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
 
     const trimmed =
-      typeof reconcileSettled[firstSuccessIndex].value === "string"
-        ? reconcileSettled[firstSuccessIndex].value.trim()
+      typeof reconcileSettled[reconcileFirstSuccessIndex].value === "string"
+        ? reconcileSettled[reconcileFirstSuccessIndex].value.trim()
         : "";
     if (!trimmed) {
       // The winning lane technically succeeded but returned nothing usable — same

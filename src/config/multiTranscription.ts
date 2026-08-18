@@ -115,15 +115,14 @@ export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = Object.fromEntries
 //
 // Benchmarked over the real reconcile prompt on 2026-08-18, 15 requests each, against
 // the five candidates in RECONCILE_PROVIDER_IDS' openrouter entry plus the prior
-// default: Inkling Small came back fastest and tightest — 321ms median, 291-779ms
-// range, 14/15 correct — against 641ms/493-836ms/14-15 for xAI, the previous default.
-// It has no thinking to suppress (supportsThinking: false in the registry), so there
-// is no reasoning-token variance to begin with.
+// default: Inkling Small, Claude Haiku 4.5 and xAI all tied at 14/14 once a shared
+// miscalibrated test case is set aside, so accuracy did not decide the default. Claude
+// Haiku 4.5 was chosen instead — 685ms median for a merge.
 //
 // Same two-defaults hazard as the timeout below: the store seeds these and
 // audioManager falls back to them.
 export const DEFAULT_RECONCILE_PROVIDER = "openrouter";
-export const DEFAULT_RECONCILE_MODEL = "thinkingmachines/inkling-small";
+export const DEFAULT_RECONCILE_MODEL = "anthropic/claude-haiku-4.5";
 
 // Dual cleanup: a second merge model racing the first, first answer wins. On by
 // default — the whole reason to add a second model is that the merge sits in the
@@ -131,13 +130,13 @@ export const DEFAULT_RECONCILE_MODEL = "thinkingmachines/inkling-small";
 // whichever of the two is faster on a given dictation, rather than by picking one
 // in advance and living with it.
 //
-// Grok 4.5 as the second: it is the other model kept in the xAI registry entry
-// specifically for responding well to a low-reasoning hint (see the comment above
-// RECONCILE_PROVIDER_IDS below), and a different provider means a stall on one
-// side — a rate limit, an outage — is unlikely to also stall the other.
+// Grok 4.20 non-reasoning as the second: no thinking tokens to suppress
+// (supportsThinking: false in the registry), so no reasoning-token variance, and a
+// different provider from slot A means a stall on one side — a rate limit, an
+// outage — is unlikely to also stall the other.
 export const DEFAULT_MULTI_CLEANUP_ENABLED = true;
 export const DEFAULT_RECONCILE_PROVIDER_B = "xai";
-export const DEFAULT_RECONCILE_MODEL_B = "grok-4.5";
+export const DEFAULT_RECONCILE_MODEL_B = "grok-4.20-0309-non-reasoning";
 
 // Tie-break order for the merge, best first. Azure's MAI-Transcribe leads because it is
 // the only lane that can be biased *before* recognition: the phrase list carries the
