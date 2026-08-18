@@ -7,6 +7,11 @@ import logger from "../../../utils/logger";
 import { getConfiguredOpenAIBase } from "../openaiBase";
 import { applyThinkingSuppression } from "../thinkingSuppression";
 import { detectEndpointDialect } from "../thinkingSuppressionDialects";
+import {
+  buildOpenRouterProviderRouting,
+  isReasoningMandatoryError,
+  fallbackReasoningRequest,
+} from "../openrouterRouting";
 import { extractApiErrorMessage } from "../apiErrorMessage";
 import { wrapCleanupTranscript } from "../../../config/prompts";
 
@@ -205,6 +210,13 @@ export const openaiProvider: InferenceProvider = {
           const apiConfig = dialect ?? getOpenAiApiConfig(model, resolvedProvider);
           const requestBody: Record<string, unknown> = { model };
 
+          // Applies to every OpenRouter call, present and future models alike — see
+          // openrouterRouting.ts for why (a model added to the registry needs no
+          // routing config of its own to get this).
+          if (isOpenRouter) {
+            requestBody.provider = buildOpenRouterProviderRouting();
+          }
+
           if (type === "responses") {
             requestBody.input = messages;
             requestBody.store = false;
@@ -222,15 +234,36 @@ export const openaiProvider: InferenceProvider = {
             requestBody.temperature = config.temperature ?? (config.systemPrompt ? 0.3 : 0);
           }
 
-          const res = await fetch(endpoint, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${apiKey}`,
-            },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal,
-          });
+          const doFetch = () =>
+            fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${apiKey}`,
+              },
+              body: JSON.stringify(requestBody),
+              signal: controller.signal,
+            });
+
+          let res = await doFetch();
+
+          // A hard reasoning disable is what suppressThinking() sends by default, and
+          // some OpenRouter models reject it outright rather than ignoring it — a 400
+          // this generic retry loop doesn't otherwise handle, since it isn't a
+          // transient failure. Retried once with the softer request every model
+          // tested accepts, rather than maintaining a static list of which models
+          // reject a hard disable — that list can only ever be behind whatever
+          // OpenRouter has added since it was last updated.
+          if (!res.ok && isOpenRouter && requestBody.reasoning) {
+            const rejection = await res
+              .clone()
+              .json()
+              .catch(() => null);
+            if (isReasoningMandatoryError(rejection ? extractApiErrorMessage(rejection, "") : null)) {
+              requestBody.reasoning = fallbackReasoningRequest();
+              res = await doFetch();
+            }
+          }
 
           if (!res.ok) {
             const errorData = await res.json().catch(() => ({ error: res.statusText }));

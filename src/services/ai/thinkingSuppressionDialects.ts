@@ -40,16 +40,20 @@ export function suppressThinking(
   // OpenRouter forwards unknown params to upstream backends, which may reject
   // them — use its native reasoning control instead.
   //
-  // Not `{ enabled: false }`: several reasoning-mandatory models (verified live —
-  // Gemini 3.6/3.7 Flash, Meta's Muse Glimmer) reject that outright with "Reasoning
-  // is mandatory for this endpoint and cannot be disabled," a 400 that propagates
-  // as a thrown error with no retry — so the reconcile call for those models never
-  // completed, and every merge silently fell back to picking a lane instead. Their
-  // *effort* can still be turned down even when it can't be turned off: `minimal`
-  // is accepted by all three and got Gemini's reasoning token count to zero in
-  // testing (Muse Glimmer still spends a small amount, but far less than default).
+  // A hard disable, not `effort: "minimal"`: verified live that `{ enabled: false }`
+  // genuinely gets reasoning to zero tokens on well-behaved models (nvidia's
+  // nemotron-3.5-lightning, for one), where `effort: "minimal"` is a request the
+  // model is free to ignore — nemotron did, spending 1300+ reasoning tokens anyway
+  // and blowing the completion budget before any content came out.
+  //
+  // Some models reject the hard disable outright instead of just ignoring it —
+  // "Reasoning is mandatory for this endpoint and cannot be disabled," confirmed
+  // live for Gemini 3.6/3.7 Flash and Meta's Muse Glimmer — which the OpenAI-
+  // compatible client has no generic retry for; see openrouterRouting.ts and its
+  // use in openai.ts, which catches exactly that error and retries once with the
+  // softer request those models do accept.
   if (providerKey === "openrouter") {
-    requestBody.reasoning = { effort: "minimal" };
+    requestBody.reasoning = { enabled: false };
     return;
   }
 
