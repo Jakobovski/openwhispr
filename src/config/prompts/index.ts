@@ -12,12 +12,15 @@ export interface ResolvePromptOptions {
   language?: string;
   customDictionary?: string[];
   /**
-   * Distinctive terms read from the window the user dictated into. Given to the merge so
-   * it can settle a disagreement about a name using the spelling that was on screen.
-   * Single tokens by construction — extractScreenTerms splits on whitespace — so this
-   * cannot smuggle a sentence into the prompt.
+   * The speaker's vocabulary for this dictation: their custom dictionary followed by the
+   * distinctive terms read from the window they were looking at. The same list the
+   * recogniser is biased with, so the merge and the recogniser agree about what words
+   * were in play.
+   *
+   * Screen terms are single tokens by construction — extraction splits on whitespace —
+   * so this cannot smuggle a sentence into the prompt.
    */
-  screenTerms?: string[];
+  vocabulary?: string[];
   targetLanguageLabel?: string;
 }
 
@@ -57,25 +60,25 @@ export function appendDictionarySuffix(
 }
 
 /**
- * Appends the vocabulary that was on screen.
+ * Appends the speaker's vocabulary for this dictation.
  *
- * Separate from the dictionary suffix rather than merged into it, because the two carry
- * different authority: the dictionary is what the user deliberately curated, the screen
- * is whatever happened to be visible. Telling the model which is which lets it weigh
- * them differently, and keeps a stray word from a browser tab from being presented as
- * the user's own preferred spelling.
+ * One list rather than a curated block and a screen block, because it is one list
+ * everywhere else: the same array is what biases the recogniser. Two assemblies of the
+ * same idea drifted apart once already — different caps, different contents, and the
+ * merge seeing words the recogniser never got. Ordering carries the authority instead:
+ * the dictionary comes first, so it survives the cap when a dense window would fill it.
  */
-export function appendScreenTermsSuffix(
+export function appendVocabularySuffix(
   prompt: string,
-  screenTerms?: string[],
+  vocabulary?: string[],
   uiLanguage?: string
 ): string {
-  if (!screenTerms?.length) return prompt;
+  if (!vocabulary?.length) return prompt;
   const locale = normalizeUiLanguage(uiLanguage || "en");
-  const suffix = i18n.getFixedT(locale, "prompts")("screenTermsSuffix", {
-    defaultValue: enPrompts.screenTermsSuffix,
+  const suffix = i18n.getFixedT(locale, "prompts")("vocabularySuffix", {
+    defaultValue: enPrompts.vocabularySuffix,
   });
-  return prompt + suffix + screenTerms.join(", ");
+  return prompt + suffix + vocabulary.join(", ");
 }
 
 function applySubstitutions(template: string, opts: ResolvePromptOptions): string {
@@ -90,5 +93,5 @@ function applySubstitutions(template: string, opts: ResolvePromptOptions): strin
   if (langInstruction) prompt += "\n\n" + langInstruction;
 
   const withDictionary = appendDictionarySuffix(prompt, opts.customDictionary, opts.uiLanguage);
-  return appendScreenTermsSuffix(withDictionary, opts.screenTerms, opts.uiLanguage);
+  return appendVocabularySuffix(withDictionary, opts.vocabulary, opts.uiLanguage);
 }

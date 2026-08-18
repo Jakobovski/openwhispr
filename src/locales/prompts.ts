@@ -14,7 +14,7 @@ export interface PromptBundle {
   reconcilePrompt: string;
   fullPrompt: string;
   dictionarySuffix: string;
-  screenTermsSuffix: string;
+  vocabularySuffix: string;
   translatePrompt: string;
 }
 

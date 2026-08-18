@@ -91,10 +91,14 @@ const REALTIME_MODELS = new Set(["gpt-4o-mini-transcribe", "gpt-4o-transcribe"])
 // capture must cost the paste path milliseconds rather than seconds.
 const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
 
-// How many screen terms the merge prompt carries. The phrase list Azure gets is capped
-// separately and higher: biasing a recogniser is cheap, while every term here is prompt
-// input on a call the user is waiting through.
-const RECONCILE_SCREEN_TERM_LIMIT = 200;
+// How many words of the speaker's vocabulary travel with a dictation — the custom
+// dictionary plus the distinctive terms read from the screen, as one list.
+//
+// One limit rather than one per consumer. The same vocabulary goes to the recogniser
+// that can be biased and to the model that merges the results, and a term that biased
+// recognition but was invisible to the merge is the sort of inconsistency that makes a
+// disagreement impossible to reason about.
+const DICTATION_VOCABULARY_LIMIT = 200;
 
 // Providers whose transcription endpoint is OpenAI's: multipart POST to
 // /audio/transcriptions with `file` and `model`, answering `{ text }`. xAI is absent
@@ -2274,10 +2278,27 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    * because it is durable and deliberate, so it wins the budget when screen text is
    * plentiful.
    */
-  async getTranscriptionPhrases() {
+  async getDictationVocabulary() {
     const dictionary = this.getCustomDictionaryArray() ?? [];
     const capture = await this.ensureScreenContext();
-    return [...dictionary, ...(capture?.terms ?? [])];
+
+    // Dictionary first: it is what the user deliberately curated, so it wins the cap
+    // when a text-heavy window would otherwise fill it. Screen terms follow in the
+    // frequency order extraction produced. Deduplicated case-insensitively because the
+    // same term routinely arrives from both, and a duplicate spends the budget twice.
+    const seen = new Set();
+    const vocabulary = [];
+    for (const term of [...dictionary, ...(capture?.terms ?? [])]) {
+      if (typeof term !== "string") continue;
+      const trimmed = term.trim();
+      if (!trimmed) continue;
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      vocabulary.push(trimmed);
+      if (vocabulary.length >= DICTATION_VOCABULARY_LIMIT) break;
+    }
+    return vocabulary;
   }
 
   /** Drop a capture whose dictation will never produce a transcript. */
@@ -3419,7 +3440,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         // Azure rejects a bare "en"; an absent locale means the model's multilingual
         // mode, which is the right default when the user has not chosen a language.
         locale: language && language !== "auto" ? toAzureLocale(language) : undefined,
-        phrases: await this.getTranscriptionPhrases(),
+        phrases: await this.getDictationVocabulary(),
         model,
       });
       text = result?.text;
@@ -3716,13 +3737,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       ? settings.dualTranscriptionReconcileTimeoutMs
       : DEFAULT_RECONCILE_TIMEOUT_MS;
 
-    // Collected here rather than read off the field, because the field is only populated
-    // as a side effect of something else asking: the Azure lane's phrase list, or the
-    // post-transcription matcher, which runs after this. Reading it directly meant the
-    // merge got the screen vocabulary only when an Azure lane happened to have fetched
-    // it first, and nothing at all on a xAI/OpenAI/Groq setup. It is cached per
-    // dictation, so when the phrase list did ask, this costs nothing.
-    const screenContext = await this.ensureScreenContext();
+    // The same list the recogniser was biased with, built once by the same method. Not
+    // read off a field: that field is populated as a side effect of something else
+    // asking, so the merge used to get the vocabulary only when an Azure lane happened
+    // to have fetched it first, and nothing at all on an xAI/OpenAI/Groq setup. The
+    // screen capture behind it is cached per dictation, so asking again is free.
+    const vocabulary = await this.getDictationVocabulary();
 
     try {
       const mergePromise = ReasoningService.processText(
@@ -3741,15 +3761,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           // prompt-injection resistance and few-shot examples.
           systemPrompt: getReconcileSystemPrompt(
             localStorage.getItem("agentName") || null,
-            this.getCustomDictionaryArray(),
+            // No separate dictionary argument: it is already the head of the vocabulary
+            // below, and passing both would list every curated word twice.
+            undefined,
             language,
             settings.uiLanguage,
-            // The vocabulary that was on screen, so a disagreement about a name can be
-            // settled by the spelling the speaker was looking at. Capped by frequency
-            // rather than sent whole: this rides in the paste path behind a one-second
-            // budget, and the tail of a dense window is single-occurrence noise that
-            // costs tokens without helping. The list is already frequency-ordered.
-            (screenContext?.terms ?? []).slice(0, RECONCILE_SCREEN_TERM_LIMIT)
+            vocabulary
           ),
           temperature: 0,
           disableThinking: true,

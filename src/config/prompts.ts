@@ -25,14 +25,14 @@ export function getReconcileSystemPrompt(
   customDictionary?: string[],
   language?: string,
   uiLanguage?: string,
-  screenTerms?: string[]
+  vocabulary?: string[]
 ): string {
   return resolvePrompt("reconcile", {
     agentName,
     language,
     customDictionary,
     uiLanguage,
-    screenTerms,
+    vocabulary,
   });
 }
 
