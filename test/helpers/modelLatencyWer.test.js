@@ -130,3 +130,57 @@ test("a dropped lane still contributes its rate if it had one", () => {
   assert.equal(row.n, 0, "a drop is not a timing sample");
   assert.equal(row.wer_n, 1);
 });
+
+test("mean and p95 are computed over the same samples as median, and p95 needs no math to check", () => {
+  // 20 samples: 19 quick, one deliberately far out. p95 is defined as "the smallest
+  // sample at or beyond the 95th percentile" — with exactly 20 samples that is the
+  // 19th one once sorted, chosen so the answer is obvious by construction rather than
+  // needing a percentile formula to verify the test itself.
+  const db = freshDb();
+  const fast = Array.from({ length: 19 }, () => 100);
+  const samples = [...fast, 5000];
+  for (const ms of samples) {
+    db.recordModelLatency({ kind: "reconcile", provider: "openrouter", model: "inkling", ms });
+  }
+
+  const row = statFor(db, "openrouter");
+  assert.equal(row.n, 20);
+  assert.equal(row.median_ms, 100);
+  assert.equal(row.p95_ms, 100, "the 19th of 20 sorted samples is still in the fast cluster");
+  assert.equal(row.max_ms, 5000, "the outlier is still visible as the max");
+  // Mean is dragged by the outlier in a way median and p95 are not — (19*100+5000)/20.
+  assert.equal(row.mean_ms, Math.round((19 * 100 + 5000) / 20));
+});
+
+test("p95 with a single sample is that sample, not a divide-by-zero", () => {
+  const db = freshDb();
+  db.recordModelLatency({ kind: "reconcile", provider: "xai", model: "grok-4.5", ms: 640 });
+
+  const row = statFor(db, "xai");
+  assert.equal(row.p95_ms, 640);
+  assert.equal(row.mean_ms, 640);
+});
+
+test("mean and p95 are null with no successful samples, same as median", () => {
+  const db = freshDb();
+  db.recordModelLatency({ kind: "reconcile", provider: "xai", model: "grok-4.5", ms: null, outcome: "failed" });
+
+  const row = statFor(db, "xai");
+  assert.equal(row.n, 0);
+  assert.equal(row.mean_ms, null);
+  assert.equal(row.p95_ms, null);
+});
+
+test("two reconcile rows for the same kind stay separate, one per model", () => {
+  // The whole point of racing two merge models: their stats have to be comparable
+  // side by side, which means never collapsed into one row for the shared "reconcile"
+  // kind — grouping is (kind, provider, model), and this pins that it stays that way.
+  const db = freshDb();
+  db.recordModelLatency({ kind: "reconcile", provider: "openrouter", model: "inkling-small", ms: 300 });
+  db.recordModelLatency({ kind: "reconcile", provider: "xai", model: "grok-4.5", ms: 700 });
+
+  const stats = db.getModelLatencyStats().stats.filter((row) => row.kind === "reconcile");
+  assert.equal(stats.length, 2);
+  assert.ok(stats.some((row) => row.provider === "openrouter" && row.median_ms === 300));
+  assert.ok(stats.some((row) => row.provider === "xai" && row.median_ms === 700));
+});

@@ -158,6 +158,58 @@ test("the merge model shown is the one that will be sent", () => {
   );
 });
 
+test("dual cleanup mode races two lanes, each carrying its own provider and model", () => {
+  // Sliced from the reconcile lanes' construction to the race call: the whole point of
+  // racing two merge models is comparing them, so slot B must reach the request builder
+  // with its own settings, not slot A's. A version that hardcoded slot A onto both lanes
+  // would still "work" — one model would just always answer for both — silently, since
+  // nothing about the race would look broken. Sliced from a stable anchor rather than
+  // matching the whole block verbatim, so unrelated edits in between don't rot this test.
+  const start = audioManager.indexOf("const reconcileLanes = [");
+  const end = audioManager.indexOf("awaitLanesWithBudget(", start);
+  assert.ok(start > -1 && end > start, "could not find the reconcile race — has it moved?");
+  const section = audioManager.slice(start, end);
+
+  assert.match(section, /provider:\s*lane\.provider/, "each lane must send its own provider");
+  assert.match(section, /model:\s*lane\.model/, "each lane must send its own model");
+  assert.match(
+    section,
+    /getEffectiveReconcileModelB\(\)/,
+    "slot B must read its own effective model, not slot A's"
+  );
+  assert.match(
+    section,
+    /if \(settings\.multiCleanupEnabled\)/,
+    "slot B must only join the race when dual cleanup mode is on"
+  );
+});
+
+test("the second model picker only renders when dual cleanup mode is on", () => {
+  // A picker that always rendered would let the user set a slot B model that never
+  // races anything while the toggle is off — a setting with no effect, and no visible
+  // sign that it has none. There are two <ReconcileSlotPicker> uses in this file: the
+  // first is slot A, always on screen; this pins that the second one — the one with
+  // secondProvider/secondModel labels — is the one gated behind the toggle.
+  assert.match(
+    cleanupPanel,
+    /\{multiCleanupEnabled && \(\s*<ReconcileSlotPicker[\s\S]{0,200}secondProvider/,
+    "the second slot picker must be gated behind multiCleanupEnabled"
+  );
+});
+
+test("a reconcile lane's real latency is still recorded after it loses the race", () => {
+  // The loser is dropped from the paste path but must not be dropped from the stats —
+  // that is the entire reason dual cleanup mode is worth measuring. This has to be a
+  // continuation attached at lane creation, not code that runs after the race: code
+  // after the race only sees lanes that already settled, and a lane that finishes after
+  // its lane was dropped would never be recorded at all.
+  assert.match(
+    audioManager,
+    /reconcileTracked\[index\]\.then\(\(\) => \{[\s\S]{0,200}recordModelLatency\(\s*"reconcile"/,
+    "each reconcile lane must record its own latency independently of the race outcome"
+  );
+});
+
 test("every locale has the section's strings", () => {
   const keys = [
     "settingsModal.sections.cleanup.label",

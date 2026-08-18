@@ -125,6 +125,20 @@ export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = Object.fromEntries
 export const DEFAULT_RECONCILE_PROVIDER = "openrouter";
 export const DEFAULT_RECONCILE_MODEL = "thinkingmachines/inkling-small";
 
+// Dual cleanup: a second merge model racing the first, first answer wins. On by
+// default — the whole reason to add a second model is that the merge sits in the
+// paste path, so racing trades one extra API call for a latency floor set by
+// whichever of the two is faster on a given dictation, rather than by picking one
+// in advance and living with it.
+//
+// Grok 4.5 as the second: it is the other model kept in the xAI registry entry
+// specifically for responding well to a low-reasoning hint (see the comment above
+// RECONCILE_PROVIDER_IDS below), and a different provider means a stall on one
+// side — a rate limit, an outage — is unlikely to also stall the other.
+export const DEFAULT_MULTI_CLEANUP_ENABLED = true;
+export const DEFAULT_RECONCILE_PROVIDER_B = "xai";
+export const DEFAULT_RECONCILE_MODEL_B = "grok-4.5";
+
 // Tie-break order for the merge, best first. Azure's MAI-Transcribe leads because it is
 // the only lane that can be biased *before* recognition: the phrase list carries the
 // custom dictionary and the terms on screen, so on exactly the words a tie tends to be

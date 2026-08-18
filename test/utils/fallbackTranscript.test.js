@@ -96,9 +96,10 @@ test("punctuation and casing do not count as content", () => {
 });
 
 test("both fallback paths in the fan-out use the chooser", () => {
-  // The merge has two ways to produce nothing — a timeout and a throw — and they used to
-  // pick the answer independently. A static check because reproducing a live merge
-  // timeout in a unit test would mean mocking the provider, the budget and the store.
+  // The merge has two ways to produce nothing — every race lane failing outright, or
+  // the winning lane answering with nothing usable — and they used to pick the answer
+  // independently. A static check because reproducing a live merge race in a unit test
+  // would mean mocking two providers, the budget and the store.
   const audioManager = fs.readFileSync(
     path.join(__dirname, "..", "..", "src", "helpers", "audioManager.js"),
     "utf8"
@@ -115,7 +116,7 @@ test("both fallback paths in the fan-out use the chooser", () => {
 
   assert.match(fanOut, /chooseFallbackTranscript\(answered\)/, "the chooser is not called");
   const uses = fanOut.match(/text: fallback\.text/g) ?? [];
-  assert.equal(uses.length, 2, "expected the timeout path and the failure path to use it");
+  assert.equal(uses.length, 2, "expected the all-lanes-failed path and the empty-text path to use it");
   assert.doesNotMatch(
     fanOut,
     /text: answered\[0\]\.text/,

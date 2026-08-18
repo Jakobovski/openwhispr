@@ -1926,7 +1926,14 @@
     "cleanup": {
       "title": "Cleanup",
       "description": "One model merges the transcripts from every provider, applies your vocabulary and cleans the result — in a single pass, on every dictation, including one where only a single provider answered. This is that model, and the prompt it runs.",
-      "multiDisabled": "Multi-transcription is off, so nothing runs this prompt. Turn it on in Speech-to-Text."
+      "multiDisabled": "Multi-transcription is off, so nothing runs this prompt. Turn it on in Speech-to-Text.",
+      "raceTwoModels": "Race two models",
+      "raceTwoModelsDescription": "Send the same merge request to two models at once and use whichever answers first. The one that loses keeps running in the background, so its stats still count.",
+      "firstProvider": "First provider",
+      "firstModel": "First model",
+      "secondProvider": "Second provider",
+      "secondModel": "Second model",
+      "raceTimeoutDescription": "How long the slower side gets after the faster one answers, before its result is used without waiting further."
     },
     "noteFormatting": {
       "autoGenerateTitle": "Auto-generate note titles",
@@ -3145,6 +3152,8 @@
     },
     "wer": "WER",
     "werTooltip": "median of {{count}} merged dictations",
-    "werNone": "no merged dictations yet"
+    "werNone": "no merged dictations yet",
+    "mean": "Mean",
+    "p95": "P95"
   }
 }

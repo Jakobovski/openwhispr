@@ -82,6 +82,10 @@ export interface ModelLatencyStat {
   dropped: number;
   min_ms: number | null;
   median_ms: number | null;
+  /** Dragged by outliers in a way median is not — see p95_ms for the tail instead. */
+  mean_ms: number | null;
+  /** Nearest-rank 95th percentile. The number worth checking before racing a model. */
+  p95_ms: number | null;
   max_ms: number | null;
 }
 

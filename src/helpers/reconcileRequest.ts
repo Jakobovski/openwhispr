@@ -25,6 +25,13 @@ export interface ReconcileRequestOptions {
    * The same list the recogniser was biased with — see getDictationVocabulary.
    */
   vocabulary?: string[];
+  /**
+   * Explicit provider/model, for dual cleanup mode's second race lane. Omit both to get
+   * slot A's settings (getEffectiveReconcileModel) — the single-model behaviour every
+   * caller had before racing existed, still what the Cleanup panel's test button uses.
+   */
+  provider?: string;
+  model?: string;
 }
 
 export interface ReconcileRequest {
@@ -51,13 +58,16 @@ export function buildReconcileRequest({
   agentName = null,
   language,
   vocabulary,
+  provider,
+  model,
 }: ReconcileRequestOptions): ReconcileRequest {
   const settings = getSettings();
   return {
     input: wrapReconcileVersions(versions),
-    model: getEffectiveReconcileModel(),
+    model: model ?? getEffectiveReconcileModel(),
     options: {
-      provider: settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
+      provider:
+        provider ?? (settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER),
       // The app's own cleanup prompt with a reconcile step in front: same localisation,
       // {{agentName}} handling, injection resistance and examples.
       systemPrompt: getReconcileSystemPrompt(

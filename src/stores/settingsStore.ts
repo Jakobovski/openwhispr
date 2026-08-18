@@ -30,6 +30,9 @@ import {
   DEFAULT_RECONCILE_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_MODEL,
+  DEFAULT_MULTI_CLEANUP_ENABLED,
+  DEFAULT_RECONCILE_PROVIDER_B,
+  DEFAULT_RECONCILE_MODEL_B,
 } from "../config/multiTranscription";
 import {
   INFERENCE_SCOPES,
@@ -136,6 +139,7 @@ const BOOLEAN_SETTINGS = new Set([
   "silenceTrimEnabled",
   "screenContextEnabled",
   "multiTranscriptionEnabled",
+  "multiCleanupEnabled",
   "useLocalWhisper",
   "meetingUseLocalWhisper",
   "uploadUseLocalWhisper",
@@ -686,6 +690,11 @@ export interface SettingsState
   dualTranscriptionModelC: string;
   dualTranscriptionReconcileProvider: string;
   dualTranscriptionReconcileModel: string;
+  /** Races a second merge model against the first; whichever answers first wins. */
+  multiCleanupEnabled: boolean;
+  /** The second model in the race. Unused when multiCleanupEnabled is false. */
+  dualTranscriptionReconcileProviderB: string;
+  dualTranscriptionReconcileModelB: string;
   // How long the second provider gets after the first answers, before it is
   // dropped and dual degrades to the single result already in hand.
   dualTranscriptionSecondTimeoutMs: number;
@@ -705,6 +714,9 @@ export interface SettingsState
   setDualTranscriptionModelC: (value: string) => void;
   setDualTranscriptionReconcileProvider: (value: string) => void;
   setDualTranscriptionReconcileModel: (value: string) => void;
+  setMultiCleanupEnabled: (value: boolean) => void;
+  setDualTranscriptionReconcileProviderB: (value: string) => void;
+  setDualTranscriptionReconcileModelB: (value: string) => void;
   setDualTranscriptionSecondTimeoutMs: (value: number) => void;
   setDualTranscriptionSecondTimeoutPercent: (value: number) => void;
   setDualTranscriptionSecondTimeoutMaxMs: (value: number) => void;
@@ -1095,6 +1107,15 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dualTranscriptionReconcileModel: readString(
     "dualTranscriptionReconcileModel",
     DEFAULT_RECONCILE_MODEL
+  ),
+  multiCleanupEnabled: readBoolean("multiCleanupEnabled", DEFAULT_MULTI_CLEANUP_ENABLED),
+  dualTranscriptionReconcileProviderB: readString(
+    "dualTranscriptionReconcileProviderB",
+    DEFAULT_RECONCILE_PROVIDER_B
+  ),
+  dualTranscriptionReconcileModelB: readString(
+    "dualTranscriptionReconcileModelB",
+    DEFAULT_RECONCILE_MODEL_B
   ),
   dualTranscriptionSecondTimeoutMs: readNumber(
     "dualTranscriptionSecondTimeoutMs",
@@ -1666,6 +1687,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionModelC: createStringSetter("dualTranscriptionModelC"),
   setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
   setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
+  setMultiCleanupEnabled: createBooleanSetter("multiCleanupEnabled"),
+  setDualTranscriptionReconcileProviderB: createStringSetter(
+    "dualTranscriptionReconcileProviderB"
+  ),
+  setDualTranscriptionReconcileModelB: createStringSetter("dualTranscriptionReconcileModelB"),
   setDualTranscriptionSecondTimeoutMs: createNumberSetter("dualTranscriptionSecondTimeoutMs"),
   setDualTranscriptionSecondTimeoutPercent: createNumberSetter(
     "dualTranscriptionSecondTimeoutPercent"
@@ -2432,6 +2458,17 @@ export const selectEffectiveReconcileModel = (state: SettingsState) =>
 
 export function getEffectiveReconcileModel() {
   return selectEffectiveReconcileModel(useSettingsStore.getState());
+}
+
+/** The second slot in the merge race — same healing, same reasons, see above. */
+export const selectEffectiveReconcileModelB = (state: SettingsState) =>
+  usableModel(
+    state.dualTranscriptionReconcileProviderB || DEFAULT_RECONCILE_PROVIDER_B,
+    state.dualTranscriptionReconcileModelB || DEFAULT_RECONCILE_MODEL_B
+  );
+
+export function getEffectiveReconcileModelB() {
+  return selectEffectiveReconcileModelB(useSettingsStore.getState());
 }
 
 export function isCloudCleanupMode() {

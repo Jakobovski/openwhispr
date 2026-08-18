@@ -766,11 +766,16 @@ class DatabaseManager {
   }
 
   /**
-   * min / median / max / n per (kind, provider, model).
+   * min / median / mean / p95 / max / n per (kind, provider, model).
    *
-   * Median is computed here rather than in SQL: SQLite has no percentile function, and
-   * the correlated subquery that emulates one is slower than reducing a few thousand
-   * rows in JS.
+   * Median and p95 are computed here rather than in SQL: SQLite has no percentile
+   * function, and the correlated subquery that emulates one is slower than reducing a
+   * few thousand rows in JS.
+   *
+   * p95 exists specifically for dual cleanup mode: a model that wins a race by 300ms
+   * every time and stalls for 8 seconds one time in twenty has a median that hides
+   * exactly the behaviour worth knowing about before picking it as one of the two
+   * models to race — the tail is the risk, and only a percentile shows it.
    */
   getModelLatencyStats() {
     try {
@@ -815,6 +820,13 @@ class DatabaseManager {
           // run. Sorted here because the query orders by ms, not by rate.
           const sortedWers = [...wers].sort((a, b) => a - b);
           const werMid = Math.floor(sortedWers.length / 2);
+          // Nearest-rank: the smallest sample at or beyond the 95th percentile of the
+          // sorted set. `samples` is already ascending — the query orders by ms and only
+          // "ok" rows are pushed, in that order — so no second sort is needed here.
+          const p95Index = Math.min(
+            samples.length - 1,
+            Math.max(0, Math.ceil(samples.length * 0.95) - 1)
+          );
           return {
             kind,
             provider,
@@ -829,6 +841,15 @@ class DatabaseManager {
               : samples.length % 2 === 0
                 ? Math.round((samples[mid - 1] + samples[mid]) / 2)
                 : samples[mid],
+            // Mean alongside median rather than instead of it, for the same reason WER
+            // uses median: one dictation where a lane stalled for seconds would drag the
+            // mean far enough to misrepresent every fast run beside it. Kept anyway
+            // because dual cleanup mode cares about the two together — a model whose
+            // mean sits well above its median is the one with an occasional bad tail.
+            mean_ms: samples.length
+              ? Math.round(samples.reduce((sum, ms) => sum + ms, 0) / samples.length)
+              : null,
+            p95_ms: samples.length ? samples[p95Index] : null,
             wer_n: sortedWers.length,
             median_wer: !sortedWers.length
               ? null

@@ -127,6 +127,8 @@ export default function ModelStatsView() {
                     </th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.min")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.median")}</th>
+                    <th className="text-right font-medium px-3 py-2">{t("modelStats.mean")}</th>
+                    <th className="text-right font-medium px-3 py-2">{t("modelStats.p95")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.max")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.wer")}</th>
                     <th className="text-right font-medium px-3 py-2">{t("modelStats.failRate")}</th>
@@ -155,6 +157,12 @@ export default function ModelStatsView() {
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums font-semibold text-foreground">
                         {formatMs(row.median_ms)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {formatMs(row.mean_ms)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
+                        {formatMs(row.p95_ms)}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">
                         {formatMs(row.max_ms)}

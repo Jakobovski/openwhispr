@@ -19,11 +19,12 @@ import { ActiveMicRecoveryController } from "./activeMicRecovery";
 import { followsSystemDefaultMic, reconcileSavedMicSelection } from "./micSelectionRecovery";
 import { isStaleDeviceError } from "./staleMicDevice";
 import { shouldSaveDiscardedRecording } from "./discardedRecording";
-import { awaitLanesWithBudget, raceWithBudget } from "./multiTranscriptionRace";
+import { awaitLanesWithBudget } from "./multiTranscriptionRace";
 import {
   getSettings,
   getEffectiveCleanupModel,
   getEffectiveReconcileModel,
+  getEffectiveReconcileModelB,
   isCloudCleanupMode,
   isCloudDictationAgentMode,
   isCloudTranslationMode,
@@ -46,6 +47,7 @@ import {
   resolveMultiTranscriptionLanes,
   resolveMultiSecondWaitMs,
   DEFAULT_RECONCILE_PROVIDER,
+  DEFAULT_RECONCILE_PROVIDER_B,
   DEFAULT_RECONCILE_TIMEOUT_MS,
   resolveMultiTranscriptionModel,
 } from "../config/multiTranscription";
@@ -3580,15 +3582,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         werReference && side.text ? wordErrorRate(side.text, werReference) : null
       );
     }
-    if (multi.reconciled && multi.reconcileMs != null) {
-      const settingsNow = getSettings();
-      this.recordModelLatency(
-        "reconcile",
-        settingsNow.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
-        getEffectiveReconcileModel(),
-        multi.reconcileMs
-      );
-    }
+    // No recordModelLatency("reconcile", ...) call here any more: with dual cleanup
+    // mode, either merge lane can win, and both are recorded — win or lose — from
+    // inside transcribeMulti itself, as soon as each one actually finishes. Recording
+    // here again, keyed to slot A unconditionally, would both duplicate the winner's
+    // sample and mislabel it when slot B was the one that actually answered.
 
     const source = (await this.isReasoningAvailable()) ? "multi-reasoned" : "multi";
     // Kept alongside the transcript so history can show what each provider actually
@@ -3608,6 +3606,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       mergedFrom: multi.mergedFrom ?? null,
       agreed: !!multi.agreed,
       reconcileMs: multi.reconcileMs ?? null,
+      // Which merge lane actually produced the pasted text — only meaningful with dual
+      // cleanup mode on, where either slot could have won; null on the fallback paths,
+      // where nothing was reconciled at all.
+      reconciledBy: multi.reconciledBy ?? null,
       droppedProviders: multi.droppedProviders ?? [],
       mergedText: multi.text ?? null,
     };
@@ -3772,83 +3774,139 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // to have fetched it first, and nothing at all on an xAI/OpenAI/Groq setup. The
     // screen capture behind it is cached per dictation, so asking again is free.
     const vocabulary = await this.getDictationVocabulary();
+    const versions = answered.map((side) => ({ text: side.text, provider: side.label }));
+    const agentName = localStorage.getItem("agentName") || null;
 
-    // Assembled by the same builder the Cleanup panel's test button uses, so what the
-    // user tries a prompt against is the request this path actually makes. Provider,
-    // model and deadline are configurable in Settings → Cleanup; the defaults are chosen
-    // for latency and consistency (see multiTranscription.ts), since this sits in the
-    // paste path, after the user has stopped speaking, so the merge is felt directly.
-    const request = buildReconcileRequest({
-      // Slot order is preserved, which is what makes the prompt's tie-break meaningful.
-      versions: answered.map((side) => ({ text: side.text, provider: side.label })),
-      agentName: localStorage.getItem("agentName") || null,
-      language,
-      vocabulary,
-    });
+    // Dual cleanup mode: a second merge model races the first, first answer wins. Slot A
+    // always runs; slot B joins when the setting is on. Both read from the same builder
+    // the Cleanup panel's test button uses, so what a user tries a prompt against is a
+    // request this path actually makes, for either slot.
+    const reconcileLanes = [
+      {
+        provider: settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
+        model: getEffectiveReconcileModel(),
+      },
+    ];
+    if (settings.multiCleanupEnabled) {
+      reconcileLanes.push({
+        provider: settings.dualTranscriptionReconcileProviderB || DEFAULT_RECONCILE_PROVIDER_B,
+        model: getEffectiveReconcileModelB(),
+      });
+    }
 
-    // Which answer stands if the merge does not produce one — computed before the call so
-    // the timeout path and the failure path cannot disagree about it.
+    // Which answer stands if every merge lane fails or times out — computed before the
+    // race so every path that gives up agrees on it.
     const fallback = chooseFallbackTranscript(answered);
 
-    try {
-      const mergePromise = ReasoningService.processText(
-        request.input,
-        request.model,
-        null,
-        request.options
+    const reconcileSettled = reconcileLanes.map(() => null);
+    const reconcileLaneStarts = reconcileLanes.map(() => performance.now());
+    const trackReconcile = (promise, index) =>
+      promise.then(
+        (value) => {
+          reconcileSettled[index] = { status: "fulfilled", value };
+          return index;
+        },
+        (reason) => {
+          reconcileSettled[index] = { status: "rejected", reason };
+          return index;
+        }
       );
+    const reconcileTracked = reconcileLanes.map((lane, index) => {
+      const request = buildReconcileRequest({
+        versions,
+        agentName,
+        language,
+        vocabulary,
+        provider: lane.provider,
+        model: lane.model,
+      });
+      return trackReconcile(
+        ReasoningService.processText(request.input, request.model, null, request.options),
+        index
+      );
+    });
 
-      // The merge sits in the paste path, so it gets a deadline like the lanes do.
-      const { timedOut, value: outcome } = await raceWithBudget(mergePromise, reconcileBudgetMs);
+    // Every lane gets its real elapsed time recorded whenever it actually finishes, not
+    // just the one that wins the race below. This is deliberately different from how
+    // transcription lanes are recorded (synchronously, right after the fan-out returns,
+    // with a dropped lane's time being the wait budget rather than its real duration):
+    // the whole point of racing two merge models is to learn how each one actually
+    // performs, and a model that lost the race by finishing second still answered — its
+    // stats should say so, even after the dictation this call belongs to has already
+    // been pasted. Fire-and-forget, so a slow loser cannot hold up anything.
+    reconcileLanes.forEach((lane, index) => {
+      reconcileTracked[index].then(() => {
+        const ms = Math.round(performance.now() - reconcileLaneStarts[index]);
+        const ok = reconcileSettled[index]?.status === "fulfilled";
+        this.recordModelLatency("reconcile", lane.provider, lane.model, ms, ok ? "ok" : "failed");
+      });
+    });
 
-      if (timedOut) {
-        // The best single transcript, not an error: slot order decides, except where one
-        // lane returned visibly less of the dictation than another — see
-        // chooseFallbackTranscript.
-        logger.info(
-          "Multi transcription: merge took too long, using the best single transcript",
-          {
-            budgetMs: reconcileBudgetMs,
-            using: fallback.provider,
-            // Named when slot order was overridden, since that is the interesting case:
-            // the first lane returned visibly less of the dictation than another did.
-            insteadOf: fallback === answered[0] ? undefined : answered[0].provider,
-            candidates: answered.map((side) => side.provider),
-          },
-          "transcription"
-        );
-        return {
-          ...base,
-          text: fallback.text,
-          reconciled: false,
-          mergedFrom: answered.length,
-          agreed,
-          reconcileDropped: true,
-        };
-      }
+    const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
+      reconcileTracked,
+      reconcileSettled,
+      reconcileBudgetMs
+    );
 
-      const trimmed = typeof outcome === "string" ? outcome.trim() : "";
-      if (!trimmed) throw new Error("Reconcile returned empty text");
-
-      return {
-        ...base,
-        text: trimmed,
-        reconciled: true,
-        // How many answers went in: one means nothing was reconciled, only prepared,
-        // which is what the WER column needs to know to avoid scoring a lane against a
-        // cleaned copy of itself.
-        mergedFrom: answered.length,
-        agreed,
-        reconcileMs: Math.round(performance.now() - reconcileStart),
-      };
-    } catch (error) {
+    if (firstSuccessIndex === -1) {
+      // Every merge lane failed outright — not the same as timing out, but the same
+      // fallback: the best single transcript stands.
       logger.warn(
-        "Multi transcription: reconcile failed, using the best single transcript",
-        { error: error.message, using: fallback.provider },
+        "Multi transcription: every merge lane failed, using the best single transcript",
+        {
+          using: fallback.provider,
+          lanes: reconcileLanes.map((lane) => `${lane.provider}/${lane.model}`),
+        },
         "transcription"
       );
       return { ...base, text: fallback.text, reconciled: false, mergedFrom: answered.length, agreed };
     }
+
+    const winner = reconcileLanes[firstSuccessIndex];
+    if (droppedIndexes.length > 0) {
+      // Only reachable with dual cleanup on: the other slot did not answer within its
+      // grace period after the first one did. It keeps running in the background — see
+      // the stats recording above — but this dictation does not wait for it.
+      logger.info(
+        "Multi transcription: merge race — one side did not finish in time",
+        {
+          budgetMs: reconcileBudgetMs,
+          won: `${winner.provider}/${winner.model}`,
+          stillRunning: droppedIndexes.map(
+            (index) => `${reconcileLanes[index].provider}/${reconcileLanes[index].model}`
+          ),
+        },
+        "transcription"
+      );
+    }
+
+    const trimmed =
+      typeof reconcileSettled[firstSuccessIndex].value === "string"
+        ? reconcileSettled[firstSuccessIndex].value.trim()
+        : "";
+    if (!trimmed) {
+      // The winning lane technically succeeded but returned nothing usable — same
+      // fallback as every lane failing, since there is no reconciled text to use.
+      logger.warn(
+        "Multi transcription: merge returned empty text, using the best single transcript",
+        { using: fallback.provider, from: `${winner.provider}/${winner.model}` },
+        "transcription"
+      );
+      return { ...base, text: fallback.text, reconciled: false, mergedFrom: answered.length, agreed };
+    }
+
+    return {
+      ...base,
+      text: trimmed,
+      reconciled: true,
+      // How many answers went in: one means nothing was reconciled, only prepared,
+      // which is what the WER column needs to know to avoid scoring a lane against a
+      // cleaned copy of itself.
+      mergedFrom: answered.length,
+      agreed,
+      reconcileMs: Math.round(performance.now() - reconcileStart),
+      reconciledBy: { provider: winner.provider, model: winner.model },
+    };
   }
 
   getTranscriptionModel() {
