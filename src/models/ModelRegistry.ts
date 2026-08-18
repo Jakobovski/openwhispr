@@ -327,6 +327,9 @@ const NON_REGISTRY_PROVIDER_NAMES: Record<string, string> = {
   custom: "Custom",
   lan: "Self-hosted",
   openwhispr: "OpenWhispr Cloud",
+  // Not a model provider — the model-stats page's screenContext row uses the same
+  // provider/model shape as every other latency row so it can share the table.
+  screenContext: "macOS window OCR",
 };
 
 /**

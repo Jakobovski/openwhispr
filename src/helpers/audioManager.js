@@ -2318,19 +2318,43 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    * and must not hold up the paste. A capture abandoned here is dropped by the
    * manager rather than reused, so timing out cannot leak into the next
    * dictation.
+   *
+   * Timed and recorded like every other model call, under kind "screenContext" —
+   * this is the number that actually answers whether OCR is adding latency:
+   * median/p95 say how long a dictation typically sits here (should be ~0, since
+   * the capture had the whole recording to finish), and the drop rate says how
+   * often it hits this budget with nothing to show for it. Only the wait itself is
+   * timed; whether `collect()` resolved with a real capture or a legitimate empty
+   * one (disabled, no permission, nothing on screen) both count as "didn't have to
+   * wait" the same way — that distinction belongs to applyScreenContext's own log,
+   * not to a latency figure.
    */
   async collectScreenContext() {
     const collect = window.electronAPI?.windowOcrCollect;
     if (!collect) return null;
 
+    const startedAt = performance.now();
+    const expired = Symbol("expired");
     let timer;
     try {
-      return await Promise.race([
+      const outcome = await Promise.race([
         collect(),
         new Promise((resolve) => {
-          timer = setTimeout(() => resolve(null), SCREEN_CONTEXT_COLLECT_BUDGET_MS);
+          timer = setTimeout(() => resolve(expired), SCREEN_CONTEXT_COLLECT_BUDGET_MS);
         }),
       ]);
+      if (outcome === expired) {
+        this.recordModelLatency("screenContext", "screenContext", null, 0, "dropped");
+        return null;
+      }
+      this.recordModelLatency(
+        "screenContext",
+        "screenContext",
+        null,
+        Math.round(performance.now() - startedAt),
+        "ok"
+      );
+      return outcome;
     } finally {
       clearTimeout(timer);
     }

@@ -6,10 +6,10 @@ import { getProviderDisplayName } from "../models/ModelRegistry";
 import { cn } from "./lib/utils";
 import type { ModelLatencyStat } from "../types/electron";
 
-// Transcription and reconciliation are different jobs with different budgets, so they
-// are tabulated separately rather than sorted into one list where a 600ms merge sits
-// next to a 600ms transcription as if they were comparable.
-const KINDS = ["transcription", "reconcile"] as const;
+// Transcription, reconciliation and screen context are different jobs with different
+// budgets, so they are tabulated separately rather than sorted into one list where a
+// 600ms merge sits next to a 600ms transcription as if they were comparable.
+const KINDS = ["transcription", "reconcile", "screenContext"] as const;
 
 function formatMs(ms: number | null): string {
   if (ms == null) return "—";

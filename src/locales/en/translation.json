@@ -3133,7 +3133,7 @@
   },
   "modelStats": {
     "title": "Model stats",
-    "description": "Latency measured on your own dictations, per model. Transcription and merge & prepare are timed separately.",
+    "description": "Latency measured on your own dictations, per model. Transcription, merge & prepare, and screen context are timed separately.",
     "refresh": "Refresh",
     "clear": "Clear",
     "empty": "No samples yet. Stats appear here after your next dictation.",
@@ -3146,7 +3146,8 @@
     "dropRate": "dropped",
     "kinds": {
       "transcription": "Transcription",
-      "reconcile": "Merge & prepare (multi mode)"
+      "reconcile": "Merge & prepare (multi mode)",
+      "screenContext": "Screen context (window OCR)"
     },
     "wer": "WER",
     "werTooltip": "median of {{count}} merged dictations",
