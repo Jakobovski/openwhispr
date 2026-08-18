@@ -1137,6 +1137,16 @@
       "customPrompt": "Prompt personnalisé",
       "defaultPrompt": "Prompt par défaut",
       "modified": "Modifié"
+    },
+    "reconcile": {
+      "versionLabel": "Version de {{recogniser}}",
+      "defaultVersionA": "donc j'ai poussé le correctif sur le dépôt open whisper et euh ça devrait arriver dans la prochaine compilation",
+      "defaultVersionB": "Donc j'ai poussé le correctif sur le dépôt OpenWhispr et ça devrait arriver dans la prochaine version",
+      "needsTwoVersions": "Saisissez les deux versions : la fusion compare deux transcriptions du même audio.",
+      "testHint": "Deux transcriptions du même audio. Faites-les diverger pour voir comment la fusion tranche.",
+      "appendedAtDictation": "Ajouté au moment de la dictée",
+      "noVocabulary": "Rien pour l'instant — les mots ajoutés à votre dictionnaire apparaîtront ici.",
+      "screenTermsNote": "Voici les mots de votre dictionnaire. Les termes distinctifs lus dans la fenêtre que vous regardiez sont ajoutés ensuite lors de la dictée."
     }
   },
   "settingsModal": {
@@ -1170,6 +1180,10 @@
       "llms": {
         "description": "Modèles pour chat, nettoyage & résumés",
         "label": "Modèles de langage"
+      },
+      "cleanup": {
+        "label": "Nettoyage",
+        "description": "Modèle de fusion et prompt"
       },
       "privacyData": {
         "description": "Confidentialité, permissions & analytique",
@@ -1784,6 +1798,11 @@
         "chatIntelligence": "Chat"
       }
     },
+    "cleanup": {
+      "title": "Nettoyage",
+      "description": "Un seul modèle fusionne les transcriptions de tous les fournisseurs et nettoie le résultat dans la même passe. Voici ce modèle et le prompt qu'il exécute.",
+      "multiDisabled": "La transcription multiple est désactivée, donc rien n'exécute ce prompt. Activez-la dans Reconnaissance vocale."
+    },
     "noteFormatting": {
       "autoGenerateTitle": "Générer automatiquement les titres des notes",
       "autoGenerateTitleDescription": "Utiliser l'IA pour générer un titre court pour les notes après la transcription ou l'amélioration"
@@ -1912,7 +1931,8 @@
       "screenContextPermissionNeeded": "L'autorisation d'enregistrement de l'écran est nécessaire pour lire la fenêtre que vous regardez.",
       "screenContextOpenSettings": "Ouvrir les Réglages",
       "dualReconcileTimeout": "Attente de la fusion",
-      "dualReconcileTimeoutDescription": "Temps accordé au modèle de fusion avant d’utiliser la meilleure transcription seule."
+      "dualReconcileTimeoutDescription": "Temps accordé au modèle de fusion avant d’utiliser la meilleure transcription seule.",
+      "multiMergeConfiguredInCleanup": "Le modèle de fusion, son délai et son prompt se configurent dans Nettoyage."
     },
     "intelligence": {
       "gpuDevice": {

@@ -1089,6 +1089,16 @@
       "customPrompt": "Benutzerdefinierter Prompt",
       "defaultPrompt": "Standard-Prompt",
       "modified": "Geändert"
+    },
+    "reconcile": {
+      "versionLabel": "Version von {{recogniser}}",
+      "defaultVersionA": "also ich hab den fix ins open whisper repo gepusht und ähm er sollte im nächsten build landen",
+      "defaultVersionB": "Also ich hab den Fix ins OpenWhispr Repo gepusht und er sollte in der nächsten Version landen",
+      "needsTwoVersions": "Beide Versionen eingeben — der Merge vergleicht zwei Transkripte derselben Aufnahme.",
+      "testHint": "Zwei Transkripte derselben Aufnahme. Lass sie abweichen, um zu sehen, wie der Merge entscheidet.",
+      "appendedAtDictation": "Wird beim Diktieren angehängt",
+      "noVocabulary": "Noch nichts — Wörter aus deinem Wörterbuch erscheinen hier.",
+      "screenTermsNote": "Das sind deine Wörterbuch-Einträge. Die markanten Begriffe aus dem Fenster, auf das du geschaut hast, werden beim Diktieren dahinter angehängt."
     }
   },
   "settingsModal": {
@@ -1122,6 +1132,10 @@
       "llms": {
         "description": "Modelle für Chat, Bereinigung & Zusammenfassungen",
         "label": "Sprachmodelle"
+      },
+      "cleanup": {
+        "label": "Bereinigung",
+        "description": "Merge-Modell & Prompt"
       },
       "privacyData": {
         "description": "Datenschutz, Berechtigungen & Analyse",
@@ -1736,6 +1750,11 @@
         "chatIntelligence": "Chat"
       }
     },
+    "cleanup": {
+      "title": "Bereinigung",
+      "description": "Ein Modell führt die Transkripte aller Anbieter zusammen und bereinigt das Ergebnis im selben Durchgang. Hier stehen dieses Modell und der Prompt, den es ausführt.",
+      "multiDisabled": "Multi-Transkription ist aus, daher führt nichts diesen Prompt aus. Schalte sie unter Sprache-zu-Text ein."
+    },
     "noteFormatting": {
       "autoGenerateTitle": "Notiztitel automatisch generieren",
       "autoGenerateTitleDescription": "KI verwenden, um nach der Transkription oder Verbesserung einen kurzen Titel für Notizen zu generieren"
@@ -1864,7 +1883,8 @@
       "screenContextPermissionNeeded": "Für den Zugriff auf das Fenster wird die Berechtigung zur Bildschirmaufnahme benötigt.",
       "screenContextOpenSettings": "Einstellungen öffnen",
       "dualReconcileTimeout": "Warten auf die Zusammenführung",
-      "dualReconcileTimeoutDescription": "Wie lange das Zusammenführungsmodell hat, bevor das beste Einzeltranskript verwendet wird."
+      "dualReconcileTimeoutDescription": "Wie lange das Zusammenführungsmodell hat, bevor das beste Einzeltranskript verwendet wird.",
+      "multiMergeConfiguredInCleanup": "Merge-Modell, Zeitlimit und Prompt werden unter Bereinigung konfiguriert."
     },
     "intelligence": {
       "gpuDevice": {

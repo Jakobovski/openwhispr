@@ -1137,6 +1137,16 @@
       "customPrompt": "Prompt personalizado",
       "defaultPrompt": "Prompt predeterminado",
       "modified": "Modificado"
+    },
+    "reconcile": {
+      "versionLabel": "Versión de {{recogniser}}",
+      "defaultVersionA": "pues subí el arreglo al repo de open whisper y eh debería entrar en la próxima compilación",
+      "defaultVersionB": "Pues subí el arreglo al repo de OpenWhispr y debería entrar en la próxima versión",
+      "needsTwoVersions": "Introduce las dos versiones: la fusión compara dos transcripciones del mismo audio.",
+      "testHint": "Dos transcripciones del mismo audio. Haz que difieran para ver cómo decide la fusión.",
+      "appendedAtDictation": "Se añade al dictar",
+      "noVocabulary": "Todavía nada: las palabras que añadas a tu diccionario aparecerán aquí.",
+      "screenTermsNote": "Estas son las palabras de tu diccionario. Los términos distintivos leídos de la ventana que estabas mirando se añaden después cuando dictas."
     }
   },
   "settingsModal": {
@@ -1170,6 +1180,10 @@
       "llms": {
         "description": "Modelos para chat, limpieza y resúmenes",
         "label": "Modelos de lenguaje"
+      },
+      "cleanup": {
+        "label": "Limpieza",
+        "description": "Modelo de fusión y prompt"
       },
       "privacyData": {
         "description": "Privacidad, permisos y análisis",
@@ -1784,6 +1798,11 @@
         "chatIntelligence": "Chat"
       }
     },
+    "cleanup": {
+      "title": "Limpieza",
+      "description": "Un modelo combina las transcripciones de todos los proveedores y limpia el resultado en la misma pasada. Aquí se configuran ese modelo y el prompt que ejecuta.",
+      "multiDisabled": "La transcripción múltiple está desactivada, así que nada ejecuta este prompt. Actívala en Voz a texto."
+    },
     "noteFormatting": {
       "autoGenerateTitle": "Generar títulos de notas automáticamente",
       "autoGenerateTitleDescription": "Usar IA para generar un título corto para las notas después de la transcripción o mejora"
@@ -1912,7 +1931,8 @@
       "screenContextPermissionNeeded": "Se necesita el permiso de Grabación de pantalla para poder leer la ventana que estás mirando.",
       "screenContextOpenSettings": "Abrir Ajustes",
       "dualReconcileTimeout": "Espera de la combinación",
-      "dualReconcileTimeoutDescription": "Cuánto tiempo tiene el modelo de combinación antes de usar la mejor transcripción individual."
+      "dualReconcileTimeoutDescription": "Cuánto tiempo tiene el modelo de combinación antes de usar la mejor transcripción individual.",
+      "multiMergeConfiguredInCleanup": "El modelo de fusión, su límite de tiempo y su prompt se configuran en Limpieza."
     },
     "intelligence": {
       "gpuDevice": {

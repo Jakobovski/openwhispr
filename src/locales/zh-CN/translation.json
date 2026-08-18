@@ -1089,6 +1089,16 @@
       "customPrompt": "自定义提示词",
       "defaultPrompt": "默认提示词",
       "modified": "已修改"
+    },
+    "reconcile": {
+      "versionLabel": "来自 {{recogniser}} 的版本",
+      "defaultVersionA": "就是我把修复推到 open whisper 的仓库了 呃 应该会进下一个构建",
+      "defaultVersionB": "就是我把修复推到 OpenWhispr 的仓库了，应该会进下一个版本",
+      "needsTwoVersions": "请填写两个版本——合并会比较同一段音频的两份转写。",
+      "testHint": "同一段音频的两份转写。让它们不一致，就能看到合并如何取舍。",
+      "appendedAtDictation": "听写时追加",
+      "noVocabulary": "暂时没有内容——添加到词典的词会显示在这里。",
+      "screenTermsNote": "这些是你的词典词汇。听写时，会在其后追加从你当时所看窗口中读取到的特有词汇。"
     }
   },
   "settingsModal": {
@@ -1122,6 +1132,10 @@
       "llms": {
         "description": "用于清理、笔记格式化和聊天的模型",
         "label": "语言模型"
+      },
+      "cleanup": {
+        "label": "清理",
+        "description": "合并模型与提示词"
       },
       "privacyData": {
         "description": "隐私、权限与数据分析",
@@ -1731,6 +1745,11 @@
         "chatIntelligence": "聊天"
       }
     },
+    "cleanup": {
+      "title": "清理",
+      "description": "一个模型会把各个服务商的转写结果合并，并在同一次调用中完成清理。这里配置的就是这个模型以及它使用的提示词。",
+      "multiDisabled": "多重转写已关闭，因此没有任何流程会使用这个提示词。可在「语音转文字」中开启。"
+    },
     "noteFormatting": {
       "autoGenerateTitle": "自动生成笔记标题",
       "autoGenerateTitleDescription": "使用 AI 在转录或增强后为笔记生成简短标题"
@@ -1859,7 +1878,8 @@
       "screenContextPermissionNeeded": "需要「屏幕录制」权限才能读取你正在查看的窗口。",
       "screenContextOpenSettings": "打开设置",
       "dualReconcileTimeout": "合并等待时间",
-      "dualReconcileTimeoutDescription": "在改用最佳单份转录之前，留给合并模型的时间。"
+      "dualReconcileTimeoutDescription": "在改用最佳单份转录之前，留给合并模型的时间。",
+      "multiMergeConfiguredInCleanup": "合并模型、它的等待上限以及提示词都在「清理」中配置。"
     },
     "intelligence": {
       "gpuDevice": {

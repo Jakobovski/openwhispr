@@ -35,7 +35,7 @@ import { wordErrorRate } from "../utils/wordErrorRate";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
 import { concatFrames } from "../utils/pcmAudio";
 import settingsDefaults from "../config/settingsDefaults.json";
-import { getReconcileSystemPrompt, wrapReconcileVersions } from "../config/prompts";
+import { buildReconcileRequest } from "./reconcileRequest";
 import {
   MULTI_TRANSCRIPTION_MODELS,
   MULTI_TRANSCRIPTION_API_KEY_FIELDS,
@@ -3744,33 +3744,25 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // screen capture behind it is cached per dictation, so asking again is free.
     const vocabulary = await this.getDictationVocabulary();
 
+    // Assembled by the same builder the Cleanup panel's test button uses, so what the
+    // user tries a prompt against is the request this path actually makes. Provider,
+    // model and deadline are configurable in Settings → Cleanup; the defaults are chosen
+    // for latency and consistency (see multiTranscription.ts), since this sits in the
+    // paste path, after the user has stopped speaking, so the merge is felt directly.
+    const request = buildReconcileRequest({
+      // Slot order is preserved, which is what makes the prompt's tie-break meaningful.
+      versions: answered.map((side) => ({ text: side.text, provider: side.label })),
+      agentName: localStorage.getItem("agentName") || null,
+      language,
+      vocabulary,
+    });
+
     try {
       const mergePromise = ReasoningService.processText(
-        // Slot order is preserved, which is what makes the prompt's tie-break meaningful.
-        wrapReconcileVersions(answered.map((side) => ({ text: side.text, provider: side.label }))),
-        getEffectiveReconcileModel(),
+        request.input,
+        request.model,
         null,
-        {
-          // Both configurable in Settings → Speech-to-Text. The defaults are chosen
-          // for latency and consistency (see dualTranscription.ts), since this sits in
-          // the paste path, after the user has stopped speaking, so the reconcile is
-          // felt directly.
-          provider: settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
-          // The app's own cleanup prompt, adapted for candidate transcripts: keeps its
-          // localisation, {{agentName}} handling, custom dictionary suffix,
-          // prompt-injection resistance and few-shot examples.
-          systemPrompt: getReconcileSystemPrompt(
-            localStorage.getItem("agentName") || null,
-            // No separate dictionary argument: it is already the head of the vocabulary
-            // below, and passing both would list every curated word twice.
-            undefined,
-            language,
-            settings.uiLanguage,
-            vocabulary
-          ),
-          temperature: 0,
-          disableThinking: true,
-        }
+        request.options
       );
 
       // The merge sits in the paste path, so it gets a deadline like the lanes do.

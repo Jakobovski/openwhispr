@@ -1089,6 +1089,16 @@
       "customPrompt": "カスタムプロンプト",
       "defaultPrompt": "デフォルトプロンプト",
       "modified": "変更済み"
+    },
+    "reconcile": {
+      "versionLabel": "{{recogniser}} の版",
+      "defaultVersionA": "えーと オープンウィスパーのリポジトリに修正をプッシュしたので 次のビルドに入るはずです",
+      "defaultVersionB": "OpenWhispr のリポジトリに修正をプッシュしたので、次のバージョンに入るはずです",
+      "needsTwoVersions": "両方の版を入力してください。統合は同じ音声の2つの文字起こしを比較します。",
+      "testHint": "同じ音声の2つの文字起こしです。内容を食い違わせると、統合の判断が分かります。",
+      "appendedAtDictation": "ディクテーション時に追加されます",
+      "noVocabulary": "まだありません。辞書に追加した語がここに表示されます。",
+      "screenTermsNote": "これは辞書の語です。ディクテーション時には、その後ろに、見ていたウィンドウから読み取った特徴的な語が追加されます。"
     }
   },
   "settingsModal": {
@@ -1122,6 +1132,10 @@
       "llms": {
         "description": "クリーンアップ、ノートのフォーマット、チャット用のモデル",
         "label": "言語モデル"
+      },
+      "cleanup": {
+        "label": "クリーンアップ",
+        "description": "統合モデルとプロンプト"
       },
       "privacyData": {
         "description": "プライバシー、権限、分析",
@@ -1736,6 +1750,11 @@
         "chatIntelligence": "チャット"
       }
     },
+    "cleanup": {
+      "title": "クリーンアップ",
+      "description": "1つのモデルが各プロバイダーの文字起こしを統合し、同じ呼び出しで整えます。ここではそのモデルと、実行されるプロンプトを設定します。",
+      "multiDisabled": "マルチ文字起こしがオフなので、このプロンプトは実行されません。「音声認識」でオンにしてください。"
+    },
     "noteFormatting": {
       "autoGenerateTitle": "ノートのタイトルを自動生成",
       "autoGenerateTitleDescription": "文字起こしや改善後にAIを使用してノートの短いタイトルを生成します"
@@ -1864,7 +1883,8 @@
       "screenContextPermissionNeeded": "見ているウィンドウを読み取るには、画面収録の許可が必要です。",
       "screenContextOpenSettings": "設定を開く",
       "dualReconcileTimeout": "統合の待ち時間",
-      "dualReconcileTimeoutDescription": "最良の単一文字起こしを使うまでに統合モデルに与える時間。"
+      "dualReconcileTimeoutDescription": "最良の単一文字起こしを使うまでに統合モデルに与える時間。",
+      "multiMergeConfiguredInCleanup": "統合モデル・待ち時間・プロンプトは「クリーンアップ」で設定します。"
     },
     "intelligence": {
       "gpuDevice": {

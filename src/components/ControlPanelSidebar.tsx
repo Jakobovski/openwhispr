@@ -6,6 +6,7 @@ import {
   Sliders,
   Mic,
   Brain,
+  Wand2,
   Keyboard,
   CreditCard,
   Shield,
@@ -138,6 +139,10 @@ export default function ControlPanelSidebar({
       items: [
         { id: "speechToText", label: t("settingsModal.sections.speechToText.label"), icon: Mic },
         { id: "llms", label: t("settingsModal.sections.llms.label"), icon: Brain },
+        // The merge model and the prompt it runs. Its own destination rather than a tab
+        // under Language Models, because in multi transcription the merge *is* the
+        // cleanup — there is no separate cleanup pass to configure beside it.
+        { id: "cleanup", label: t("settingsModal.sections.cleanup.label"), icon: Wand2 },
       ],
     },
     {

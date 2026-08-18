@@ -23,7 +23,7 @@ function methodBody(name) {
   assert.ok(match, `${name} not found — was it renamed?`);
   const start = match.index;
   const rest = source.slice(start + match[0].length);
-  const next = rest.search(/\n  (?:async )?[a-zA-Z_]+\(/);
+  const next = rest.search(/\n {2}(?:async )?[a-zA-Z_]+\(/);
   return next === -1 ? rest : rest.slice(0, next);
 }
 

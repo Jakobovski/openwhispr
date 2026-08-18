@@ -1089,6 +1089,16 @@
       "customPrompt": "Prompt personalizzato",
       "defaultPrompt": "Prompt predefinito",
       "modified": "Modificato"
+    },
+    "reconcile": {
+      "versionLabel": "Versione di {{recogniser}}",
+      "defaultVersionA": "quindi ho pushato la correzione sul repo di open whisper e ehm dovrebbe uscire nella prossima build",
+      "defaultVersionB": "Quindi ho pushato la correzione sul repo di OpenWhispr e dovrebbe uscire nella prossima versione",
+      "needsTwoVersions": "Inserisci entrambe le versioni: l'unione confronta due trascrizioni dello stesso audio.",
+      "testHint": "Due trascrizioni dello stesso audio. Fai in modo che divergano per vedere come decide l'unione.",
+      "appendedAtDictation": "Aggiunto al momento della dettatura",
+      "noVocabulary": "Ancora nulla: le parole che aggiungi al dizionario appariranno qui.",
+      "screenTermsNote": "Queste sono le parole del tuo dizionario. I termini distintivi letti dalla finestra che stavi guardando vengono aggiunti dopo di esse quando detti."
     }
   },
   "settingsModal": {
@@ -1122,6 +1132,10 @@
       "llms": {
         "description": "Modelli per chat, pulizia e riassunti",
         "label": "Modelli linguistici"
+      },
+      "cleanup": {
+        "label": "Pulizia",
+        "description": "Modello di unione e prompt"
       },
       "privacyData": {
         "description": "Privacy, permessi e analisi",
@@ -1736,6 +1750,11 @@
         "chatIntelligence": "Chat"
       }
     },
+    "cleanup": {
+      "title": "Pulizia",
+      "description": "Un modello unisce le trascrizioni di tutti i provider e ripulisce il risultato nello stesso passaggio. Qui trovi quel modello e il prompt che esegue.",
+      "multiDisabled": "La trascrizione multipla è disattivata, quindi nulla esegue questo prompt. Attivala in Da voce a testo."
+    },
     "noteFormatting": {
       "autoGenerateTitle": "Genera automaticamente i titoli delle note",
       "autoGenerateTitleDescription": "Usa l'IA per generare un titolo breve per le note dopo la trascrizione o il miglioramento"
@@ -1864,7 +1883,8 @@
       "screenContextPermissionNeeded": "È necessaria l'autorizzazione Registrazione schermo per leggere la finestra che stai guardando.",
       "screenContextOpenSettings": "Apri Impostazioni",
       "dualReconcileTimeout": "Attesa dell’unione",
-      "dualReconcileTimeoutDescription": "Quanto tempo ha il modello di unione prima di usare la migliore trascrizione singola."
+      "dualReconcileTimeoutDescription": "Quanto tempo ha il modello di unione prima di usare la migliore trascrizione singola.",
+      "multiMergeConfiguredInCleanup": "Il modello di unione, il suo limite di tempo e il suo prompt si configurano in Pulizia."
     },
     "intelligence": {
       "gpuDevice": {

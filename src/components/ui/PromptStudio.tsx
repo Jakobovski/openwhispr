@@ -19,9 +19,21 @@ import { useAgentName } from "../../utils/agentName";
 import ReasoningService from "../../services/ReasoningService";
 import { getModelProvider } from "../../models/ModelRegistry";
 import logger from "../../utils/logger";
-import { getDefaultPromptText, resolvePrompt, type PromptKind } from "../../config/prompts";
+import {
+  appendVocabularySuffix,
+  getDefaultPromptText,
+  resolvePrompt,
+  type PromptKind,
+} from "../../config/prompts";
+import { buildReconcileRequest } from "../../helpers/reconcileRequest";
+import {
+  getMultiTranscriptionProvider,
+  resolveMultiTranscriptionLanes,
+  MULTI_TRANSCRIPTION_PROVIDERS,
+} from "../../config/multiTranscription";
 import {
   useSettingsStore,
+  selectEffectiveReconcileModel,
   selectIsCloudCleanupMode,
   selectIsCloudDictationAgentMode,
   selectIsCloudTranslationMode,
@@ -65,9 +77,15 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
     t(
       kind === "translate"
         ? "promptStudio.defaultTestInputTranslate"
-        : "promptStudio.defaultTestInput"
+        : kind === "reconcile"
+          ? "promptStudio.reconcile.defaultVersionA"
+          : "promptStudio.defaultTestInput"
     )
   );
+  // The merge reads two transcripts of the same audio, so it needs a second input. Kept
+  // separate rather than parsed out of one box: the point of the test is that the two
+  // disagree, and a delimiter the user has to get right hides that.
+  const [testTextB, setTestTextB] = useState(() => t("promptStudio.reconcile.defaultVersionB"));
   const [testResult, setTestResult] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
@@ -98,6 +116,14 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
 
   const isTranslate = kind === "translate";
   const isAgent = kind === "dictationAgent";
+  // The merge runs on the multi-transcription reconcile scope, not the cleanup scope.
+  const isReconcile = kind === "reconcile";
+  const multiTranscriptionEnabled = useSettingsStore((s) => s.multiTranscriptionEnabled);
+  const reconcileProvider = useSettingsStore((s) => s.dualTranscriptionReconcileProvider);
+  // The healed id, which is what the request carries: a stored model the provider no
+  // longer serves is substituted, so displaying the raw setting would name a model that
+  // is never sent.
+  const reconcileModel = useSettingsStore(selectEffectiveReconcileModel);
 
   const customPrompt = useSettingsStore((s) => s.customPrompts[kind]);
   const setCustomPrompt = useSettingsStore((s) => s.setCustomPrompt);
@@ -126,6 +152,19 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
     setCopiedPrompt(true);
     setTimeout(() => setCopiedPrompt(false), 2000);
   };
+
+  // The prompt labels each version with the recogniser behind it and has a tie-break
+  // ordered by recogniser, so the test uses the names of the lanes that would really
+  // run. Falling back to the first two providers keeps the labels real when multi
+  // transcription is off and no lanes are resolved.
+  const reconcileTestLabels = (() => {
+    const settings = useSettingsStore.getState() as unknown as Record<string, unknown>;
+    const labels = resolveMultiTranscriptionLanes(settings)
+      .map((lane) => getMultiTranscriptionProvider(lane.provider)?.label)
+      .filter((label): label is string => !!label);
+    const fallback = MULTI_TRANSCRIPTION_PROVIDERS.map((provider) => provider.label);
+    return [labels[0] ?? fallback[0], labels[1] ?? fallback[1]];
+  })();
 
   const testPrompt = async () => {
     if (!testText.trim()) return;
@@ -219,6 +258,44 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
         return;
       }
 
+      // The merge: the same request the dictation path makes, built by the same helper,
+      // so a prompt that behaves here behaves there. It runs on the reconcile scope's
+      // provider and model — the cleanup scope below is a different model entirely.
+      if (isReconcile) {
+        if (!testTextB.trim()) {
+          setTestResult(t("promptStudio.reconcile.needsTwoVersions"));
+          return;
+        }
+
+        const settings = useSettingsStore.getState();
+        const previous = customPrompt;
+        setCustomPrompt(kind, editedPrompt);
+        try {
+          const request = buildReconcileRequest({
+            versions: [
+              { text: testText, provider: reconcileTestLabels[0] },
+              { text: testTextB, provider: reconcileTestLabels[1] },
+            ],
+            agentName,
+            language: settings.preferredLanguage,
+            // The dictionary half of the dictation vocabulary. The screen half is
+            // captured per dictation in the main process and has nothing to read here,
+            // so the test shows what the curated words do and says so.
+            vocabulary: getDictionaryHintWords(settings),
+          });
+          const result = await ReasoningService.processText(
+            request.input,
+            request.model,
+            null,
+            request.options
+          );
+          setTestResult(result);
+        } finally {
+          setCustomPrompt(kind, previous);
+        }
+        return;
+      }
+
       const cleanupProvider = isCloudMode
         ? "openwhispr"
         : cleanupModel
@@ -294,6 +371,21 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
       setIsLoading(false);
     }
   };
+
+  // The suffix exactly as the merge receives it: appendVocabularySuffix onto an empty
+  // prompt is the appended block by itself. Empty when nothing is curated, which is the
+  // honest answer — the screen half only exists while a dictation is running.
+  // Subscribed as the two stored arrays rather than through one selector that builds a
+  // list: a selector returning a fresh array every call is a new snapshot every render.
+  const customDictionary = useSettingsStore((s) => s.customDictionary);
+  const snippets = useSettingsStore((s) => s.snippets);
+  const vocabularyAppendix = isReconcile
+    ? appendVocabularySuffix(
+        "",
+        getDictionaryHintWords({ customDictionary, snippets }),
+        uiLanguage
+      ).trim()
+    : "";
 
   const isAgentAddressed = testText.toLowerCase().includes(agentName.toLowerCase());
   const isCustomPrompt = customPrompt.length > 0;
@@ -379,6 +471,26 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                 </pre>
               </div>
             </div>
+            {/* What the template alone does not show: the vocabulary is appended per
+                dictation, so reading the prompt here used to leave it looking as though
+                the speaker's own words never reached the merge. Rendered from the real
+                suffix builder rather than described, and the dictionary half is shown
+                because it is the half that exists before a dictation starts. */}
+            {isReconcile && (
+              <div className="px-5 py-4">
+                <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wider mb-3">
+                  {t("promptStudio.reconcile.appendedAtDictation")}
+                </p>
+                <div className="bg-muted/30 dark:bg-surface-raised/30 border border-border/30 rounded-lg p-4 max-h-40 overflow-y-auto">
+                  <pre className="text-xs font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                    {vocabularyAppendix || t("promptStudio.reconcile.noVocabulary")}
+                  </pre>
+                </div>
+                <p className="text-xs text-muted-foreground/40 mt-2">
+                  {t("promptStudio.reconcile.screenTermsNote")}
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -431,21 +543,31 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
         {activeTab === "test" &&
           (() => {
             // Each kind reports the scope that actually runs it.
-            const testIsCloud = isTranslate
-              ? isCloudTranslation
-              : isAgent
-                ? isCloudDictationAgent
-                : isCloudMode;
-            const testModel = isTranslate
-              ? translationModel
-              : isAgent
-                ? dictationAgentModel
-                : cleanupModel;
-            const scopeProvider = isTranslate
-              ? translationProvider.trim()
-              : isAgent
-                ? dictationAgentProvider.trim()
-                : "";
+            // The merge has no cloud mode: it is a BYOK provider chosen in Settings →
+            // Cleanup, and getEffectiveReconcileModel is what actually gets sent (a
+            // stored id the provider no longer serves is healed back to the default, so
+            // reading the raw setting would display a model the request will not use).
+            const testIsCloud = isReconcile
+              ? false
+              : isTranslate
+                ? isCloudTranslation
+                : isAgent
+                  ? isCloudDictationAgent
+                  : isCloudMode;
+            const testModel = isReconcile
+              ? reconcileModel
+              : isTranslate
+                ? translationModel
+                : isAgent
+                  ? dictationAgentModel
+                  : cleanupModel;
+            const scopeProvider = isReconcile
+              ? reconcileProvider.trim()
+              : isTranslate
+                ? translationProvider.trim()
+                : isAgent
+                  ? dictationAgentProvider.trim()
+                  : "";
             const testProvider = testIsCloud
               ? "openwhispr"
               : scopeProvider || (testModel ? getModelProvider(testModel) : "openai");
@@ -463,7 +585,7 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
 
             return (
               <div className="divide-y divide-border/40 dark:divide-border-subtle">
-                {!isTranslate && !isAgent && !useCleanupModel && (
+                {!isTranslate && !isAgent && !isReconcile && !useCleanupModel && (
                   <div className="px-5 py-4">
                     <div className="rounded-lg border border-warning/20 bg-warning/5 dark:bg-warning/10 px-4 py-3">
                       <div className="flex items-start gap-2.5">
@@ -503,9 +625,13 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                 <div className="px-5 py-4">
                   <div className="flex items-center justify-between mb-2">
                     <p className="text-xs font-medium text-foreground">
-                      {t("promptStudio.test.inputLabel")}
+                      {isReconcile
+                        ? t("promptStudio.reconcile.versionLabel", {
+                            recogniser: reconcileTestLabels[0],
+                          })
+                        : t("promptStudio.test.inputLabel")}
                     </p>
-                    {testText && (
+                    {testText && !isReconcile && (
                       <span
                         className={`text-xs font-medium uppercase tracking-wider px-1.5 py-px rounded ${
                           isTranslate || isAgent || isAgentAddressed
@@ -528,14 +654,36 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                     className="text-xs"
                     placeholder={t("promptStudio.test.inputPlaceholder")}
                   />
+                  {/* Two boxes for the merge: it reads independent transcripts of the
+                      same audio, and the interesting behaviour is what it does where
+                      they disagree. Labelled with the lanes that would really run,
+                      because the prompt's tie-break is by recogniser. */}
+                  {isReconcile && (
+                    <>
+                      <p className="text-xs font-medium text-foreground mt-3 mb-2">
+                        {t("promptStudio.reconcile.versionLabel", {
+                          recogniser: reconcileTestLabels[1],
+                        })}
+                      </p>
+                      <Textarea
+                        value={testTextB}
+                        onChange={(e) => setTestTextB(e.target.value)}
+                        rows={3}
+                        className="text-xs"
+                        placeholder={t("promptStudio.test.inputPlaceholder")}
+                      />
+                    </>
+                  )}
                   {/* The agent tab always runs the agent prompt, addressed or not. */}
                   {!isAgent && (
                     <p className="text-xs text-muted-foreground/40 mt-1.5">
-                      {isTranslate
-                        ? t("promptStudio.test.translateHint", {
-                            language: getLanguageLabel(translationTargetLanguage),
-                          })
-                        : t("promptStudio.test.addressHint", { agentName })}
+                      {isReconcile
+                        ? t("promptStudio.reconcile.testHint")
+                        : isTranslate
+                          ? t("promptStudio.test.translateHint", {
+                              language: getLanguageLabel(translationTargetLanguage),
+                            })
+                          : t("promptStudio.test.addressHint", { agentName })}
                     </p>
                   )}
                 </div>
@@ -546,7 +694,8 @@ export default function PromptStudio({ className = "", kind = "cleanup" }: Promp
                     disabled={
                       !testText.trim() ||
                       isLoading ||
-                      (!isTranslate && !isAgent && !useCleanupModel)
+                      (isReconcile && !testTextB.trim()) ||
+                      (!isTranslate && !isAgent && !isReconcile && !useCleanupModel)
                     }
                     size="sm"
                     className="w-full"

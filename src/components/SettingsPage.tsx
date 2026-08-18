@@ -49,13 +49,14 @@ import SelfHostedPanel from "./SelfHostedPanel";
 import {
   MULTI_TRANSCRIPTION_PROVIDERS,
   MULTI_TRANSCRIPTION_SLOTS,
-  RECONCILE_PROVIDER_IDS,
   NO_PROVIDER,
   resolveMultiTranscriptionLanes,
   getMultiTranscriptionProvider,
   resolveMultiTranscriptionModel,
+  MULTI_TIMEOUT_CHOICES_MS,
+  formatTimeoutSeconds,
 } from "../config/multiTranscription";
-import { REASONING_PROVIDERS, getTranscriptionProviders } from "../models/ModelRegistry";
+import { getTranscriptionProviders } from "../models/ModelRegistry";
 import {
   ConfirmDialog,
   AlertDialog,
@@ -75,7 +76,7 @@ import { useSystemAudioPermission } from "../hooks/useSystemAudioPermission";
 import { useClipboard } from "../hooks/useClipboard";
 import { useUpdater } from "../hooks/useUpdater";
 
-import PromptStudio from "./ui/PromptStudio";
+import CleanupSettings from "./settings/CleanupSettings";
 import { ProviderTabs } from "./ui/ProviderTabs";
 import { HotkeyListInput } from "./ui/HotkeyListInput";
 import { useHotkeyRegistration } from "../hooks/useHotkeyRegistration";
@@ -129,6 +130,7 @@ export type SettingsSectionType =
   | "hotkeys"
   | "speechToText"
   | "llms"
+  | "cleanup"
   | "privacyData"
   | "system";
 
@@ -426,36 +428,6 @@ function TranscriptionSection({
 
   const dualSecondTimeoutMs = useSettingsStore((s) => s.dualTranscriptionSecondTimeoutMs);
   const setDualSecondTimeoutMs = useSettingsStore((s) => s.setDualTranscriptionSecondTimeoutMs);
-  const DUAL_TIMEOUT_CHOICES = [500, 750, 1000, 1500, 2000, 3000];
-  // toFixed(1) would render 750 ms as "0.8s". Trim trailing zeros instead, so the
-  // list reads 0.5 / 0.75 / 1 / 1.5 and every option says exactly what it is.
-  const formatTimeoutSeconds = (ms: number) => String(Number((ms / 1000).toFixed(2)));
-
-  const dualReconcileTimeoutMs = useSettingsStore((s) => s.dualTranscriptionReconcileTimeoutMs);
-  const setDualReconcileTimeoutMs = useSettingsStore(
-    (s) => s.setDualTranscriptionReconcileTimeoutMs
-  );
-
-  const dualReconcileProvider = useSettingsStore((s) => s.dualTranscriptionReconcileProvider);
-  const setDualReconcileProvider = useSettingsStore((s) => s.setDualTranscriptionReconcileProvider);
-  const dualReconcileModel = useSettingsStore((s) => s.dualTranscriptionReconcileModel);
-  const setDualReconcileModel = useSettingsStore((s) => s.setDualTranscriptionReconcileModel);
-
-  const reconcileProviders = RECONCILE_PROVIDER_IDS.map((id) => ({
-    id,
-    name: REASONING_PROVIDERS[id]?.name ?? id,
-    models: REASONING_PROVIDERS[id]?.models ?? [],
-  })).filter((provider) => provider.models.length > 0);
-  const reconcileModels =
-    reconcileProviders.find((provider) => provider.id === dualReconcileProvider)?.models ?? [];
-
-  // Switching provider has to move the model with it, or the request carries one
-  // provider's id to another's endpoint and 404s.
-  const handleReconcileProviderChange = (providerId: string) => {
-    setDualReconcileProvider(providerId);
-    const first = reconcileProviders.find((provider) => provider.id === providerId)?.models[0];
-    if (first) setDualReconcileModel(first.value);
-  };
 
   const renderSilenceTrim = () => (
     <SettingsPanel>
@@ -624,7 +596,7 @@ function TranscriptionSection({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {DUAL_TIMEOUT_CHOICES.map((ms) => (
+                  {MULTI_TIMEOUT_CHOICES_MS.map((ms) => (
                     <SelectItem key={ms} value={String(ms)}>
                       {t("settingsPage.transcription.dualSecondTimeoutValue", {
                         seconds: formatTimeoutSeconds(ms),
@@ -635,66 +607,13 @@ function TranscriptionSection({
               </Select>
             </SettingsRow>
           </SettingsPanelRow>
-          {/* Only consulted when the transcripts disagree — when they match, or only one
-              lane answers, nothing is merged and this model is never called. */}
+          {/* The merge model, its deadline and its prompt are configured in Cleanup:
+              choosing recognisers and choosing what combines them are separate
+              decisions, and the merge is also where cleanup now happens. */}
           <SettingsPanelRow>
-            <SettingsRow
-              label={t("settingsPage.transcription.dualReconcileProvider")}
-              description={t("settingsPage.transcription.dualReconcileDescription")}
-            >
-              <Select value={dualReconcileProvider} onValueChange={handleReconcileProviderChange}>
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {reconcileProviders.map((provider) => (
-                    <SelectItem key={provider.id} value={provider.id}>
-                      {provider.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </SettingsPanelRow>
-          <SettingsPanelRow>
-            <SettingsRow label={t("settingsPage.transcription.dualReconcileModel")}>
-              <Select value={dualReconcileModel} onValueChange={setDualReconcileModel}>
-                <SelectTrigger className="w-56">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {reconcileModels.map((model) => (
-                    <SelectItem key={model.value} value={model.value}>
-                      {model.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
-          </SettingsPanelRow>
-          <SettingsPanelRow>
-            <SettingsRow
-              label={t("settingsPage.transcription.dualReconcileTimeout")}
-              description={t("settingsPage.transcription.dualReconcileTimeoutDescription")}
-            >
-              <Select
-                value={String(dualReconcileTimeoutMs)}
-                onValueChange={(value) => setDualReconcileTimeoutMs(Number(value))}
-              >
-                <SelectTrigger className="w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DUAL_TIMEOUT_CHOICES.map((ms) => (
-                    <SelectItem key={ms} value={String(ms)}>
-                      {t("settingsPage.transcription.dualSecondTimeoutValue", {
-                        seconds: formatTimeoutSeconds(ms),
-                      })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SettingsRow>
+            <p className="text-xs text-muted-foreground">
+              {t("settingsPage.transcription.multiMergeConfiguredInCleanup")}
+            </p>
           </SettingsPanelRow>
           {multiProvidersMissingKeys.length > 0 && (
             <SettingsPanelRow>
@@ -862,25 +781,6 @@ function ScreenContextSettings() {
   );
 }
 
-interface AiModelsSectionProps {
-  useCleanupModel: boolean;
-  setUseCleanupModel: (value: boolean) => void;
-  toast: (opts: {
-    title: string;
-    description: string;
-    variant?: "default" | "destructive" | "success";
-    duration?: number;
-  }) => void;
-}
-
-const CLEANUP_MODE_TOAST_KEY: Record<InferenceMode, string> = {
-  openwhispr: "switchedCloud",
-  providers: "switchedProviders",
-  local: "switchedLocal",
-  "self-hosted": "switchedSelfHosted",
-  enterprise: "switchedEnterprise",
-};
-
 function NoteFormattingSettings() {
   const { t } = useTranslation();
   const autoGenerateNoteTitle = useSettingsStore((s) => s.autoGenerateNoteTitle);
@@ -903,53 +803,15 @@ function NoteFormattingSettings() {
   );
 }
 
-function AiModelsSection({ useCleanupModel, setUseCleanupModel, toast }: AiModelsSectionProps) {
-  const { t } = useTranslation();
-
-  const handleCleanupModeChange = (mode: InferenceMode) => {
-    const toastKey = CLEANUP_MODE_TOAST_KEY[mode];
-    toast({
-      title: t(`settingsPage.aiModels.toasts.${toastKey}.title`),
-      description: t(`settingsPage.aiModels.toasts.${toastKey}.description`),
-      variant: "success",
-      duration: 3000,
-    });
-  };
-
-  return (
-    <div className="space-y-4">
-      <SettingsPanel>
-        <SettingsPanelRow>
-          <SettingsRow
-            label={t("settingsPage.aiModels.enableTextCleanup")}
-            description={t("settingsPage.aiModels.enableTextCleanupDescription")}
-          >
-            <Toggle checked={useCleanupModel} onChange={setUseCleanupModel} />
-          </SettingsRow>
-        </SettingsPanelRow>
-      </SettingsPanel>
-
-      {useCleanupModel && (
-        <>
-          <InferenceConfigEditor scope="dictationCleanup" onModeChange={handleCleanupModeChange} />
-          <GpuDeviceSelector purpose="intelligence" />
-        </>
-      )}
-    </div>
-  );
-}
-
 type SpeechTab = "dictation" | "noteRecording" | "upload";
-type LlmTab =
-  | "dictationCleanup"
-  | "dictationAgent"
-  | "dictationTranslation"
-  | "noteFormatting"
-  | "chatIntelligence";
+// No dictationCleanup tab. Multi transcription merges the candidate transcripts and
+// cleans them in the same call, so the model that cleans a dictation is the merge model
+// — configured, with its prompt, in the Cleanup section. A tab for a separate cleanup
+// pass would offer a model that a multi-provider dictation never calls.
+type LlmTab = "dictationAgent" | "dictationTranslation" | "noteFormatting" | "chatIntelligence";
 
 const SPEECH_TABS: SpeechTab[] = ["dictation", "noteRecording", "upload"];
 const LLM_TABS: LlmTab[] = [
-  "dictationCleanup",
   "dictationAgent",
   "dictationTranslation",
   "noteFormatting",
@@ -1041,14 +903,12 @@ function SpeechToTextTabs({
 
 function LlmsTabs({
   initialTab,
-  renderDictationCleanup,
   renderDictationAgent,
   renderDictationTranslation,
   renderNoteFormatting,
   renderChatIntelligence,
 }: {
   initialTab?: LlmTab;
-  renderDictationCleanup: () => React.ReactNode;
   renderDictationAgent: () => React.ReactNode;
   renderDictationTranslation: () => React.ReactNode;
   renderNoteFormatting: () => React.ReactNode;
@@ -1058,7 +918,6 @@ function LlmsTabs({
   const [tab, setTab] = useSubTab<LlmTab>("settings.llmsTab", LLM_TABS, initialTab);
 
   const subTabs = [
-    { id: "dictationCleanup", name: t("settingsPage.llms.tabs.dictationCleanup") },
     { id: "dictationAgent", name: t("settingsPage.llms.tabs.dictationAgent") },
     { id: "dictationTranslation", name: t("settingsPage.llms.tabs.dictationTranslation") },
     { id: "noteFormatting", name: t("settingsPage.llms.tabs.noteFormatting") },
@@ -1076,14 +935,12 @@ function LlmsTabs({
         selectedId={tab}
         onSelect={(id) => setTab(id as LlmTab)}
         renderIcon={(id) => {
-          if (id === "dictationCleanup") return <Wand2 className="w-3.5 h-3.5" />;
           if (id === "dictationAgent") return <Sparkles className="w-3.5 h-3.5" />;
           if (id === "dictationTranslation") return <Languages className="w-3.5 h-3.5" />;
           if (id === "noteFormatting") return <BookOpen className="w-3.5 h-3.5" />;
           return <MessageSquare className="w-3.5 h-3.5" />;
         }}
       />
-      <TabPanel active={tab === "dictationCleanup"}>{renderDictationCleanup()}</TabPanel>
       <TabPanel active={tab === "dictationAgent"}>{renderDictationAgent()}</TabPanel>
       <TabPanel active={tab === "dictationTranslation"}>{renderDictationTranslation()}</TabPanel>
       <TabPanel active={tab === "noteFormatting"}>{renderNoteFormatting()}</TabPanel>
@@ -3934,6 +3791,11 @@ EOF`,
           </div>
         );
 
+      // Rendered plainly rather than kept alive like the two above: nothing here owns a
+      // download or an IPC listener that has to survive leaving the section.
+      case "cleanup":
+        return <CleanupSettings />;
+
       case "speechToText":
       case "llms":
         return null;
@@ -4625,24 +4487,6 @@ EOF`,
               activeSection === "llms" ? (initialSubTab as LlmTab | undefined) : undefined
             }
             renderChatIntelligence={() => <ChatAgentSettings />}
-            renderDictationCleanup={() => (
-              <div className="space-y-6">
-                <AiModelsSection
-                  useCleanupModel={useCleanupModel}
-                  setUseCleanupModel={(value) => {
-                    updateCleanupSettings({ useCleanupModel: value });
-                  }}
-                  toast={toast}
-                />
-                <div className="border-t border-border/40 pt-6">
-                  <SectionHeader
-                    title={t("settingsPage.prompts.title")}
-                    description={t("settingsPage.prompts.description")}
-                  />
-                  <PromptStudio />
-                </div>
-              </div>
-            )}
             renderDictationAgent={() => <DictationAgentSettings />}
             renderDictationTranslation={() => <DictationTranslationSettings />}
             renderNoteFormatting={() => <NoteFormattingSettings />}

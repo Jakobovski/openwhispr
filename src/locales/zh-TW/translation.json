@@ -1089,6 +1089,16 @@
       "customPrompt": "自訂提示詞",
       "defaultPrompt": "預設提示詞",
       "modified": "已修改"
+    },
+    "reconcile": {
+      "versionLabel": "來自 {{recogniser}} 的版本",
+      "defaultVersionA": "就是我把修復推到 open whisper 的儲存庫了 呃 應該會進下一個建置",
+      "defaultVersionB": "就是我把修復推到 OpenWhispr 的儲存庫了，應該會進下一個版本",
+      "needsTwoVersions": "請填寫兩個版本——合併會比較同一段音訊的兩份轉寫。",
+      "testHint": "同一段音訊的兩份轉寫。讓它們不一致，就能看到合併如何取捨。",
+      "appendedAtDictation": "聽寫時附加",
+      "noVocabulary": "目前沒有內容——加入詞典的詞會顯示在這裡。",
+      "screenTermsNote": "這些是你的詞典詞彙。聽寫時，會在其後附加從你當時所看視窗中讀取到的特有詞彙。"
     }
   },
   "settingsModal": {
@@ -1122,6 +1132,10 @@
       "llms": {
         "description": "用於清理、筆記格式化和聊天的模型",
         "label": "語言模型"
+      },
+      "cleanup": {
+        "label": "清理",
+        "description": "合併模型與提示詞"
       },
       "privacyData": {
         "description": "隱私、權限與資料分析",
@@ -1731,6 +1745,11 @@
         "chatIntelligence": "聊天"
       }
     },
+    "cleanup": {
+      "title": "清理",
+      "description": "一個模型會把各個服務商的轉寫結果合併，並在同一次呼叫中完成清理。這裡設定的就是這個模型以及它使用的提示詞。",
+      "multiDisabled": "多重轉寫已關閉，因此沒有任何流程會使用這個提示詞。可在「語音轉文字」中開啟。"
+    },
     "noteFormatting": {
       "autoGenerateTitle": "自動產生筆記標題",
       "autoGenerateTitleDescription": "使用 AI 在轉錄或增強後為筆記產生簡短標題"
@@ -1859,7 +1878,8 @@
       "screenContextPermissionNeeded": "需要「螢幕錄製」權限才能讀取你正在查看的視窗。",
       "screenContextOpenSettings": "打開設定",
       "dualReconcileTimeout": "合併等待時間",
-      "dualReconcileTimeoutDescription": "在改用最佳單份轉錄之前，留給合併模型的時間。"
+      "dualReconcileTimeoutDescription": "在改用最佳單份轉錄之前，留給合併模型的時間。",
+      "multiMergeConfiguredInCleanup": "合併模型、它的等待上限以及提示詞都在「清理」中設定。"
     },
     "intelligence": {
       "gpuDevice": {

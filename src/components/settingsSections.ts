@@ -20,6 +20,7 @@ export const SETTINGS_SECTION_IDS = [
   "hotkeys",
   "speechToText",
   "llms",
+  "cleanup",
   "privacyData",
   "system",
 ] as const satisfies readonly SettingsSectionType[];
@@ -31,15 +32,20 @@ export function isSettingsSection(view: string): view is SettingsSectionType {
 }
 
 // The old AI Models sidebar had four items (transcription, meetings,
-// intelligence, agentMode) — they now collapse into two: speechToText + llms.
-// Legacy deep-links land on the matching sub-tab via LEGACY_SUB_TAB.
+// intelligence, agentMode) — they now collapse into three: speechToText, llms and
+// cleanup. Legacy deep-links land on the matching sub-tab via LEGACY_SUB_TAB.
+//
+// `intelligence` and `prompts` used to open Language Models -> Dictation Cleanup. That
+// tab is gone: multi transcription merges the candidate transcripts and cleans them in
+// the same call, so the prompt that matters is the merge prompt. Both now land on the
+// Cleanup section, which is where that prompt lives.
 const SECTION_ALIASES: Record<string, SettingsSectionType> = {
-  aiModels: "llms",
+  aiModels: "cleanup",
   agentConfig: "llms",
   agentMode: "llms",
-  intelligence: "llms",
+  intelligence: "cleanup",
   meetings: "llms",
-  prompts: "llms",
+  prompts: "cleanup",
   transcription: "speechToText",
   uploadTranscription: "speechToText",
   softwareUpdates: "system",
@@ -52,11 +58,8 @@ const LEGACY_SUB_TAB: Record<string, string> = {
   transcription: "dictation",
   uploadTranscription: "upload",
   meetings: "noteFormatting",
-  intelligence: "dictationCleanup",
   agentMode: "chatIntelligence",
   agentConfig: "chatIntelligence",
-  aiModels: "dictationCleanup",
-  prompts: "dictationCleanup",
 };
 
 /** The section the panel lands on when nothing more specific was requested. */

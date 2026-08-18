@@ -2395,13 +2395,19 @@ export function getEffectiveCleanupModel() {
  * model is. Now that this is user-configurable it can go stale exactly as
  * qwen/qwen3-32b did, and a dead id here fails quietly: the reconcile call throws,
  * provider A's unmerged text is used, and dual keeps reporting success.
+ *
+ * Selector form so the settings UI can display the id that will actually be sent and
+ * re-render when it changes; the getter below is for the dictation path, which has no
+ * subscription.
  */
-export function getEffectiveReconcileModel() {
-  const state = useSettingsStore.getState();
-  return usableModel(
+export const selectEffectiveReconcileModel = (state: SettingsState) =>
+  usableModel(
     state.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
     state.dualTranscriptionReconcileModel || DEFAULT_RECONCILE_MODEL
   );
+
+export function getEffectiveReconcileModel() {
+  return selectEffectiveReconcileModel(useSettingsStore.getState());
 }
 
 export function isCloudCleanupMode() {

@@ -1177,6 +1177,16 @@
       "customPrompt": "Custom prompt",
       "defaultPrompt": "Default prompt",
       "modified": "Modified"
+    },
+    "reconcile": {
+      "versionLabel": "Version from {{recogniser}}",
+      "defaultVersionA": "so i pushed the fix to the open whisper repo and it should uh land in the next build",
+      "defaultVersionB": "So I pushed the fix to the OpenWhispr repo and it should land in the next release",
+      "needsTwoVersions": "Enter both versions — the merge compares two transcripts of the same audio.",
+      "testHint": "Two transcripts of the same audio. Make them disagree to see how the merge decides.",
+      "appendedAtDictation": "Appended at dictation time",
+      "noVocabulary": "Nothing yet — words you add to your dictionary appear here.",
+      "screenTermsNote": "These are your dictionary words. The distinctive terms read from the window you were looking at are appended after them when you dictate."
     }
   },
   "settingsModal": {
@@ -1214,6 +1224,10 @@
       "llms": {
         "description": "Models for chat, cleanup & summaries",
         "label": "Language Models"
+      },
+      "cleanup": {
+        "label": "Cleanup",
+        "description": "Merge model & prompt"
       },
       "privacyData": {
         "description": "Privacy, permissions & analytics",
@@ -1909,6 +1923,11 @@
         "chatIntelligence": "Chat"
       }
     },
+    "cleanup": {
+      "title": "Cleanup",
+      "description": "One model merges the transcripts from every provider and cleans the result in the same pass. This is that model, and the prompt it runs.",
+      "multiDisabled": "Multi-transcription is off, so nothing runs this prompt. Turn it on in Speech-to-Text."
+    },
     "noteFormatting": {
       "autoGenerateTitle": "Auto-generate note titles",
       "autoGenerateTitleDescription": "Use AI to generate a short title for notes after transcription or enhancement"
@@ -2037,7 +2056,8 @@
       "screenContextPermissionNeeded": "Screen Recording permission is needed before this can read the window you're looking at.",
       "screenContextOpenSettings": "Open Settings",
       "dualReconcileTimeout": "Wait for the merge",
-      "dualReconcileTimeoutDescription": "How long the merge model gets before the best single transcript is used instead."
+      "dualReconcileTimeoutDescription": "How long the merge model gets before the best single transcript is used instead.",
+      "multiMergeConfiguredInCleanup": "The merge model, its deadline and its prompt are configured in Cleanup."
     },
     "intelligence": {
       "gpuDevice": {

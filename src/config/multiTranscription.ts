@@ -176,6 +176,22 @@ export const DEFAULT_MULTI_SECOND_TIMEOUT_MS = 1000;
 // fallback is a real transcript rather than an error.
 export const DEFAULT_RECONCILE_TIMEOUT_MS = 1000;
 
+// The wait choices offered for both budgets above. One list because they are the same
+// kind of decision measured in the same units, and because the two panels that offer
+// them — the lanes in Speech-to-Text, the merge in Cleanup — would otherwise each carry
+// their own copy and drift.
+export const MULTI_TIMEOUT_CHOICES_MS = [500, 750, 1000, 1500, 2000, 3000];
+
+/**
+ * A wait in seconds, for a label.
+ *
+ * toFixed(1) would render 750 ms as "0.8s". Trailing zeros are trimmed instead, so the
+ * list reads 0.5 / 0.75 / 1 / 1.5 and every option says exactly what it is.
+ */
+export function formatTimeoutSeconds(ms: number): string {
+  return String(Number((ms / 1000).toFixed(2)));
+}
+
 export function getMultiTranscriptionProvider(id: string): MultiTranscriptionProvider | undefined {
   return MULTI_TRANSCRIPTION_PROVIDERS.find((provider) => provider.id === id);
 }
