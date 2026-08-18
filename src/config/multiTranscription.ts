@@ -124,17 +124,15 @@ export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = Object.fromEntries
 export const DEFAULT_RECONCILE_PROVIDER = "openrouter";
 export const DEFAULT_RECONCILE_MODEL = "anthropic/claude-haiku-4.5";
 
-// Dual cleanup: a second merge model racing the first, first answer wins. On by
-// default — the whole reason to add a second model is that the merge sits in the
-// paste path, so racing trades one extra API call for a latency floor set by
-// whichever of the two is faster on a given dictation, rather than by picking one
-// in advance and living with it.
+// The merge always races two models, not a mode the user can turn off — the whole
+// reason to add a second model is that the merge sits in the paste path, so racing
+// trades one extra API call for a latency floor set by whichever of the two is faster
+// on a given dictation, rather than by picking one in advance and living with it.
 //
 // Grok 4.20 non-reasoning as the second: no thinking tokens to suppress
 // (supportsThinking: false in the registry), so no reasoning-token variance, and a
 // different provider from slot A means a stall on one side — a rate limit, an
 // outage — is unlikely to also stall the other.
-export const DEFAULT_MULTI_CLEANUP_ENABLED = true;
 export const DEFAULT_RECONCILE_PROVIDER_B = "xai";
 export const DEFAULT_RECONCILE_MODEL_B = "grok-4.20-0309-non-reasoning";
 

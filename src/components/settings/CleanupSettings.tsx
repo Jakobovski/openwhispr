@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-import { Toggle } from "../ui/toggle";
 import { SettingsPanel, SettingsPanelRow, SettingsRow, SectionHeader } from "../ui/SettingsSection";
 import PromptStudio from "../ui/PromptStudio";
 import { REASONING_PROVIDERS } from "../../models/ModelRegistry";
@@ -101,16 +100,15 @@ function ReconcileSlotPicker({
  * decision. The lanes that feed it stay in Speech-to-Text, which is where choosing
  * recognisers belongs.
  *
- * Dual cleanup mode races a second model against the first and pastes whichever
- * answers first — the merge sits in the paste path, so the latency that matters is
- * whichever side is faster on a given dictation, not either one picked in advance.
+ * The merge always races two models and pastes whichever answers first — the merge
+ * sits in the paste path, so the latency that matters is whichever side is faster on
+ * a given dictation, not either one picked in advance. This is not a setting the user
+ * can turn off; the two model pickers below are always both in effect.
  */
 export default function CleanupSettings() {
   const { t } = useTranslation();
 
   const multiTranscriptionEnabled = useSettingsStore((s) => s.multiTranscriptionEnabled);
-  const multiCleanupEnabled = useSettingsStore((s) => s.multiCleanupEnabled);
-  const setMultiCleanupEnabled = useSettingsStore((s) => s.setMultiCleanupEnabled);
 
   const reconcileProvider = useSettingsStore((s) => s.dualTranscriptionReconcileProvider);
   const setReconcileProvider = useSettingsStore((s) => s.setDualTranscriptionReconcileProvider);
@@ -147,51 +145,28 @@ export default function CleanupSettings() {
       )}
 
       <SettingsPanel>
-        <SettingsPanelRow>
-          <SettingsRow
-            label={t("settingsPage.cleanup.raceTwoModels")}
-            description={t("settingsPage.cleanup.raceTwoModelsDescription")}
-          >
-            <Toggle checked={multiCleanupEnabled} onChange={setMultiCleanupEnabled} />
-          </SettingsRow>
-        </SettingsPanelRow>
-
         <ReconcileSlotPicker
-          providerLabel={t(
-            multiCleanupEnabled
-              ? "settingsPage.cleanup.firstProvider"
-              : "settingsPage.transcription.dualReconcileProvider"
-          )}
-          modelLabel={t(
-            multiCleanupEnabled
-              ? "settingsPage.cleanup.firstModel"
-              : "settingsPage.transcription.dualReconcileModel"
-          )}
+          providerLabel={t("settingsPage.cleanup.firstProvider")}
+          modelLabel={t("settingsPage.cleanup.firstModel")}
           provider={reconcileProvider}
           model={reconcileModel}
           setProvider={setReconcileProvider}
           setModel={setReconcileModel}
         />
 
-        {multiCleanupEnabled && (
-          <ReconcileSlotPicker
-            providerLabel={t("settingsPage.cleanup.secondProvider")}
-            modelLabel={t("settingsPage.cleanup.secondModel")}
-            provider={reconcileProviderB}
-            model={reconcileModelB}
-            setProvider={setReconcileProviderB}
-            setModel={setReconcileModelB}
-          />
-        )}
+        <ReconcileSlotPicker
+          providerLabel={t("settingsPage.cleanup.secondProvider")}
+          modelLabel={t("settingsPage.cleanup.secondModel")}
+          provider={reconcileProviderB}
+          model={reconcileModelB}
+          setProvider={setReconcileProviderB}
+          setModel={setReconcileModelB}
+        />
 
         <SettingsPanelRow>
           <SettingsRow
             label={t("settingsPage.transcription.dualReconcileTimeout")}
-            description={
-              multiCleanupEnabled
-                ? t("settingsPage.cleanup.raceTimeoutDescription")
-                : t("settingsPage.transcription.dualReconcileTimeoutDescription")
-            }
+            description={t("settingsPage.cleanup.raceTimeoutDescription")}
           >
             <Select
               value={String(reconcileTimeoutMs)}

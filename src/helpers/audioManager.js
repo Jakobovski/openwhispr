@@ -3777,22 +3777,20 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const versions = answered.map((side) => ({ text: side.text, provider: side.label }));
     const agentName = localStorage.getItem("agentName") || null;
 
-    // Dual cleanup mode: a second merge model races the first, first answer wins. Slot A
-    // always runs; slot B joins when the setting is on. Both read from the same builder
-    // the Cleanup panel's test button uses, so what a user tries a prompt against is a
-    // request this path actually makes, for either slot.
+    // The merge always races two models, first answer wins — not a mode the user can
+    // turn off. Both lanes read from the same builder the Cleanup panel's test button
+    // uses, so what a user tries a prompt against is a request this path actually
+    // makes, for either slot.
     const reconcileLanes = [
       {
         provider: settings.dualTranscriptionReconcileProvider || DEFAULT_RECONCILE_PROVIDER,
         model: getEffectiveReconcileModel(),
       },
-    ];
-    if (settings.multiCleanupEnabled) {
-      reconcileLanes.push({
+      {
         provider: settings.dualTranscriptionReconcileProviderB || DEFAULT_RECONCILE_PROVIDER_B,
         model: getEffectiveReconcileModelB(),
-      });
-    }
+      },
+    ];
 
     // Which answer stands if every merge lane fails or times out — computed before the
     // race so every path that gives up agrees on it.

@@ -30,7 +30,6 @@ import {
   DEFAULT_RECONCILE_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_MODEL,
-  DEFAULT_MULTI_CLEANUP_ENABLED,
   DEFAULT_RECONCILE_PROVIDER_B,
   DEFAULT_RECONCILE_MODEL_B,
 } from "../config/multiTranscription";
@@ -139,7 +138,6 @@ const BOOLEAN_SETTINGS = new Set([
   "silenceTrimEnabled",
   "screenContextEnabled",
   "multiTranscriptionEnabled",
-  "multiCleanupEnabled",
   "useLocalWhisper",
   "meetingUseLocalWhisper",
   "uploadUseLocalWhisper",
@@ -690,9 +688,7 @@ export interface SettingsState
   dualTranscriptionModelC: string;
   dualTranscriptionReconcileProvider: string;
   dualTranscriptionReconcileModel: string;
-  /** Races a second merge model against the first; whichever answers first wins. */
-  multiCleanupEnabled: boolean;
-  /** The second model in the race. Unused when multiCleanupEnabled is false. */
+  /** The second model in the merge race — always on, not a setting the user can disable. */
   dualTranscriptionReconcileProviderB: string;
   dualTranscriptionReconcileModelB: string;
   // How long the second provider gets after the first answers, before it is
@@ -714,7 +710,6 @@ export interface SettingsState
   setDualTranscriptionModelC: (value: string) => void;
   setDualTranscriptionReconcileProvider: (value: string) => void;
   setDualTranscriptionReconcileModel: (value: string) => void;
-  setMultiCleanupEnabled: (value: boolean) => void;
   setDualTranscriptionReconcileProviderB: (value: string) => void;
   setDualTranscriptionReconcileModelB: (value: string) => void;
   setDualTranscriptionSecondTimeoutMs: (value: number) => void;
@@ -1108,7 +1103,6 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     "dualTranscriptionReconcileModel",
     DEFAULT_RECONCILE_MODEL
   ),
-  multiCleanupEnabled: readBoolean("multiCleanupEnabled", DEFAULT_MULTI_CLEANUP_ENABLED),
   dualTranscriptionReconcileProviderB: readString(
     "dualTranscriptionReconcileProviderB",
     DEFAULT_RECONCILE_PROVIDER_B
@@ -1687,7 +1681,6 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionModelC: createStringSetter("dualTranscriptionModelC"),
   setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
   setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
-  setMultiCleanupEnabled: createBooleanSetter("multiCleanupEnabled"),
   setDualTranscriptionReconcileProviderB: createStringSetter(
     "dualTranscriptionReconcileProviderB"
   ),

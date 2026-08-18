@@ -158,7 +158,7 @@ test("the merge model shown is the one that will be sent", () => {
   );
 });
 
-test("dual cleanup mode races two lanes, each carrying its own provider and model", () => {
+test("the merge always races two lanes, each carrying its own provider and model", () => {
   // Sliced from the reconcile lanes' construction to the race call: the whole point of
   // racing two merge models is comparing them, so slot B must reach the request builder
   // with its own settings, not slot A's. A version that hardcoded slot A onto both lanes
@@ -177,23 +177,28 @@ test("dual cleanup mode races two lanes, each carrying its own provider and mode
     /getEffectiveReconcileModelB\(\)/,
     "slot B must read its own effective model, not slot A's"
   );
-  assert.match(
+  assert.doesNotMatch(
     section,
-    /if \(settings\.multiCleanupEnabled\)/,
-    "slot B must only join the race when dual cleanup mode is on"
+    /multiCleanupEnabled/,
+    "racing two models is not a setting the user can turn off — slot B must be unconditional"
   );
 });
 
-test("the second model picker only renders when dual cleanup mode is on", () => {
-  // A picker that always rendered would let the user set a slot B model that never
-  // races anything while the toggle is off — a setting with no effect, and no visible
-  // sign that it has none. There are two <ReconcileSlotPicker> uses in this file: the
-  // first is slot A, always on screen; this pins that the second one — the one with
-  // secondProvider/secondModel labels — is the one gated behind the toggle.
-  assert.match(
+test("both model pickers always render, with no toggle to turn either off", () => {
+  // Racing two models is not optional, so there must be no setting gating either
+  // picker's visibility, and no toggle control left over from when it was one.
+  assert.doesNotMatch(
     cleanupPanel,
-    /\{multiCleanupEnabled && \(\s*<ReconcileSlotPicker[\s\S]{0,200}secondProvider/,
-    "the second slot picker must be gated behind multiCleanupEnabled"
+    /multiCleanupEnabled/,
+    "no leftover reference to the removed race toggle"
+  );
+  const firstPickerAt = cleanupPanel.indexOf("firstProvider");
+  const secondPickerAt = cleanupPanel.indexOf("secondProvider");
+  assert.ok(firstPickerAt > -1 && secondPickerAt > firstPickerAt, "both slot pickers must be present");
+  assert.doesNotMatch(
+    cleanupPanel.slice(firstPickerAt, secondPickerAt),
+    /\{[a-zA-Z.]+ &&/,
+    "the second picker must not be behind a conditional"
   );
 });
 
