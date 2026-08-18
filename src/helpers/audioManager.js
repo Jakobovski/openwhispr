@@ -3539,7 +3539,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         providers: multi.sides.map((side) => `${side.provider}:${side.status}`),
         reconciled: multi.reconciled,
         reconcileDropped: !!multi.reconcileDropped,
-        agreed: !multi.reconciled && !multi.reconcileDropped && answered.length > 1,
+        agreed: !!multi.agreed,
+        mergedFrom: multi.mergedFrom ?? answered.length,
         transcribeMs: multi.transcribeMs,
         reconcileMs: multi.reconcileMs,
         durationSeconds: metadata.durationSeconds ?? null,
@@ -3557,11 +3558,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     });
     timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
 
-    // How far each lane sat from the merged result, scored only when a merge actually
-    // produced one. When the lanes agreed, or the merge was dropped or failed, the final
-    // text *is* one lane's own output — scoring against it would hand that lane a
-    // flawless zero and penalise the others for losing a coin toss.
-    const werReference = multi.reconciled ? multi.text : null;
+    // How far each lane sat from the merged result, scored only when the merge actually
+    // combined more than one answer. When the merge was dropped or failed, the final text
+    // *is* one lane's own output — scoring against it would hand that lane a flawless zero
+    // and penalise the others for losing a coin toss. A single-answer dictation still runs
+    // the merge, for the vocabulary and the cleanup, but there is nothing to compare: the
+    // result is that one lane's text prepared, so its own rate would measure how much
+    // tidying it needed rather than how much it misheard.
+    const werReference = multi.reconciled && (multi.mergedFrom ?? 0) > 1 ? multi.text : null;
 
     // Every lane is recorded whatever became of it, but only an answer carries a timing:
     // a dropped lane's elapsed time is the wait budget and a failed one has none, so both
@@ -3598,6 +3602,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         text: side.text ?? null,
       })),
       reconciled: !!multi.reconciled,
+      // How many answers the merge combined, and whether they already said the same
+      // thing. Both used to be inferable from `reconciled` — it was false exactly when
+      // the merge was skipped — and are not any more, now that it always runs.
+      mergedFrom: multi.mergedFrom ?? null,
+      agreed: !!multi.agreed,
       reconcileMs: multi.reconcileMs ?? null,
       droppedProviders: multi.droppedProviders ?? [],
       mergedText: multi.text ?? null,
@@ -3737,18 +3746,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       droppedProviders,
     };
 
-    // Nothing to merge: one lane answered, or every answer says the same thing.
-    if (answered.length === 1) {
-      return { ...base, text: answered[0].text, reconciled: false };
-    }
-    if (transcriptsAgree(...answered.map((side) => side.text))) {
-      logger.debug(
-        "Multi transcription: providers agree, skipping reconcile",
-        { providers: answered.map((side) => side.provider) },
-        "transcription"
-      );
-      return { ...base, text: answered[0].text, reconciled: false };
-    }
+    // The merge runs on every dictation, including one that produced a single answer or
+    // several identical ones. It used to be skipped there, on the grounds that there was
+    // nothing to reconcile — which was true of reconciling and false of everything else
+    // the same call does: it applies the speaker's vocabulary (their dictionary plus the
+    // terms read off screen) and it cleans, punctuates and de-fillers the text. Skipping
+    // it meant the most common dictations — the ones where the recognisers agreed —
+    // pasted raw recogniser output while only the disagreeing ones got prepared.
+    //
+    // Agreement is still recorded, because it says something about the lanes even though
+    // it no longer changes what happens.
+    const agreed = answered.length > 1 && transcriptsAgree(...answered.map((side) => side.text));
 
     const reconcileStart = performance.now();
     const reconcileBudgetMs = Number.isFinite(settings.dualTranscriptionReconcileTimeoutMs)
@@ -3810,6 +3818,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           ...base,
           text: fallback.text,
           reconciled: false,
+          mergedFrom: answered.length,
+          agreed,
           reconcileDropped: true,
         };
       }
@@ -3821,6 +3831,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         ...base,
         text: trimmed,
         reconciled: true,
+        // How many answers went in: one means nothing was reconciled, only prepared,
+        // which is what the WER column needs to know to avoid scoring a lane against a
+        // cleaned copy of itself.
+        mergedFrom: answered.length,
+        agreed,
         reconcileMs: Math.round(performance.now() - reconcileStart),
       };
     } catch (error) {
@@ -3829,7 +3844,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         { error: error.message, using: fallback.provider },
         "transcription"
       );
-      return { ...base, text: fallback.text, reconciled: false };
+      return { ...base, text: fallback.text, reconciled: false, mergedFrom: answered.length, agreed };
     }
   }
 

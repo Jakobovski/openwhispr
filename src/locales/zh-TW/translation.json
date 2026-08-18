@@ -1135,7 +1135,7 @@
       },
       "cleanup": {
         "label": "清理",
-        "description": "合併模型與提示詞"
+        "description": "合併與整理的模型與提示詞"
       },
       "privacyData": {
         "description": "隱私、權限與資料分析",
@@ -1747,7 +1747,7 @@
     },
     "cleanup": {
       "title": "清理",
-      "description": "一個模型會把各個服務商的轉寫結果合併，並在同一次呼叫中完成清理。這裡設定的就是這個模型以及它使用的提示詞。",
+      "description": "一個模型會合併各服務商的轉錄結果、套用你的詞彙表並整理文字——在同一次呼叫中完成，且每次聽寫都會執行，即使只有一個服務商回覆。這裡設定的就是這個模型以及它使用的提示詞。",
       "multiDisabled": "多重轉寫已關閉，因此沒有任何流程會使用這個提示詞。可在「語音轉文字」中開啟。"
     },
     "noteFormatting": {
@@ -1850,8 +1850,8 @@
         }
       },
       "dualProviderModel": "{{provider}} 模型",
-      "dualReconcileProvider": "合併供應商",
-      "dualReconcileModel": "合併模型",
+      "dualReconcileProvider": "合併與整理服務商",
+      "dualReconcileModel": "合併與整理模型",
       "dualReconcileDescription": "由哪個模型合併兩份轉錄。僅在兩者不一致時使用。",
       "dualSecondTimeout": "等待較慢的一方",
       "dualSecondTimeoutDescription": "一個供應商回傳結果後，另一個還有多久才會被放棄。",
@@ -1877,9 +1877,9 @@
       "screenContextDescription": "在你口述時讀取你正在查看的視窗，並用其中的名稱更正轉錄內容。所有處理都在本機完成。",
       "screenContextPermissionNeeded": "需要「螢幕錄製」權限才能讀取你正在查看的視窗。",
       "screenContextOpenSettings": "打開設定",
-      "dualReconcileTimeout": "合併等待時間",
-      "dualReconcileTimeoutDescription": "在改用最佳單份轉錄之前，留給合併模型的時間。",
-      "multiMergeConfiguredInCleanup": "合併模型、它的等待上限以及提示詞都在「清理」中設定。",
+      "dualReconcileTimeout": "等待合併與整理",
+      "dualReconcileTimeoutDescription": "模型有多少時間來合併、套用你的詞彙表並整理文字，逾時則改用最好的單份轉錄。",
+      "multiMergeConfiguredInCleanup": "合併與整理的模型、等待上限以及提示詞都在「清理」中設定。",
       "multiSecondTimeoutPercent": "依錄音長度增加的等待",
       "multiSecondTimeoutPercentDescription": "在上面的等待時間之外，按錄音長度的比例追加。一分鐘的聽寫總共等待 {{seconds}} 秒。",
       "multiSecondTimeoutPercentOff": "關閉——僅固定等待",
@@ -3120,7 +3120,7 @@
   },
   "modelStats": {
     "title": "模型統計",
-    "description": "根據你自己的聽寫測得的各模型延遲。轉錄與合併分別計時。",
+    "description": "以你自己的聽寫測得的各模型延遲。轉錄與合併整理分別計時。",
     "refresh": "重新載入",
     "clear": "清除",
     "empty": "尚無樣本。下次聽寫後會顯示在這裡。",
@@ -3133,7 +3133,7 @@
     "dropRate": "丟棄",
     "kinds": {
       "transcription": "轉錄",
-      "reconcile": "合併（多重模式）"
+      "reconcile": "合併與整理（多重模式）"
     },
     "wer": "WER",
     "werTooltip": "{{count}} 次合併口述的中位數",

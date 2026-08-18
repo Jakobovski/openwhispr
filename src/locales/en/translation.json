@@ -390,10 +390,10 @@
       "failedOffline": "You're offline",
       "rawTranscript": "Raw Transcript",
       "dualMerged": "Merged result",
-      "dualNotMerged": "Result (no merge needed)",
+      "dualNotMerged": "Result (nothing to merge)",
       "dualNoText": "no text returned",
       "dualMergedShort": "merged",
-      "dualNoMergeShort": "no merge needed",
+      "dualNoMergeShort": "nothing to merge",
       "dualDisagreement": "{{percent}}% differed",
       "dualPunctuationOnly": "punctuation only",
       "clearAll": "Clear all",
@@ -1227,7 +1227,7 @@
       },
       "cleanup": {
         "label": "Cleanup",
-        "description": "Merge model & prompt"
+        "description": "Merge & prepare model & prompt"
       },
       "privacyData": {
         "description": "Privacy, permissions & analytics",
@@ -1925,7 +1925,7 @@
     },
     "cleanup": {
       "title": "Cleanup",
-      "description": "One model merges the transcripts from every provider and cleans the result in the same pass. This is that model, and the prompt it runs.",
+      "description": "One model merges the transcripts from every provider, applies your vocabulary and cleans the result — in a single pass, on every dictation, including one where only a single provider answered. This is that model, and the prompt it runs.",
       "multiDisabled": "Multi-transcription is off, so nothing runs this prompt. Turn it on in Speech-to-Text."
     },
     "noteFormatting": {
@@ -2028,8 +2028,8 @@
         }
       },
       "dualProviderModel": "{{provider}} model",
-      "dualReconcileProvider": "Merge provider",
-      "dualReconcileModel": "Merge model",
+      "dualReconcileProvider": "Merge & prepare provider",
+      "dualReconcileModel": "Merge & prepare model",
       "dualReconcileDescription": "Which model combines the two transcripts. Only used when they disagree.",
       "dualSecondTimeout": "Wait for the slower side",
       "dualSecondTimeoutDescription": "Once one provider answers, how long the other gets before it is dropped.",
@@ -2055,9 +2055,9 @@
       "screenContextDescription": "Read the window you're looking at while you dictate, and use the names on it to correct the transcript. Nothing leaves your Mac.",
       "screenContextPermissionNeeded": "Screen Recording permission is needed before this can read the window you're looking at.",
       "screenContextOpenSettings": "Open Settings",
-      "dualReconcileTimeout": "Wait for the merge",
-      "dualReconcileTimeoutDescription": "How long the merge model gets before the best single transcript is used instead.",
-      "multiMergeConfiguredInCleanup": "The merge model, its deadline and its prompt are configured in Cleanup.",
+      "dualReconcileTimeout": "Wait for merge & prepare",
+      "dualReconcileTimeoutDescription": "How long the model gets to merge, apply your vocabulary and clean up before the best single transcript is used instead.",
+      "multiMergeConfiguredInCleanup": "The merge & prepare model, its deadline and its prompt are configured in Cleanup.",
       "multiSecondTimeoutPercent": "Extra wait per minute of audio",
       "multiSecondTimeoutPercentDescription": "Added to the wait above, as a share of the recording's length. A one-minute dictation waits {{seconds}}s in total.",
       "multiSecondTimeoutPercentOff": "Off — fixed wait only",
@@ -3125,7 +3125,7 @@
   },
   "modelStats": {
     "title": "Model stats",
-    "description": "Latency measured on your own dictations, per model. Transcription and merge are timed separately.",
+    "description": "Latency measured on your own dictations, per model. Transcription and merge & prepare are timed separately.",
     "refresh": "Refresh",
     "clear": "Clear",
     "empty": "No samples yet. Stats appear here after your next dictation.",
@@ -3138,7 +3138,7 @@
     "dropRate": "dropped",
     "kinds": {
       "transcription": "Transcription",
-      "reconcile": "Merge (multi mode)"
+      "reconcile": "Merge & prepare (multi mode)"
     },
     "wer": "WER",
     "werTooltip": "median of {{count}} merged dictations",

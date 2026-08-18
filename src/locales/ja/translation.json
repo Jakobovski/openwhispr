@@ -396,10 +396,10 @@
       "noAiProcessing": "この文字起こしにはAI処理が適用されていません",
       "rawTranscript": "生の文字起こし",
       "dualMerged": "統合結果",
-      "dualNotMerged": "結果（統合不要）",
+      "dualNotMerged": "結果（統合の必要なし）",
       "dualNoText": "テキストなし",
       "dualMergedShort": "統合",
-      "dualNoMergeShort": "統合不要",
+      "dualNoMergeShort": "統合の必要なし",
       "dualDisagreement": "{{percent}}% 相違",
       "dualPunctuationOnly": "句読点のみ",
       "discarded": {
@@ -1135,7 +1135,7 @@
       },
       "cleanup": {
         "label": "クリーンアップ",
-        "description": "統合モデルとプロンプト"
+        "description": "統合と整えのモデルとプロンプト"
       },
       "privacyData": {
         "description": "プライバシー、権限、分析",
@@ -1752,7 +1752,7 @@
     },
     "cleanup": {
       "title": "クリーンアップ",
-      "description": "1つのモデルが各プロバイダーの文字起こしを統合し、同じ呼び出しで整えます。ここではそのモデルと、実行されるプロンプトを設定します。",
+      "description": "1つのモデルが各プロバイダーの文字起こしを統合し、あなたの語彙を適用し、結果を整えます。すべて同じ呼び出しで、どのディクテーションでも実行され、応答したプロバイダーが1つだけの場合も同様です。ここではそのモデルと、実行されるプロンプトを設定します。",
       "multiDisabled": "マルチ文字起こしがオフなので、このプロンプトは実行されません。「音声認識」でオンにしてください。"
     },
     "noteFormatting": {
@@ -1855,8 +1855,8 @@
         }
       },
       "dualProviderModel": "{{provider}} のモデル",
-      "dualReconcileProvider": "統合プロバイダー",
-      "dualReconcileModel": "統合モデル",
+      "dualReconcileProvider": "統合と整えのプロバイダー",
+      "dualReconcileModel": "統合と整えのモデル",
       "dualReconcileDescription": "2 つの文字起こしを統合するモデル。内容が異なる場合にのみ使用されます。",
       "dualSecondTimeout": "遅い側を待つ時間",
       "dualSecondTimeoutDescription": "一方のプロバイダーが応答してから、もう一方が破棄されるまでの猶予時間。",
@@ -1882,9 +1882,9 @@
       "screenContextDescription": "口述中に見ているウィンドウを読み取り、そこにある名前で文字起こしを修正します。データはMacの外に出ません。",
       "screenContextPermissionNeeded": "見ているウィンドウを読み取るには、画面収録の許可が必要です。",
       "screenContextOpenSettings": "設定を開く",
-      "dualReconcileTimeout": "統合の待ち時間",
-      "dualReconcileTimeoutDescription": "最良の単一文字起こしを使うまでに統合モデルに与える時間。",
-      "multiMergeConfiguredInCleanup": "統合モデル・待ち時間・プロンプトは「クリーンアップ」で設定します。",
+      "dualReconcileTimeout": "統合と整えの待機時間",
+      "dualReconcileTimeoutDescription": "統合し、あなたの語彙を適用し、整えるためにモデルに与える時間。超過した場合は最良の単独の文字起こしを使います。",
+      "multiMergeConfiguredInCleanup": "統合と整えのモデル・待ち時間・プロンプトは「クリーンアップ」で設定します。",
       "multiSecondTimeoutPercent": "録音の長さに応じた追加待機",
       "multiSecondTimeoutPercentDescription": "上の待機時間に、録音の長さに比例して加算されます。1分のディクテーションでは合計 {{seconds}} 秒待ちます。",
       "multiSecondTimeoutPercentOff": "オフ — 固定の待機のみ",
@@ -3125,7 +3125,7 @@
   },
   "modelStats": {
     "title": "モデル統計",
-    "description": "自分のディクテーションから計測したモデルごとのレイテンシ。文字起こしと統合は別々に計測されます。",
+    "description": "自分のディクテーションで測ったモデルごとの遅延。文字起こしと統合・整えは別々に計測されます。",
     "refresh": "更新",
     "clear": "消去",
     "empty": "まだサンプルがありません。次のディクテーション後に表示されます。",
@@ -3138,7 +3138,7 @@
     "dropRate": "破棄",
     "kinds": {
       "transcription": "文字起こし",
-      "reconcile": "統合（マルチモード）"
+      "reconcile": "統合と整え（マルチモード）"
     },
     "wer": "WER",
     "werTooltip": "統合された {{count}} 件の口述の中央値",

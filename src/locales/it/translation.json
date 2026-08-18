@@ -396,10 +396,10 @@
       "noAiProcessing": "Nessuna elaborazione IA applicata a questa trascrizione",
       "rawTranscript": "Trascrizione grezza",
       "dualMerged": "Risultato unito",
-      "dualNotMerged": "Risultato (unione non necessaria)",
+      "dualNotMerged": "Risultato (nulla da unire)",
       "dualNoText": "nessun testo restituito",
       "dualMergedShort": "unito",
-      "dualNoMergeShort": "unione non necessaria",
+      "dualNoMergeShort": "nulla da unire",
       "dualDisagreement": "{{percent}}% di differenza",
       "dualPunctuationOnly": "solo punteggiatura",
       "discarded": {
@@ -1135,7 +1135,7 @@
       },
       "cleanup": {
         "label": "Pulizia",
-        "description": "Modello di unione e prompt"
+        "description": "Modello e prompt di unione e preparazione"
       },
       "privacyData": {
         "description": "Privacy, permessi e analisi",
@@ -1752,7 +1752,7 @@
     },
     "cleanup": {
       "title": "Pulizia",
-      "description": "Un modello unisce le trascrizioni di tutti i provider e ripulisce il risultato nello stesso passaggio. Qui trovi quel modello e il prompt che esegue.",
+      "description": "Un modello unisce le trascrizioni di tutti i provider, applica il tuo vocabolario e ripulisce il risultato — in un solo passaggio, a ogni dettatura, anche quando ha risposto un solo provider. Qui trovi quel modello e il prompt che esegue.",
       "multiDisabled": "La trascrizione multipla è disattivata, quindi nulla esegue questo prompt. Attivala in Da voce a testo."
     },
     "noteFormatting": {
@@ -1855,8 +1855,8 @@
         }
       },
       "dualProviderModel": "Modello {{provider}}",
-      "dualReconcileProvider": "Provider di unione",
-      "dualReconcileModel": "Modello di unione",
+      "dualReconcileProvider": "Provider di unione e preparazione",
+      "dualReconcileModel": "Modello di unione e preparazione",
       "dualReconcileDescription": "Quale modello unisce le due trascrizioni. Usato solo quando differiscono.",
       "dualSecondTimeout": "Attendi il lato più lento",
       "dualSecondTimeoutDescription": "Quando un provider risponde, quanto tempo ha l'altro prima di essere scartato.",
@@ -1882,9 +1882,9 @@
       "screenContextDescription": "Legge la finestra che stai guardando mentre detti e usa i nomi presenti per correggere la trascrizione. Niente esce dal tuo Mac.",
       "screenContextPermissionNeeded": "È necessaria l'autorizzazione Registrazione schermo per leggere la finestra che stai guardando.",
       "screenContextOpenSettings": "Apri Impostazioni",
-      "dualReconcileTimeout": "Attesa dell’unione",
-      "dualReconcileTimeoutDescription": "Quanto tempo ha il modello di unione prima di usare la migliore trascrizione singola.",
-      "multiMergeConfiguredInCleanup": "Il modello di unione, il suo limite di tempo e il suo prompt si configurano in Pulizia.",
+      "dualReconcileTimeout": "Attesa per unione e preparazione",
+      "dualReconcileTimeoutDescription": "Quanto tempo ha il modello per unire, applicare il tuo vocabolario e ripulire prima che venga usata la migliore trascrizione singola.",
+      "multiMergeConfiguredInCleanup": "Il modello di unione e preparazione, il suo limite di tempo e il suo prompt si configurano in Pulizia.",
       "multiSecondTimeoutPercent": "Attesa aggiuntiva in base alla durata",
       "multiSecondTimeoutPercentDescription": "Si aggiunge all'attesa sopra, come quota della durata della registrazione. Una dettatura di un minuto attende {{seconds}} s in totale.",
       "multiSecondTimeoutPercentOff": "Disattivata — solo attesa fissa",
@@ -3125,7 +3125,7 @@
   },
   "modelStats": {
     "title": "Statistiche modelli",
-    "description": "Latenza misurata sulle tue dettature, per modello. Trascrizione e unione sono misurate separatamente.",
+    "description": "Latenza misurata sulle tue dettature, per modello. Trascrizione e unione e preparazione sono cronometrate separatamente.",
     "refresh": "Aggiorna",
     "clear": "Cancella",
     "empty": "Nessun campione ancora. Compariranno dopo la prossima dettatura.",
@@ -3138,7 +3138,7 @@
     "dropRate": "scartati",
     "kinds": {
       "transcription": "Trascrizione",
-      "reconcile": "Unione (modalità multipla)"
+      "reconcile": "Unione e preparazione (modalità multipla)"
     },
     "wer": "WER",
     "werTooltip": "mediana di {{count}} dettature unite",

@@ -375,10 +375,10 @@
       "noAiProcessing": "Nenhum processamento de IA foi aplicado a esta transcrição",
       "rawTranscript": "Transcrição bruta",
       "dualMerged": "Resultado combinado",
-      "dualNotMerged": "Resultado (sem necessidade de combinar)",
+      "dualNotMerged": "Resultado (nada a fundir)",
       "dualNoText": "nenhum texto retornado",
       "dualMergedShort": "combinado",
-      "dualNoMergeShort": "sem combinar",
+      "dualNoMergeShort": "nada a fundir",
       "dualDisagreement": "{{percent}}% de diferença",
       "dualPunctuationOnly": "apenas pontuação",
       "discarded": {
@@ -1114,7 +1114,7 @@
       },
       "cleanup": {
         "label": "Limpeza",
-        "description": "Modelo de fusão e prompt"
+        "description": "Modelo e prompt de fusão e preparação"
       },
       "privacyData": {
         "description": "Privacidade, permissões e análise",
@@ -1731,7 +1731,7 @@
     },
     "cleanup": {
       "title": "Limpeza",
-      "description": "Um modelo combina as transcrições de todos os provedores e limpa o resultado na mesma passagem. Aqui ficam esse modelo e o prompt que ele executa.",
+      "description": "Um modelo funde as transcrições de todos os provedores, aplica seu vocabulário e limpa o resultado — em uma única passagem, em cada ditado, inclusive quando apenas um provedor respondeu. Aqui ficam esse modelo e o prompt que ele executa.",
       "multiDisabled": "A transcrição múltipla está desativada, então nada executa este prompt. Ative-a em Voz para texto."
     },
     "noteFormatting": {
@@ -1834,8 +1834,8 @@
         }
       },
       "dualProviderModel": "Modelo do {{provider}}",
-      "dualReconcileProvider": "Provedor de combinação",
-      "dualReconcileModel": "Modelo de combinação",
+      "dualReconcileProvider": "Provedor de fusão e preparação",
+      "dualReconcileModel": "Modelo de fusão e preparação",
       "dualReconcileDescription": "Qual modelo combina as duas transcrições. Usado apenas quando elas divergem.",
       "dualSecondTimeout": "Esperar pelo lado mais lento",
       "dualSecondTimeoutDescription": "Quando um provedor responde, quanto tempo o outro tem antes de ser descartado.",
@@ -1861,9 +1861,9 @@
       "screenContextDescription": "Lê a janela que você está olhando enquanto dita e usa os nomes nela para corrigir a transcrição. Nada sai do seu Mac.",
       "screenContextPermissionNeeded": "É necessária a permissão de Gravação de Tela para ler a janela que você está olhando.",
       "screenContextOpenSettings": "Abrir Ajustes",
-      "dualReconcileTimeout": "Espera pela mesclagem",
-      "dualReconcileTimeoutDescription": "Quanto tempo o modelo de mesclagem tem antes de usar a melhor transcrição individual.",
-      "multiMergeConfiguredInCleanup": "O modelo de fusão, seu limite de tempo e seu prompt são configurados em Limpeza.",
+      "dualReconcileTimeout": "Espera da fusão e preparação",
+      "dualReconcileTimeoutDescription": "Quanto tempo o modelo tem para fundir, aplicar seu vocabulário e limpar antes de usar a melhor transcrição individual.",
+      "multiMergeConfiguredInCleanup": "O modelo de fusão e preparação, seu limite de tempo e seu prompt são configurados em Limpeza.",
       "multiSecondTimeoutPercent": "Espera extra conforme a duração",
       "multiSecondTimeoutPercentDescription": "Somada à espera acima, como proporção da duração da gravação. Um ditado de um minuto espera {{seconds}} s no total.",
       "multiSecondTimeoutPercentOff": "Desativado — apenas espera fixa",
@@ -3125,7 +3125,7 @@
   },
   "modelStats": {
     "title": "Estatísticas de modelos",
-    "description": "Latência medida nos seus próprios ditados, por modelo. Transcrição e combinação são medidas separadamente.",
+    "description": "Latência medida nos seus próprios ditados, por modelo. A transcrição e a fusão e preparação são medidas separadamente.",
     "refresh": "Atualizar",
     "clear": "Limpar",
     "empty": "Ainda sem amostras. Elas aparecem após o próximo ditado.",
@@ -3138,7 +3138,7 @@
     "dropRate": "descartados",
     "kinds": {
       "transcription": "Transcrição",
-      "reconcile": "Mesclagem (modo múltiplo)"
+      "reconcile": "Fusão e preparação (modo múltiplo)"
     },
     "wer": "WER",
     "werTooltip": "mediana de {{count}} ditados mesclados",

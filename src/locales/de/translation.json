@@ -396,10 +396,10 @@
       "noAiProcessing": "Auf diese Transkription wurde keine KI-Verarbeitung angewendet",
       "rawTranscript": "Rohtranskript",
       "dualMerged": "Zusammengeführtes Ergebnis",
-      "dualNotMerged": "Ergebnis (keine Zusammenführung nötig)",
+      "dualNotMerged": "Ergebnis (nichts zusammenzuführen)",
       "dualNoText": "kein Text zurückgegeben",
       "dualMergedShort": "zusammengeführt",
-      "dualNoMergeShort": "keine Zusammenführung nötig",
+      "dualNoMergeShort": "nichts zusammenzuführen",
       "dualDisagreement": "{{percent}}% abweichend",
       "dualPunctuationOnly": "nur Satzzeichen",
       "discarded": {
@@ -1135,7 +1135,7 @@
       },
       "cleanup": {
         "label": "Bereinigung",
-        "description": "Merge-Modell & Prompt"
+        "description": "Modell & Prompt fürs Zusammenführen"
       },
       "privacyData": {
         "description": "Datenschutz, Berechtigungen & Analyse",
@@ -1752,7 +1752,7 @@
     },
     "cleanup": {
       "title": "Bereinigung",
-      "description": "Ein Modell führt die Transkripte aller Anbieter zusammen und bereinigt das Ergebnis im selben Durchgang. Hier stehen dieses Modell und der Prompt, den es ausführt.",
+      "description": "Ein Modell führt die Transkripte aller Anbieter zusammen, wendet dein Vokabular an und bereinigt das Ergebnis — in einem Durchgang, bei jedem Diktat, auch wenn nur ein Anbieter geantwortet hat. Hier stehen dieses Modell und der Prompt, den es ausführt.",
       "multiDisabled": "Multi-Transkription ist aus, daher führt nichts diesen Prompt aus. Schalte sie unter Sprache-zu-Text ein."
     },
     "noteFormatting": {
@@ -1855,8 +1855,8 @@
         }
       },
       "dualProviderModel": "{{provider}}-Modell",
-      "dualReconcileProvider": "Anbieter für Zusammenführung",
-      "dualReconcileModel": "Modell für Zusammenführung",
+      "dualReconcileProvider": "Anbieter für Zusammenführen & Aufbereiten",
+      "dualReconcileModel": "Modell für Zusammenführen & Aufbereiten",
       "dualReconcileDescription": "Welches Modell die beiden Transkripte zusammenführt. Wird nur bei Abweichungen verwendet.",
       "dualSecondTimeout": "Auf die langsamere Seite warten",
       "dualSecondTimeoutDescription": "Wenn ein Anbieter geantwortet hat, wie lange der andere noch bekommt, bevor er verworfen wird.",
@@ -1882,9 +1882,9 @@
       "screenContextDescription": "Liest das Fenster, das du gerade ansiehst, während du diktierst, und korrigiert die Transkription mit den Namen darin. Nichts verlässt deinen Mac.",
       "screenContextPermissionNeeded": "Für den Zugriff auf das Fenster wird die Berechtigung zur Bildschirmaufnahme benötigt.",
       "screenContextOpenSettings": "Einstellungen öffnen",
-      "dualReconcileTimeout": "Warten auf die Zusammenführung",
-      "dualReconcileTimeoutDescription": "Wie lange das Zusammenführungsmodell hat, bevor das beste Einzeltranskript verwendet wird.",
-      "multiMergeConfiguredInCleanup": "Merge-Modell, Zeitlimit und Prompt werden unter Bereinigung konfiguriert.",
+      "dualReconcileTimeout": "Warten auf Zusammenführen & Aufbereiten",
+      "dualReconcileTimeoutDescription": "Wie lange das Modell Zeit hat, zusammenzuführen, dein Vokabular anzuwenden und zu bereinigen, bevor das beste einzelne Transkript verwendet wird.",
+      "multiMergeConfiguredInCleanup": "Modell, Zeitlimit und Prompt für Zusammenführen & Aufbereiten werden unter Bereinigung konfiguriert.",
       "multiSecondTimeoutPercent": "Zusätzliche Wartezeit je Aufnahmelänge",
       "multiSecondTimeoutPercentDescription": "Wird zur Wartezeit oben addiert, als Anteil der Aufnahmelänge. Ein einminütiges Diktat wartet insgesamt {{seconds}} s.",
       "multiSecondTimeoutPercentOff": "Aus — nur feste Wartezeit",
@@ -3125,7 +3125,7 @@
   },
   "modelStats": {
     "title": "Modell-Statistiken",
-    "description": "Latenz aus deinen eigenen Diktaten, pro Modell. Transkription und Zusammenführung werden getrennt gemessen.",
+    "description": "Latenz, gemessen an deinen eigenen Diktaten, pro Modell. Transkription und Zusammenführen werden getrennt gemessen.",
     "refresh": "Aktualisieren",
     "clear": "Leeren",
     "empty": "Noch keine Messwerte. Sie erscheinen nach dem nächsten Diktat.",
@@ -3138,7 +3138,7 @@
     "dropRate": "verworfen",
     "kinds": {
       "transcription": "Transkription",
-      "reconcile": "Zusammenführung (Multi-Modus)"
+      "reconcile": "Zusammenführen & Aufbereiten (Multi-Modus)"
     },
     "wer": "WER",
     "werTooltip": "Median aus {{count}} zusammengeführten Diktaten",

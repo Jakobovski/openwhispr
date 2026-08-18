@@ -396,10 +396,10 @@
       "noAiProcessing": "Aucun traitement IA n'a été appliqué à cette transcription",
       "rawTranscript": "Transcription brute",
       "dualMerged": "Résultat fusionné",
-      "dualNotMerged": "Résultat (fusion inutile)",
+      "dualNotMerged": "Résultat (rien à fusionner)",
       "dualNoText": "aucun texte renvoyé",
       "dualMergedShort": "fusionné",
-      "dualNoMergeShort": "fusion inutile",
+      "dualNoMergeShort": "rien à fusionner",
       "dualDisagreement": "{{percent}}% de différence",
       "dualPunctuationOnly": "ponctuation seulement",
       "discarded": {
@@ -1183,7 +1183,7 @@
       },
       "cleanup": {
         "label": "Nettoyage",
-        "description": "Modèle de fusion et prompt"
+        "description": "Modèle et prompt de fusion et préparation"
       },
       "privacyData": {
         "description": "Confidentialité, permissions & analytique",
@@ -1800,7 +1800,7 @@
     },
     "cleanup": {
       "title": "Nettoyage",
-      "description": "Un seul modèle fusionne les transcriptions de tous les fournisseurs et nettoie le résultat dans la même passe. Voici ce modèle et le prompt qu'il exécute.",
+      "description": "Un seul modèle fusionne les transcriptions de tous les fournisseurs, applique votre vocabulaire et nettoie le résultat — en une seule passe, à chaque dictée, y compris lorsqu'un seul fournisseur a répondu. Voici ce modèle et le prompt qu'il exécute.",
       "multiDisabled": "La transcription multiple est désactivée, donc rien n'exécute ce prompt. Activez-la dans Reconnaissance vocale."
     },
     "noteFormatting": {
@@ -1903,8 +1903,8 @@
         }
       },
       "dualProviderModel": "Modèle {{provider}}",
-      "dualReconcileProvider": "Fournisseur de fusion",
-      "dualReconcileModel": "Modèle de fusion",
+      "dualReconcileProvider": "Fournisseur de fusion et préparation",
+      "dualReconcileModel": "Modèle de fusion et préparation",
       "dualReconcileDescription": "Le modèle qui fusionne les deux transcriptions. Utilisé uniquement en cas de divergence.",
       "dualSecondTimeout": "Attendre le côté le plus lent",
       "dualSecondTimeoutDescription": "Quand un fournisseur a répondu, combien de temps l'autre obtient avant d'être abandonné.",
@@ -1930,9 +1930,9 @@
       "screenContextDescription": "Lit la fenêtre que vous regardez pendant que vous dictez et utilise les noms qui y figurent pour corriger la transcription. Rien ne quitte votre Mac.",
       "screenContextPermissionNeeded": "L'autorisation d'enregistrement de l'écran est nécessaire pour lire la fenêtre que vous regardez.",
       "screenContextOpenSettings": "Ouvrir les Réglages",
-      "dualReconcileTimeout": "Attente de la fusion",
-      "dualReconcileTimeoutDescription": "Temps accordé au modèle de fusion avant d’utiliser la meilleure transcription seule.",
-      "multiMergeConfiguredInCleanup": "Le modèle de fusion, son délai et son prompt se configurent dans Nettoyage.",
+      "dualReconcileTimeout": "Attente de la fusion et préparation",
+      "dualReconcileTimeoutDescription": "Le temps dont le modèle dispose pour fusionner, appliquer votre vocabulaire et nettoyer avant que la meilleure transcription seule soit utilisée.",
+      "multiMergeConfiguredInCleanup": "Le modèle de fusion et préparation, son délai et son prompt se configurent dans Nettoyage.",
       "multiSecondTimeoutPercent": "Attente supplémentaire selon la durée",
       "multiSecondTimeoutPercentDescription": "S'ajoute à l'attente ci-dessus, en proportion de la durée de l'enregistrement. Une dictée d'une minute attend {{seconds}} s au total.",
       "multiSecondTimeoutPercentOff": "Désactivé — attente fixe uniquement",
@@ -3125,7 +3125,7 @@
   },
   "modelStats": {
     "title": "Stats des modèles",
-    "description": "Latence mesurée sur vos propres dictées, par modèle. La transcription et la fusion sont chronométrées séparément.",
+    "description": "Latence mesurée sur vos propres dictées, par modèle. La transcription et la fusion et préparation sont chronométrées séparément.",
     "refresh": "Rafraîchir",
     "clear": "Effacer",
     "empty": "Aucune mesure pour l'instant. Elles apparaîtront après votre prochaine dictée.",
@@ -3138,7 +3138,7 @@
     "dropRate": "abandons",
     "kinds": {
       "transcription": "Transcription",
-      "reconcile": "Fusion (mode multiple)"
+      "reconcile": "Fusion et préparation (mode multiple)"
     },
     "wer": "WER",
     "werTooltip": "médiane de {{count}} dictées fusionnées",
