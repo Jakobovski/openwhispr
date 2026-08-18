@@ -57,8 +57,13 @@ test("unusable settings fall back to the defaults rather than to nothing", () =>
       10
     )
   );
-  // A negative stored value is not a shorter wait, it is a broken setting.
-  assert.equal(resolveMultiSecondWaitMs(-5000, -10, 10), DEFAULT_MULTI_SECOND_TIMEOUT_MS + 2000);
+  // A negative stored value is not a shorter wait, it is a broken setting. Derived from
+  // the constants rather than written out: spelling the arithmetic as a literal made this
+  // assertion a second copy of the default, and changing the default broke it.
+  assert.equal(
+    resolveMultiSecondWaitMs(-5000, -10, 10),
+    DEFAULT_MULTI_SECOND_TIMEOUT_MS + DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT * 100
+  );
 });
 
 test("a duration that is not a number cannot poison the budget", () => {

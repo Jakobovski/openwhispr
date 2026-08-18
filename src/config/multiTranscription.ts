@@ -165,13 +165,13 @@ export const DEFAULT_MULTI_SECOND_TIMEOUT_MS = 1000;
 // lanes on long recordings while being more than generous on short ones.
 //
 // The dynamic part is a percentage of the recording's own length, added to the floor.
-// 20% by default: a 10-second dictation waits 1s + 2s, a minute waits 1s + 12s. The cost
+// 10% by default: a 10-second dictation waits 1s + 1s, a minute waits 1s + 6s. The cost
 // is only paid when a lane is actually late — the budget starts at the first success and
 // ends the moment the rest answer — and the user has already waited the length of the
 // recording itself by then, so the proportion is the honest unit.
 //
 // Set to 0 for the old fixed behaviour.
-export const DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT = 20;
+export const DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT = 10;
 
 // Offered in Settings. 0 means "flat only".
 export const MULTI_SECOND_TIMEOUT_PERCENT_CHOICES = [0, 10, 20, 30, 50];
