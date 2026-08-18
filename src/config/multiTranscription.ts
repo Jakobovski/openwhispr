@@ -144,22 +144,21 @@ export const TRANSCRIPTION_QUALITY_ORDER = ["azure-speech", "xai", "openai", "gr
 // static registry knows, so the model picker beside it can be a closed choice
 // rather than free text — tinfoil and corti fetch theirs at runtime.
 //
-// OpenRouter's models are picked deliberately rather than the whole 400+ catalog:
-// each one here was benchmarked against the real reconcile prompt (2026-08-18,
-// 15 real requests apiece) and does the job.
+// Trimmed deliberately to the three that survived benchmarking against the real
+// reconcile prompt (2026-08-18, 15 real requests apiece), in priority order:
+// Inkling Small (the default: fastest at 14/15), Haiku 4.5 (equally accurate,
+// 685ms median), then xAI (the original default). Both of the first two are
+// OpenRouter models — see its cloudProviders entry, ordered the same way — so
+// "openrouter" sits ahead of "xai" here for the same reason. Gemini 3.6/3.7 Flash
+// and Muse Glimmer were tested and cut for no measured reason to prefer them over
+// these three: at best they tied on accuracy while running slower.
 //
-// The first pass excluded nvidia/nemotron-3.5-lightning over wild latency (300ms
-// to 8s) and one flatly wrong answer. Root cause turned out to be routing, not the
-// model: OpenRouter was spreading its requests across three backend providers with
-// p90 latencies from 633ms to 22 seconds. Pinning to the fastest backend (see
-// openrouterRouting.ts) fixed the latency entirely — 12/15 correct, 241-530ms,
-// every call — but two content failures reproduced across both benchmark runs with
-// clean routing: it drops the frequency-bias rule (keeps the majority's word even
-// when it's the generic mishearing the rule exists to catch) and once returned a
-// different test case's answer outright, both times reasoning was fully disabled.
-// Left out of the registry pending a decision on that trade-off — fastest of
-// everything tested, but the only candidate with reproduced content bugs.
-export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "gemini", "openrouter"];
+// nvidia/nemotron-3.5-lightning was tested separately and is not here at all: after
+// a routing bug was found and fixed (see openrouterRouting.ts), it became the
+// fastest of everything tried, but two content failures reproduced across two
+// clean benchmark runs — it drops the frequency-bias rule with reasoning fully
+// off, and once returned a different test case's answer outright.
+export const RECONCILE_PROVIDER_IDS = ["openrouter", "xai"];
 
 // How long the second provider gets *after* the first has answered. Past this the
 // slow side is abandoned and the result already in hand is used, so this is exactly

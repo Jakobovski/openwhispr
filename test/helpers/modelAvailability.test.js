@@ -122,23 +122,30 @@ test("the default reconcile model is one its provider still offers", () => {
   const registry = require("../../src/models/modelRegistryData.json");
   const shipped = buildProviderModelIndex(registry.cloudProviders);
 
-  // Mirrors DEFAULT_RECONCILE_PROVIDER / DEFAULT_RECONCILE_MODEL in
-  // src/config/multiTranscription.ts, which is TS and not loadable here. Update both
-  // together: a default the registry does not list would be substituted away on every
-  // merge, silently running a model nobody chose.
-  const provider = "xai";
-  const model = "grok-4.20-0309-non-reasoning";
-  assert.equal(resolveUsableModel(provider, model, shipped), model);
-  assert.ok(shipped.get(provider).includes(model));
+  // Read straight from the source rather than a second copy of the values: this
+  // exact test kept "xai"/"grok-4.20-0309-non-reasoning" hardcoded after the
+  // default moved to Inkling Small, and passed anyway — checking a default that
+  // was no longer the default.
+  const { DEFAULT_RECONCILE_PROVIDER, DEFAULT_RECONCILE_MODEL } = require("../../src/config/multiTranscription.ts");
+  assert.equal(
+    resolveUsableModel(DEFAULT_RECONCILE_PROVIDER, DEFAULT_RECONCILE_MODEL, shipped),
+    DEFAULT_RECONCILE_MODEL
+  );
+  assert.ok(shipped.get(DEFAULT_RECONCILE_PROVIDER).includes(DEFAULT_RECONCILE_MODEL));
 });
 
 test("every provider offered for reconciliation has models in the registry", () => {
   // RECONCILE_PROVIDER_IDS drives a closed dropdown; a provider with no static
-  // models would render an empty model picker.
+  // models would render an empty model picker. Read from RECONCILE_PROVIDER_IDS
+  // itself rather than a hand-copied list of provider names — that copy already
+  // drifted once (it kept groq/openai/anthropic/gemini after the reconcile picker
+  // was trimmed down to just xai and openrouter) and passed anyway, checking
+  // providers the picker no longer offers instead of the ones it does.
+  const { RECONCILE_PROVIDER_IDS } = require("../../src/config/multiTranscription.ts");
   const registry = require("../../src/models/modelRegistryData.json");
   const shipped = buildProviderModelIndex(registry.cloudProviders);
 
-  for (const provider of ["groq", "xai", "openai", "anthropic", "gemini"]) {
+  for (const provider of RECONCILE_PROVIDER_IDS) {
     const models = shipped.get(provider);
     assert.ok(models && models.length > 0, `${provider} must offer models to be selectable`);
   }
