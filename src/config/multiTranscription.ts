@@ -88,12 +88,26 @@ export const DEFAULT_MULTI_PROVIDER_B = "openai";
 // stay selectable.
 export const DEFAULT_MULTI_PROVIDER_C = "azure-speech";
 
-/** Slot defaults, keyed the way the fan-out reads them. */
-export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = {
-  A: DEFAULT_MULTI_PROVIDER_A,
-  B: DEFAULT_MULTI_PROVIDER_B,
-  C: DEFAULT_MULTI_PROVIDER_C,
-};
+/**
+ * Slot defaults, keyed the way the fan-out reads them.
+ *
+ * Zipped against MULTI_TRANSCRIPTION_SLOTS rather than written out as A/B/C, so adding
+ * a slot cannot leave it with no default — it would previously have resolved to nothing
+ * and the lane would silently never run. A slot beyond the defaults above gets
+ * NO_PROVIDER, which is the honest answer: nobody has said what should fill it.
+ */
+const DEFAULT_PROVIDER_ORDER = [
+  DEFAULT_MULTI_PROVIDER_A,
+  DEFAULT_MULTI_PROVIDER_B,
+  DEFAULT_MULTI_PROVIDER_C,
+];
+
+export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = Object.fromEntries(
+  MULTI_TRANSCRIPTION_SLOTS.map(({ slot }, index) => [
+    slot,
+    DEFAULT_PROVIDER_ORDER[index] ?? NO_PROVIDER,
+  ])
+);
 
 // Who merges the two transcripts when they disagree. Reconciling is a judgement call
 // about what was actually said, so it wants a strong model, and it sits in the paste

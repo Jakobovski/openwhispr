@@ -48,6 +48,7 @@ import TranscriptionModelPicker from "./TranscriptionModelPicker";
 import SelfHostedPanel from "./SelfHostedPanel";
 import {
   MULTI_TRANSCRIPTION_PROVIDERS,
+  MULTI_TRANSCRIPTION_SLOTS,
   RECONCILE_PROVIDER_IDS,
   NO_PROVIDER,
   resolveMultiTranscriptionLanes,
@@ -492,29 +493,44 @@ function TranscriptionSection({
 
   // One provider+model pair per slot, built from a table so a fourth slot is a config
   // change rather than another copy of this markup.
-  const multiSlots = [
+  // Derived from MULTI_TRANSCRIPTION_SLOTS so the UI cannot show a different number of
+  // slots than the fan-out runs. The per-slot store fields and setters still have to be
+  // written out — each is its own hook, and hooks cannot be called by mapping over a
+  // config array — so they live in a lookup keyed by slot letter and
+  // multiTranscriptionSlots.test.js asserts every configured slot has one. Before this,
+  // a fourth slot would have transcribed without ever appearing in Settings.
+  const slotBindings: Record<
+    string,
     {
-      slot: "A",
+      provider: string;
+      setProvider: (value: string) => void;
+      model: string;
+      setModel: (value: string) => void;
+    }
+  > = {
+    A: {
       provider: dualTranscriptionProviderA,
       setProvider: setMultiTranscriptionProviderA,
       model: dualModelA,
       setModel: setDualModelA,
     },
-    {
-      slot: "B",
+    B: {
       provider: dualTranscriptionProviderB,
       setProvider: setMultiTranscriptionProviderB,
       model: dualModelB,
       setModel: setDualModelB,
     },
-    {
-      slot: "C",
+    C: {
       provider: dualTranscriptionProviderC,
       setProvider: setMultiTranscriptionProviderC,
       model: dualModelC,
       setModel: setDualModelC,
     },
-  ];
+  };
+  const multiSlots = MULTI_TRANSCRIPTION_SLOTS.map(({ slot }) => ({
+    slot,
+    ...slotBindings[slot],
+  }));
 
   const renderMultiTranscription = () => (
     <SettingsPanel>
