@@ -2061,7 +2061,10 @@
       "multiSecondTimeoutPercent": "Extra wait per minute of audio",
       "multiSecondTimeoutPercentDescription": "Added to the wait above, as a share of the recording's length. A one-minute dictation waits {{seconds}}s in total.",
       "multiSecondTimeoutPercentOff": "Off — fixed wait only",
-      "multiSecondTimeoutPercentValue": "{{percent}}% of the recording"
+      "multiSecondTimeoutPercentValue": "{{percent}}% of the recording",
+      "multiSecondTimeoutMax": "Max wait for the slower side",
+      "multiSecondTimeoutMaxDescription": "Caps the flat wait plus the extra-per-minute above, so a long recording can never turn into an unbounded wait.",
+      "multiSecondTimeoutMaxOff": "No cap"
     },
     "intelligence": {
       "gpuDevice": {

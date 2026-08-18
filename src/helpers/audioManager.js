@@ -3674,7 +3674,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const budgetMs = resolveMultiSecondWaitMs(
       settings.dualTranscriptionSecondTimeoutMs,
       settings.dualTranscriptionSecondTimeoutPercent,
-      budgetSeconds
+      budgetSeconds,
+      settings.dualTranscriptionSecondTimeoutMaxMs
     );
     const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
       tracked,
@@ -3690,10 +3691,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           dropped: droppedProviders,
           kept: lanes.filter((_, i) => settled[i] !== null).map((lane) => lane.provider),
           budgetMs,
-          // Both parts, so a drop can be read as "the floor was too low" or "the
-          // recording was too short for the percentage to matter".
+          // All three parts, so a drop can be read as "the floor was too low", "the
+          // recording was too short for the percentage to matter", or "the cap bound
+          // before the percentage did".
           budgetFlatMs: settings.dualTranscriptionSecondTimeoutMs,
           budgetPercent: settings.dualTranscriptionSecondTimeoutPercent,
+          budgetMaxMs: settings.dualTranscriptionSecondTimeoutMaxMs,
           recordingSeconds: budgetSeconds,
           budgetStartedAfter: lanes[firstSuccessIndex]?.provider,
         },

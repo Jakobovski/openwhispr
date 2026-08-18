@@ -181,29 +181,48 @@ export const DEFAULT_MULTI_SECOND_TIMEOUT_MS = 1000;
 // lanes on long recordings while being more than generous on short ones.
 //
 // The dynamic part is a percentage of the recording's own length, added to the floor.
-// 10% by default: a 10-second dictation waits 1s + 1s, a minute waits 1s + 6s. The cost
+// 5% by default: a 10-second dictation waits 1s + 0.5s, a minute waits 1s + 3s. The cost
 // is only paid when a lane is actually late — the budget starts at the first success and
 // ends the moment the rest answer — and the user has already waited the length of the
 // recording itself by then, so the proportion is the honest unit.
 //
 // Set to 0 for the old fixed behaviour.
-export const DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT = 10;
+export const DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT = 5;
 
-// Offered in Settings. 0 means "flat only".
-export const MULTI_SECOND_TIMEOUT_PERCENT_CHOICES = [0, 10, 20, 30, 50];
+// Offered in Settings. 0 means "flat only". 7.5 sits between the 5 default and 10 for
+// someone who wants a bit more scaling without jumping straight to double.
+export const MULTI_SECOND_TIMEOUT_PERCENT_CHOICES = [0, 5, 7.5, 10, 20, 30, 50];
+
+// The percentage part has no ceiling of its own, so a long enough recording turns a
+// generous-looking percentage into a genuinely long wait: at 50%, five minutes of audio
+// is a 150-second budget. This is the safety valve — a hard cap on the *total* (floor
+// plus percentage), so a percentage choice is never a blank check.
+//
+// 2.5s by default. Worth knowing how this interacts with the defaults above: at 1s flat
+// + 5%, the percentage stops adding anything once a dictation passes ~30 seconds
+// (1000 + 0.05 * 30000 = 2500) — the cap binds before the scaling does. Raise it, or
+// raise the percentage, if that trade-off isn't what's wanted; both are independent
+// settings.
+export const DEFAULT_MULTI_SECOND_MAX_WAIT_MS = 2500;
+
+// Offered in Settings. 0 means "no cap" — the percentage is free to grow unbounded.
+export const MULTI_SECOND_MAX_WAIT_CHOICES_MS = [1500, 2000, 2500, 5000, 10000, 15000, 0];
 
 /**
- * The wait a slow lane actually gets: the flat floor plus a share of the recording.
+ * The wait a slow lane actually gets: the flat floor plus a share of the recording,
+ * capped at a maximum.
  *
- * Every argument is treated as untrusted, because two of them are stored settings and the
- * third is a measured duration that is null whenever the recorder could not report one.
- * Anything unusable falls back to the flat part alone, which is the behaviour this
- * replaced — a budget that silently became 0 would drop every slow lane instead.
+ * Every argument is treated as untrusted, because three of them are stored settings and
+ * the fourth is a measured duration that is null whenever the recorder could not report
+ * one. Anything unusable falls back to its own default — a budget that silently became 0
+ * would drop every slow lane instead, and a max that silently became 0 would look
+ * identical to "no cap" and remove the safety valve this exists to be.
  */
 export function resolveMultiSecondWaitMs(
   flatMs: number | undefined,
   percent: number | undefined,
-  recordingSeconds: number | null | undefined
+  recordingSeconds: number | null | undefined,
+  maxMs?: number
 ): number {
   const flat = Number.isFinite(flatMs) && (flatMs as number) >= 0
     ? (flatMs as number)
@@ -216,7 +235,16 @@ export function resolveMultiSecondWaitMs(
     Number.isFinite(recordingSeconds) && (recordingSeconds as number) > 0
       ? (recordingSeconds as number)
       : 0;
-  return Math.round(flat + (share / 100) * seconds * 1000);
+  const raw = Math.round(flat + (share / 100) * seconds * 1000);
+
+  // maxMs is the one argument where 0 is a real, intentional value ("no cap") rather
+  // than a stand-in for "not configured" — an explicit undefined is what means unset
+  // here, the same distinction percent already draws for its own 0.
+  const max = maxMs === undefined || !Number.isFinite(maxMs) || (maxMs as number) < 0
+    ? DEFAULT_MULTI_SECOND_MAX_WAIT_MS
+    : (maxMs as number);
+  if (max === 0) return raw;
+  return Math.min(raw, max);
 }
 
 // How long the merge itself gets before it is abandoned and the best single transcript

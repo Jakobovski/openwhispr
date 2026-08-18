@@ -55,6 +55,7 @@ import {
   resolveMultiTranscriptionModel,
   MULTI_TIMEOUT_CHOICES_MS,
   MULTI_SECOND_TIMEOUT_PERCENT_CHOICES,
+  MULTI_SECOND_MAX_WAIT_CHOICES_MS,
   resolveMultiSecondWaitMs,
   formatTimeoutSeconds,
 } from "../config/multiTranscription";
@@ -434,6 +435,10 @@ function TranscriptionSection({
   const setDualSecondTimeoutPercent = useSettingsStore(
     (s) => s.setDualTranscriptionSecondTimeoutPercent
   );
+  const dualSecondTimeoutMaxMs = useSettingsStore((s) => s.dualTranscriptionSecondTimeoutMaxMs);
+  const setDualSecondTimeoutMaxMs = useSettingsStore(
+    (s) => s.setDualTranscriptionSecondTimeoutMaxMs
+  );
 
   const renderSilenceTrim = () => (
     <SettingsPanel>
@@ -622,7 +627,12 @@ function TranscriptionSection({
               label={t("settingsPage.transcription.multiSecondTimeoutPercent")}
               description={t("settingsPage.transcription.multiSecondTimeoutPercentDescription", {
                 seconds: formatTimeoutSeconds(
-                  resolveMultiSecondWaitMs(dualSecondTimeoutMs, dualSecondTimeoutPercent, 60)
+                  resolveMultiSecondWaitMs(
+                    dualSecondTimeoutMs,
+                    dualSecondTimeoutPercent,
+                    60,
+                    dualSecondTimeoutMaxMs
+                  )
                 ),
               })}
             >
@@ -640,6 +650,35 @@ function TranscriptionSection({
                         ? t("settingsPage.transcription.multiSecondTimeoutPercentOff")
                         : t("settingsPage.transcription.multiSecondTimeoutPercentValue", {
                             percent,
+                          })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          {/* A percentage has no ceiling of its own — at 50% a five-minute recording is
+              a 150-second budget — so this is the safety valve on the total, not a
+              third independent wait. */}
+          <SettingsPanelRow>
+            <SettingsRow
+              label={t("settingsPage.transcription.multiSecondTimeoutMax")}
+              description={t("settingsPage.transcription.multiSecondTimeoutMaxDescription")}
+            >
+              <Select
+                value={String(dualSecondTimeoutMaxMs)}
+                onValueChange={(value) => setDualSecondTimeoutMaxMs(Number(value))}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MULTI_SECOND_MAX_WAIT_CHOICES_MS.map((ms) => (
+                    <SelectItem key={ms} value={String(ms)}>
+                      {ms === 0
+                        ? t("settingsPage.transcription.multiSecondTimeoutMaxOff")
+                        : t("settingsPage.transcription.dualSecondTimeoutValue", {
+                            seconds: formatTimeoutSeconds(ms),
                           })}
                     </SelectItem>
                   ))}

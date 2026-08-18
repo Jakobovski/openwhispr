@@ -26,6 +26,7 @@ import {
   DEFAULT_MULTI_PROVIDER_C,
   DEFAULT_MULTI_SECOND_TIMEOUT_MS,
   DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT,
+  DEFAULT_MULTI_SECOND_MAX_WAIT_MS,
   DEFAULT_RECONCILE_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_MODEL,
@@ -190,6 +191,7 @@ const NUMERIC_SETTINGS = new Set([
   // default and the user's choice would not apply until the next launch.
   "dualTranscriptionSecondTimeoutMs",
   "dualTranscriptionSecondTimeoutPercent",
+  "dualTranscriptionSecondTimeoutMaxMs",
   "dualTranscriptionReconcileTimeoutMs",
   "audioRetentionDays",
   "transcriptRetentionDays",
@@ -689,6 +691,8 @@ export interface SettingsState
   dualTranscriptionSecondTimeoutMs: number;
   /** Share of the recording's length added to the flat wait above, as a percentage. */
   dualTranscriptionSecondTimeoutPercent: number;
+  /** Hard cap on the flat-plus-percentage total. 0 means no cap. */
+  dualTranscriptionSecondTimeoutMaxMs: number;
   // How long the merge model gets before it is abandoned and the best single
   // transcript is pasted instead.
   dualTranscriptionReconcileTimeoutMs: number;
@@ -703,6 +707,7 @@ export interface SettingsState
   setDualTranscriptionReconcileModel: (value: string) => void;
   setDualTranscriptionSecondTimeoutMs: (value: number) => void;
   setDualTranscriptionSecondTimeoutPercent: (value: number) => void;
+  setDualTranscriptionSecondTimeoutMaxMs: (value: number) => void;
   setDualTranscriptionReconcileTimeoutMs: (value: number) => void;
 
   // Enterprise providers
@@ -1098,6 +1103,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dualTranscriptionSecondTimeoutPercent: readNumber(
     "dualTranscriptionSecondTimeoutPercent",
     DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT
+  ),
+  dualTranscriptionSecondTimeoutMaxMs: readNumber(
+    "dualTranscriptionSecondTimeoutMaxMs",
+    DEFAULT_MULTI_SECOND_MAX_WAIT_MS
   ),
   dualTranscriptionReconcileTimeoutMs: readNumber(
     "dualTranscriptionReconcileTimeoutMs",
@@ -1660,6 +1669,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionSecondTimeoutMs: createNumberSetter("dualTranscriptionSecondTimeoutMs"),
   setDualTranscriptionSecondTimeoutPercent: createNumberSetter(
     "dualTranscriptionSecondTimeoutPercent"
+  ),
+  setDualTranscriptionSecondTimeoutMaxMs: createNumberSetter(
+    "dualTranscriptionSecondTimeoutMaxMs"
   ),
   setDualTranscriptionReconcileTimeoutMs: createNumberSetter("dualTranscriptionReconcileTimeoutMs"),
   setCortiTenant: createStringSetter("cortiTenant"),
