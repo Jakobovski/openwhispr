@@ -413,8 +413,25 @@ export function resolveInferenceProvider(
   return provider || getModelProvider(modelId);
 }
 
+// Providers whose implementation still ships but which are no longer offered.
+//
+// Removed from the pickers rather than deleted from the registry, because the registry
+// is what their own code reads — tinfoil's transcription client resolves its model from
+// it, so deleting the entry breaks the client rather than retiring it. Hiding is the
+// reversible half of the removal; deleting the clients, their IPC handlers and their
+// settings panels is the other half, and a much larger change.
+//
+// Anyone still configured on one keeps working. Nothing new can select one.
+const RETIRED_PROVIDER_IDS = new Set(["tinfoil", "corti", "mistral"]);
+
+export function isRetiredProvider(id: string): boolean {
+  return RETIRED_PROVIDER_IDS.has(id);
+}
+
 export function getTranscriptionProviders(): TranscriptionProviderData[] {
-  return modelRegistry.getTranscriptionProviders();
+  return modelRegistry
+    .getTranscriptionProviders()
+    .filter((provider) => !RETIRED_PROVIDER_IDS.has(provider.id));
 }
 
 export function getStreamingTranscriptionProviders(): TranscriptionProviderData[] {

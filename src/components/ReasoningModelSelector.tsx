@@ -45,8 +45,6 @@ const CLOUD_PROVIDER_IDS = [
   "groq",
   "xai",
   OPENROUTER_TAB,
-  "tinfoil",
-  "corti",
   "custom",
 ];
 
