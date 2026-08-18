@@ -20,6 +20,7 @@
  */
 
 import AppKit
+import CoreGraphics
 import Foundation
 import ScreenCaptureKit
 import Vision
@@ -65,6 +66,21 @@ while index < args.count {
 
 // MARK: - Window selection
 
+// CGWindowListCopyWindowInfo, unlike SCShareableContent, returns windows already
+// ordered front-to-back — index 0 is whatever is on top of the screen. That ordering
+// is what tells apart which of an app's *own* windows is the one actually in front:
+// an app with several open windows (several Chrome windows, several Finder windows)
+// has one PID but only one of them is on top, and area has nothing to do with that.
+func frontToBackWindowIDs() -> [CGWindowID] {
+    guard
+        let list = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID)
+            as? [[String: AnyObject]]
+    else { return [] }
+    return list.compactMap { info in
+        (info[kCGWindowNumber as String] as? NSNumber).map { CGWindowID($0.uint32Value) }
+    }
+}
+
 @available(macOS 14.0, *)
 func focusedWindow(from content: SCShareableContent) -> SCWindow? {
     let ownPID = excludePID != 0 ? excludePID : ProcessInfo.processInfo.processIdentifier
@@ -80,21 +96,28 @@ func focusedWindow(from content: SCShareableContent) -> SCWindow? {
         return window.frame.width > 200 && window.frame.height > 120
     }
 
-    let area: (SCWindow) -> CGFloat = { $0.frame.width * $0.frame.height }
+    // Missing from this map (not currently on screen at all, e.g. minimized) sorts
+    // last rather than crashing the comparison.
+    let frontToBack = frontToBackWindowIDs()
+    let zOrder = Dictionary(uniqueKeysWithValues: frontToBack.enumerated().map { ($1, $0) })
+    let topmost: (SCWindow, SCWindow) -> Bool = { a, b in
+        (zOrder[a.windowID] ?? Int.max) < (zOrder[b.windowID] ?? Int.max)
+    }
 
-    // Prefer the frontmost app's largest window; SCShareableContent does not
-    // promise front-to-back ordering, so pick by area rather than position.
+    // Prefer the frontmost app's topmost window over its other windows — not its
+    // largest, which picks the wrong one whenever that app has more than one window
+    // open and the one in front isn't the biggest.
     if let frontPID,
         let match = candidates
             .filter({ $0.owningApplication?.processID == frontPID })
-            .max(by: { area($0) < area($1) })
+            .min(by: topmost)
     {
         return match
     }
 
     // The frontmost app may be OpenWhispr itself (or have no capturable window),
-    // in which case the largest remaining window is the best guess at context.
-    return candidates.max(by: { area($0) < area($1) })
+    // in which case the topmost remaining window is the best guess at context.
+    return candidates.min(by: topmost)
 }
 
 // MARK: - OCR
