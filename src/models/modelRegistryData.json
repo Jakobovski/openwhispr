@@ -587,6 +587,12 @@
           "name": "Inkling Small",
           "description": "Via OpenRouter. Fastest measured: 321ms median, tight 291-779ms range, no reasoning to suppress",
           "supportsThinking": false
+        },
+        {
+          "id": "anthropic/claude-haiku-4.5",
+          "name": "Claude Haiku 4.5",
+          "description": "Via OpenRouter. 685ms median for a merge, 14/15 correct — the most accurate of the OpenRouter candidates tested",
+          "supportsThinking": true
         }
       ]
     },

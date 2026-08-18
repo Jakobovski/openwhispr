@@ -21,6 +21,7 @@ test("openrouter has a registry entry with the benchmarked models, and only thos
 
   const ids = provider.models.map((m) => m.id).sort();
   assert.deepEqual(ids, [
+    "anthropic/claude-haiku-4.5",
     "google/gemini-3.6-flash",
     "google/gemini-3.7-flash",
     "meta/muse-glimmer-30b",

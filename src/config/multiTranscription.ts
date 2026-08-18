@@ -146,11 +146,19 @@ export const TRANSCRIPTION_QUALITY_ORDER = ["azure-speech", "xai", "openai", "gr
 //
 // OpenRouter's models are picked deliberately rather than the whole 400+ catalog:
 // each one here was benchmarked against the real reconcile prompt (2026-08-18,
-// 15 real requests apiece) and does the job. One candidate that was tested and
-// excluded: nvidia/nemotron-3.5-lightning — usually fast (~500ms) but swung to
-// 6-8s on several calls for no apparent reason, and once returned another test
-// case's answer outright. Numbers like that in a paste-path call are worse than
-// a slower model that is at least predictable.
+// 15 real requests apiece) and does the job.
+//
+// The first pass excluded nvidia/nemotron-3.5-lightning over wild latency (300ms
+// to 8s) and one flatly wrong answer. Root cause turned out to be routing, not the
+// model: OpenRouter was spreading its requests across three backend providers with
+// p90 latencies from 633ms to 22 seconds. Pinning to the fastest backend (see
+// openrouterRouting.ts) fixed the latency entirely — 12/15 correct, 241-530ms,
+// every call — but two content failures reproduced across both benchmark runs with
+// clean routing: it drops the frequency-bias rule (keeps the majority's word even
+// when it's the generic mishearing the rule exists to catch) and once returned a
+// different test case's answer outright, both times reasoning was fully disabled.
+// Left out of the registry pending a decision on that trade-off — fastest of
+// everything tested, but the only candidate with reproduced content bugs.
 export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "gemini", "openrouter"];
 
 // How long the second provider gets *after* the first has answered. Past this the
