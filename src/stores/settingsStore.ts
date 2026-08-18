@@ -7,6 +7,7 @@ import { useStreamingProvidersStore } from "./streamingProvidersStore";
 import logger from "../utils/logger";
 import whisperVadConstants from "../constants/whisperVad.json";
 import settingsDefaults from "../config/settingsDefaults.json";
+import { BYOK_API_KEYS } from "../config/secretKeys";
 import { deriveTranscriptionMode, hasNoStoredProviderSettings } from "../config/inferenceModes";
 import modelRegistryData from "../models/modelRegistryData.json";
 import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
@@ -2429,18 +2430,27 @@ export async function initializeSettings(): Promise<void> {
 
   if (window.electronAPI) {
     try {
+      // Derived from BYOK_API_KEYS rather than listed here, so adding a provider is one
+      // entry in that table and nothing else. It used to be a hand-written list of
+      // getters and a matching list of assignments, and Azure Speech shipped with its
+      // key in the build but missing from both — the store never asked for it, so the
+      // lane reported no key and multi transcription silently switched itself off.
+      //
+      // The non-BYOK secrets below are separate because they are not one-key-per-provider:
+      // Corti needs a client id and secret, Bedrock three values, and the custom slots
+      // belong to a URL rather than a vendor.
+      const byokValues = await Promise.all(
+        BYOK_API_KEYS.map((entry) => {
+          const getter = (window.electronAPI as Record<string, unknown>)[entry.get];
+          return typeof getter === "function"
+            ? (getter as () => Promise<string | null>)()
+            : Promise.resolve(null);
+        })
+      );
+
       const [
-        openai,
-        anthropic,
-        gemini,
-        groq,
-        xai,
-        mistral,
-        openrouter,
         cortiClientId,
         cortiClientSecret,
-        cortiApiKey,
-        tinfoil,
         customTx,
         customRx,
         bedrockAccessKeyId,
@@ -2448,19 +2458,9 @@ export async function initializeSettings(): Promise<void> {
         bedrockSessionToken,
         azureApiKey,
         vertexApiKey,
-        azureSpeech,
       ] = await Promise.all([
-        window.electronAPI.getOpenAIKey?.(),
-        window.electronAPI.getAnthropicKey?.(),
-        window.electronAPI.getGeminiKey?.(),
-        window.electronAPI.getGroqKey?.(),
-        window.electronAPI.getXaiKey?.(),
-        window.electronAPI.getMistralKey?.(),
-        window.electronAPI.getOpenrouterKey?.(),
         window.electronAPI.getCortiClientId?.(),
         window.electronAPI.getCortiClientSecret?.(),
-        window.electronAPI.getCortiKey?.(),
-        window.electronAPI.getTinfoilKey?.(),
         window.electronAPI.getCustomTranscriptionKey?.(),
         window.electronAPI.getCleanupCustomKey?.(),
         window.electronAPI.getBedrockAccessKeyId?.(),
@@ -2468,21 +2468,18 @@ export async function initializeSettings(): Promise<void> {
         window.electronAPI.getBedrockSessionToken?.(),
         window.electronAPI.getAzureApiKey?.(),
         window.electronAPI.getVertexApiKey?.(),
-        window.electronAPI.getAzurespeechKey?.(),
       ]);
 
+      const byokState: Record<string, string> = {};
+      BYOK_API_KEYS.forEach((entry, index) => {
+        byokState[entry.storeKey] = byokValues[index] || "";
+      });
+      const openrouter = byokState.openrouterApiKey;
+
       useSettingsStore.setState({
-        openaiApiKey: openai || "",
-        anthropicApiKey: anthropic || "",
-        geminiApiKey: gemini || "",
-        groqApiKey: groq || "",
-        xaiApiKey: xai || "",
-        mistralApiKey: mistral || "",
-        openrouterApiKey: openrouter || "",
+        ...byokState,
         cortiClientId: cortiClientId || "",
         cortiClientSecret: cortiClientSecret || "",
-        cortiApiKey: cortiApiKey || "",
-        tinfoilApiKey: tinfoil || "",
         customTranscriptionApiKey: customTx || "",
         cleanupCustomApiKey: customRx || "",
         bedrockAccessKeyId: bedrockAccessKeyId || "",
@@ -2490,7 +2487,6 @@ export async function initializeSettings(): Promise<void> {
         bedrockSessionToken: bedrockSessionToken || "",
         azureApiKey: azureApiKey || "",
         vertexApiKey: vertexApiKey || "",
-        azureSpeechApiKey: azureSpeech || "",
       });
 
       for (const key of STALE_SECRET_LOCALSTORAGE_KEYS) {
