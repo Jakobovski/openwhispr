@@ -887,6 +887,10 @@ function debouncedPersistToEnv() {
   }, 1000);
 }
 
+// Deliberately not derived from BYOK_API_KEYS. SecretProvider is `keyof typeof` this
+// object, so spreading a computed map would widen it from a literal union to `string`
+// and a mistyped provider would compile. The duplication buys compile-time checking;
+// byokKeyWiring.test.js covers the completeness a derived map would have given.
 const SECRET_IPC_SAVERS = {
   openai: "saveOpenAIKey",
   anthropic: "saveAnthropicKey",
@@ -930,19 +934,15 @@ function debouncedSaveSecret(provider: SecretProvider, key: string) {
   }, 250);
 }
 
+// Secrets that predate the move to the OS keychain, deleted from localStorage on every
+// launch. The BYOK half is the table, so a new provider is cleaned up without anyone
+// remembering to add it here; the rest are the multi-value secrets that have no table
+// entry — Corti's id and secret, Bedrock's three, and the custom slots, which belong to
+// a URL rather than a vendor.
 const STALE_SECRET_LOCALSTORAGE_KEYS = [
-  "openaiApiKey",
-  "anthropicApiKey",
-  "geminiApiKey",
-  "groqApiKey",
-  "xaiApiKey",
-  "mistralApiKey",
-  "openrouterApiKey",
-  "azureSpeechApiKey",
+  ...BYOK_API_KEYS.map((k) => k.storeKey),
   "cortiClientId",
   "cortiClientSecret",
-  "cortiApiKey",
-  "tinfoilApiKey",
   "customTranscriptionApiKey",
   "customReasoningApiKey",
   "cleanupCustomApiKey",
@@ -951,7 +951,7 @@ const STALE_SECRET_LOCALSTORAGE_KEYS = [
   "bedrockSessionToken",
   "azureApiKey",
   "vertexApiKey",
-] as const;
+];
 
 function invalidateApiKeyCaches(
   provider?:
