@@ -20,11 +20,12 @@ const debugLogger = require("./debugLogger");
 
 const API_VERSION = "2025-10-15";
 
-// Microsoft documents no limit on the phrase list, and support for it is preview-only,
-// so this is a self-imposed bound rather than a documented one. 500 is what the request
-// asked for; the cap exists at all because an unbounded list would grow with whatever
-// happens to be on screen.
-const MAX_PHRASES = 500;
+// Microsoft documents no limit on the phrase list, so this is a self-imposed bound
+// rather than a documented one. 200, matching the cap on the merge prompt: the two
+// receive the same frequency-ordered vocabulary, and keeping them equal means a term
+// that biased the recogniser is also a term the merge saw. The cap exists at all
+// because an unbounded list would grow with whatever happens to be on screen.
+const MAX_PHRASES = 200;
 
 // Phrases are matched as whole entries, so a very long one is not a phrase — it is a
 // sentence that will never match. Trimmed rather than dropped, in case it starts with
