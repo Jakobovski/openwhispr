@@ -1933,7 +1933,7 @@
       "firstModel": "First model",
       "secondProvider": "Second provider",
       "secondModel": "Second model",
-      "raceTimeoutDescription": "How long the slower side gets after the faster one answers, before its result is used without waiting further."
+      "raceTimeoutDescription": "How long either model gets to answer before the best single transcript is used instead."
     },
     "noteFormatting": {
       "autoGenerateTitle": "Auto-generate note titles",

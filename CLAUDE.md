@@ -9,6 +9,10 @@ Two standing decisions narrow where effort goes on this fork. They don't retract
 - **English only.** New prompts, UI copy, and behavior changes are authored and verified for English. Other locales are not proactively kept in lockstep — don't burn time hand-translating a change into all 9 other locales unless asked. If a change would otherwise need a translated string and there's no time to do it properly, it's fine to leave the other locales stale rather than risk a bad or unverified translation (a real incident: shortening the reconcile prompt for CJK locales without care produced text that looked plausible in a diff but needed careful re-verification against the original bullet order to confirm nothing was corrupted — English is the only version actually exercised in day-to-day use, so it's the only one worth that level of care by default).
 - **Multi-transcription only.** This fork runs multi-transcription mode; the single-provider path and the LLM features built around it (Voice Agent, Dictation Translation, Note Formatting, Chat Intelligence — everything Language Models used to configure) are not the focus. The Language Models sidebar entry was deliberately removed (see `settingsSections.ts` and `ControlPanelSidebar.tsx`) for this reason — those settings panels still exist and still work with whatever's already saved, but don't invest in surfacing or improving them further without being asked. Work goes into the multi-transcription fan-out, the merge/reconcile step, and Cleanup.
 
+## Communication Style
+
+Always respond in simplified, technical English: short sentences, plain wording, no filler. Prefer concrete terms (file names, function names, exact values) over vague summary language. This applies to explanations and summaries in chat, not to comments or strings written into the codebase itself.
+
 ## Project Overview
 
 OpenWhispr is an Electron-based desktop dictation application that uses whisper.cpp for speech-to-text transcription. It supports both local (privacy-focused) and cloud (OpenAI API) processing modes.
