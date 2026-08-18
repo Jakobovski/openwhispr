@@ -3716,6 +3716,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       ? settings.dualTranscriptionReconcileTimeoutMs
       : DEFAULT_RECONCILE_TIMEOUT_MS;
 
+    // Collected here rather than read off the field, because the field is only populated
+    // as a side effect of something else asking: the Azure lane's phrase list, or the
+    // post-transcription matcher, which runs after this. Reading it directly meant the
+    // merge got the screen vocabulary only when an Azure lane happened to have fetched
+    // it first, and nothing at all on a xAI/OpenAI/Groq setup. It is cached per
+    // dictation, so when the phrase list did ask, this costs nothing.
+    const screenContext = await this.ensureScreenContext();
+
     try {
       const mergePromise = ReasoningService.processText(
         // Slot order is preserved, which is what makes the prompt's tie-break meaningful.
@@ -3741,7 +3749,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
             // rather than sent whole: this rides in the paste path behind a one-second
             // budget, and the tail of a dense window is single-occurrence noise that
             // costs tokens without helping. The list is already frequency-ordered.
-            (this._screenContext?.terms ?? []).slice(0, RECONCILE_SCREEN_TERM_LIMIT)
+            (screenContext?.terms ?? []).slice(0, RECONCILE_SCREEN_TERM_LIMIT)
           ),
           temperature: 0,
           disableThinking: true,
