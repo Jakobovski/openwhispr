@@ -25,6 +25,7 @@ import {
   DEFAULT_MULTI_PROVIDER_B,
   DEFAULT_MULTI_PROVIDER_C,
   DEFAULT_MULTI_SECOND_TIMEOUT_MS,
+  DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT,
   DEFAULT_RECONCILE_TIMEOUT_MS,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_MODEL,
@@ -188,6 +189,7 @@ const NUMERIC_SETTINGS = new Set([
   // `Number.isFinite("750")` is false — so the reader would silently fall back to the
   // default and the user's choice would not apply until the next launch.
   "dualTranscriptionSecondTimeoutMs",
+  "dualTranscriptionSecondTimeoutPercent",
   "dualTranscriptionReconcileTimeoutMs",
   "audioRetentionDays",
   "transcriptRetentionDays",
@@ -685,6 +687,8 @@ export interface SettingsState
   // How long the second provider gets after the first answers, before it is
   // dropped and dual degrades to the single result already in hand.
   dualTranscriptionSecondTimeoutMs: number;
+  /** Share of the recording's length added to the flat wait above, as a percentage. */
+  dualTranscriptionSecondTimeoutPercent: number;
   // How long the merge model gets before it is abandoned and the best single
   // transcript is pasted instead.
   dualTranscriptionReconcileTimeoutMs: number;
@@ -698,6 +702,7 @@ export interface SettingsState
   setDualTranscriptionReconcileProvider: (value: string) => void;
   setDualTranscriptionReconcileModel: (value: string) => void;
   setDualTranscriptionSecondTimeoutMs: (value: number) => void;
+  setDualTranscriptionSecondTimeoutPercent: (value: number) => void;
   setDualTranscriptionReconcileTimeoutMs: (value: number) => void;
 
   // Enterprise providers
@@ -1089,6 +1094,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   dualTranscriptionSecondTimeoutMs: readNumber(
     "dualTranscriptionSecondTimeoutMs",
     DEFAULT_MULTI_SECOND_TIMEOUT_MS
+  ),
+  dualTranscriptionSecondTimeoutPercent: readNumber(
+    "dualTranscriptionSecondTimeoutPercent",
+    DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT
   ),
   dualTranscriptionReconcileTimeoutMs: readNumber(
     "dualTranscriptionReconcileTimeoutMs",
@@ -1649,6 +1658,9 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionReconcileProvider: createStringSetter("dualTranscriptionReconcileProvider"),
   setDualTranscriptionReconcileModel: createStringSetter("dualTranscriptionReconcileModel"),
   setDualTranscriptionSecondTimeoutMs: createNumberSetter("dualTranscriptionSecondTimeoutMs"),
+  setDualTranscriptionSecondTimeoutPercent: createNumberSetter(
+    "dualTranscriptionSecondTimeoutPercent"
+  ),
   setDualTranscriptionReconcileTimeoutMs: createNumberSetter("dualTranscriptionReconcileTimeoutMs"),
   setCortiTenant: createStringSetter("cortiTenant"),
   setTinfoilApiKey: createSecretSetter("tinfoilApiKey", "tinfoil", "tinfoil"),

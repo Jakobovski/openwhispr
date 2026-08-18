@@ -1886,7 +1886,11 @@
       "screenContextOpenSettings": "Открыть настройки",
       "dualReconcileTimeout": "Ожидание объединения",
       "dualReconcileTimeoutDescription": "Сколько времени даётся модели объединения, прежде чем будет использован лучший отдельный транскрипт.",
-      "multiMergeConfiguredInCleanup": "Модель объединения, её лимит времени и промпт настраиваются в разделе «Очистка»."
+      "multiMergeConfiguredInCleanup": "Модель объединения, её лимит времени и промпт настраиваются в разделе «Очистка».",
+      "multiSecondTimeoutPercent": "Дополнительное ожидание по длине записи",
+      "multiSecondTimeoutPercentDescription": "Добавляется к ожиданию выше как доля длительности записи. Диктовка на минуту ждёт {{seconds}} с в сумме.",
+      "multiSecondTimeoutPercentOff": "Выключено — только фиксированное ожидание",
+      "multiSecondTimeoutPercentValue": "{{percent}} % длительности записи"
     },
     "intelligence": {
       "gpuDevice": {

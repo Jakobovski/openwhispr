@@ -1879,7 +1879,11 @@
       "screenContextOpenSettings": "打开设置",
       "dualReconcileTimeout": "合并等待时间",
       "dualReconcileTimeoutDescription": "在改用最佳单份转录之前，留给合并模型的时间。",
-      "multiMergeConfiguredInCleanup": "合并模型、它的等待上限以及提示词都在「清理」中配置。"
+      "multiMergeConfiguredInCleanup": "合并模型、它的等待上限以及提示词都在「清理」中配置。",
+      "multiSecondTimeoutPercent": "按录音长度增加的等待",
+      "multiSecondTimeoutPercentDescription": "在上面的等待时间之外，按录音长度的比例追加。一分钟的听写总共等待 {{seconds}} 秒。",
+      "multiSecondTimeoutPercentOff": "关闭——仅固定等待",
+      "multiSecondTimeoutPercentValue": "录音长度的 {{percent}}%"
     },
     "intelligence": {
       "gpuDevice": {

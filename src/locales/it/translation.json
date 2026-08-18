@@ -1884,7 +1884,11 @@
       "screenContextOpenSettings": "Apri Impostazioni",
       "dualReconcileTimeout": "Attesa dell’unione",
       "dualReconcileTimeoutDescription": "Quanto tempo ha il modello di unione prima di usare la migliore trascrizione singola.",
-      "multiMergeConfiguredInCleanup": "Il modello di unione, il suo limite di tempo e il suo prompt si configurano in Pulizia."
+      "multiMergeConfiguredInCleanup": "Il modello di unione, il suo limite di tempo e il suo prompt si configurano in Pulizia.",
+      "multiSecondTimeoutPercent": "Attesa aggiuntiva in base alla durata",
+      "multiSecondTimeoutPercentDescription": "Si aggiunge all'attesa sopra, come quota della durata della registrazione. Una dettatura di un minuto attende {{seconds}} s in totale.",
+      "multiSecondTimeoutPercentOff": "Disattivata — solo attesa fissa",
+      "multiSecondTimeoutPercentValue": "{{percent}} % della registrazione"
     },
     "intelligence": {
       "gpuDevice": {

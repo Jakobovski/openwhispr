@@ -1932,7 +1932,11 @@
       "screenContextOpenSettings": "Ouvrir les Réglages",
       "dualReconcileTimeout": "Attente de la fusion",
       "dualReconcileTimeoutDescription": "Temps accordé au modèle de fusion avant d’utiliser la meilleure transcription seule.",
-      "multiMergeConfiguredInCleanup": "Le modèle de fusion, son délai et son prompt se configurent dans Nettoyage."
+      "multiMergeConfiguredInCleanup": "Le modèle de fusion, son délai et son prompt se configurent dans Nettoyage.",
+      "multiSecondTimeoutPercent": "Attente supplémentaire selon la durée",
+      "multiSecondTimeoutPercentDescription": "S'ajoute à l'attente ci-dessus, en proportion de la durée de l'enregistrement. Une dictée d'une minute attend {{seconds}} s au total.",
+      "multiSecondTimeoutPercentOff": "Désactivé — attente fixe uniquement",
+      "multiSecondTimeoutPercentValue": "{{percent}} % de l'enregistrement"
     },
     "intelligence": {
       "gpuDevice": {

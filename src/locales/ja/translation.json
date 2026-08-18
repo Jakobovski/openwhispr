@@ -1884,7 +1884,11 @@
       "screenContextOpenSettings": "設定を開く",
       "dualReconcileTimeout": "統合の待ち時間",
       "dualReconcileTimeoutDescription": "最良の単一文字起こしを使うまでに統合モデルに与える時間。",
-      "multiMergeConfiguredInCleanup": "統合モデル・待ち時間・プロンプトは「クリーンアップ」で設定します。"
+      "multiMergeConfiguredInCleanup": "統合モデル・待ち時間・プロンプトは「クリーンアップ」で設定します。",
+      "multiSecondTimeoutPercent": "録音の長さに応じた追加待機",
+      "multiSecondTimeoutPercentDescription": "上の待機時間に、録音の長さに比例して加算されます。1分のディクテーションでは合計 {{seconds}} 秒待ちます。",
+      "multiSecondTimeoutPercentOff": "オフ — 固定の待機のみ",
+      "multiSecondTimeoutPercentValue": "録音の {{percent}}%"
     },
     "intelligence": {
       "gpuDevice": {

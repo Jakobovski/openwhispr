@@ -159,6 +159,50 @@ export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "ge
 // and ends the moment the rest answer.
 export const DEFAULT_MULTI_SECOND_TIMEOUT_MS = 1000;
 
+// The wait above is a floor, not the whole budget: it is what a lane gets regardless of
+// how much audio there was. A longer dictation is more work for every provider, and the
+// spread between the fastest and the slowest grows with it, so a fixed budget drops slow
+// lanes on long recordings while being more than generous on short ones.
+//
+// The dynamic part is a percentage of the recording's own length, added to the floor.
+// 20% by default: a 10-second dictation waits 1s + 2s, a minute waits 1s + 12s. The cost
+// is only paid when a lane is actually late — the budget starts at the first success and
+// ends the moment the rest answer — and the user has already waited the length of the
+// recording itself by then, so the proportion is the honest unit.
+//
+// Set to 0 for the old fixed behaviour.
+export const DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT = 20;
+
+// Offered in Settings. 0 means "flat only".
+export const MULTI_SECOND_TIMEOUT_PERCENT_CHOICES = [0, 10, 20, 30, 50];
+
+/**
+ * The wait a slow lane actually gets: the flat floor plus a share of the recording.
+ *
+ * Every argument is treated as untrusted, because two of them are stored settings and the
+ * third is a measured duration that is null whenever the recorder could not report one.
+ * Anything unusable falls back to the flat part alone, which is the behaviour this
+ * replaced — a budget that silently became 0 would drop every slow lane instead.
+ */
+export function resolveMultiSecondWaitMs(
+  flatMs: number | undefined,
+  percent: number | undefined,
+  recordingSeconds: number | null | undefined
+): number {
+  const flat = Number.isFinite(flatMs) && (flatMs as number) >= 0
+    ? (flatMs as number)
+    : DEFAULT_MULTI_SECOND_TIMEOUT_MS;
+  const share =
+    Number.isFinite(percent) && (percent as number) >= 0
+      ? (percent as number)
+      : DEFAULT_MULTI_SECOND_TIMEOUT_PERCENT;
+  const seconds =
+    Number.isFinite(recordingSeconds) && (recordingSeconds as number) > 0
+      ? (recordingSeconds as number)
+      : 0;
+  return Math.round(flat + (share / 100) * seconds * 1000);
+}
+
 // How long the merge itself gets before it is abandoned and the best single transcript
 // is used instead.
 //

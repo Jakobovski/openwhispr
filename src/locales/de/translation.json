@@ -1884,7 +1884,11 @@
       "screenContextOpenSettings": "Einstellungen öffnen",
       "dualReconcileTimeout": "Warten auf die Zusammenführung",
       "dualReconcileTimeoutDescription": "Wie lange das Zusammenführungsmodell hat, bevor das beste Einzeltranskript verwendet wird.",
-      "multiMergeConfiguredInCleanup": "Merge-Modell, Zeitlimit und Prompt werden unter Bereinigung konfiguriert."
+      "multiMergeConfiguredInCleanup": "Merge-Modell, Zeitlimit und Prompt werden unter Bereinigung konfiguriert.",
+      "multiSecondTimeoutPercent": "Zusätzliche Wartezeit je Aufnahmelänge",
+      "multiSecondTimeoutPercentDescription": "Wird zur Wartezeit oben addiert, als Anteil der Aufnahmelänge. Ein einminütiges Diktat wartet insgesamt {{seconds}} s.",
+      "multiSecondTimeoutPercentOff": "Aus — nur feste Wartezeit",
+      "multiSecondTimeoutPercentValue": "{{percent}} % der Aufnahme"
     },
     "intelligence": {
       "gpuDevice": {

@@ -54,6 +54,8 @@ import {
   getMultiTranscriptionProvider,
   resolveMultiTranscriptionModel,
   MULTI_TIMEOUT_CHOICES_MS,
+  MULTI_SECOND_TIMEOUT_PERCENT_CHOICES,
+  resolveMultiSecondWaitMs,
   formatTimeoutSeconds,
 } from "../config/multiTranscription";
 import { getTranscriptionProviders } from "../models/ModelRegistry";
@@ -428,6 +430,10 @@ function TranscriptionSection({
 
   const dualSecondTimeoutMs = useSettingsStore((s) => s.dualTranscriptionSecondTimeoutMs);
   const setDualSecondTimeoutMs = useSettingsStore((s) => s.setDualTranscriptionSecondTimeoutMs);
+  const dualSecondTimeoutPercent = useSettingsStore((s) => s.dualTranscriptionSecondTimeoutPercent);
+  const setDualSecondTimeoutPercent = useSettingsStore(
+    (s) => s.setDualTranscriptionSecondTimeoutPercent
+  );
 
   const renderSilenceTrim = () => (
     <SettingsPanel>
@@ -601,6 +607,40 @@ function TranscriptionSection({
                       {t("settingsPage.transcription.dualSecondTimeoutValue", {
                         seconds: formatTimeoutSeconds(ms),
                       })}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SettingsRow>
+          </SettingsPanelRow>
+          {/* The wait above is a floor; this adds a share of the recording's own length,
+              because the spread between the fastest and slowest lane grows with the
+              amount of audio. The description spells out what the current pair means for
+              a one-minute dictation — a percentage of a duration is hard to feel. */}
+          <SettingsPanelRow>
+            <SettingsRow
+              label={t("settingsPage.transcription.multiSecondTimeoutPercent")}
+              description={t("settingsPage.transcription.multiSecondTimeoutPercentDescription", {
+                seconds: formatTimeoutSeconds(
+                  resolveMultiSecondWaitMs(dualSecondTimeoutMs, dualSecondTimeoutPercent, 60)
+                ),
+              })}
+            >
+              <Select
+                value={String(dualSecondTimeoutPercent)}
+                onValueChange={(value) => setDualSecondTimeoutPercent(Number(value))}
+              >
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MULTI_SECOND_TIMEOUT_PERCENT_CHOICES.map((percent) => (
+                    <SelectItem key={percent} value={String(percent)}>
+                      {percent === 0
+                        ? t("settingsPage.transcription.multiSecondTimeoutPercentOff")
+                        : t("settingsPage.transcription.multiSecondTimeoutPercentValue", {
+                            percent,
+                          })}
                     </SelectItem>
                   ))}
                 </SelectContent>

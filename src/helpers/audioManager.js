@@ -44,7 +44,7 @@ import {
   DEFAULT_MULTI_PROVIDER_B,
   DEFAULT_MULTI_PROVIDER_C,
   resolveMultiTranscriptionLanes,
-  DEFAULT_MULTI_SECOND_TIMEOUT_MS,
+  resolveMultiSecondWaitMs,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_TIMEOUT_MS,
   resolveMultiTranscriptionModel,
@@ -3509,7 +3509,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const settings = getSettings();
     const language = getBaseLanguageCode(this.getEffectiveSttLanguage(settings));
 
-    const multi = await this.transcribeMulti(audioBlob, { language });
+    const multi = await this.transcribeMulti(audioBlob, {
+      language,
+      // Drives the dynamic part of the slow-lane budget. Null when the recorder could not
+      // report a length, which resolveMultiSecondWaitMs treats as "flat wait only".
+      recordingSeconds: metadata.durationSeconds ?? null,
+    });
     timings.transcriptionProcessingDurationMs = multi.transcribeMs;
     if (multi.reconcileMs != null) timings.reconcileDurationMs = multi.reconcileMs;
     timings.multi = {
@@ -3610,7 +3615,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // is used (better than today, where one outage means no transcript), if the two
   // agree the LLM is skipped, and if the reconcile call fails provider A's text
   // stands. Only both providers failing is an error.
-  async transcribeMulti(audioBlob, { language } = {}) {
+  async transcribeMulti(audioBlob, { language, recordingSeconds = null } = {}) {
     const settings = getSettings();
 
     // Resolved centrally so the fan-out, the settings UI and the gate all agree on which
@@ -3651,9 +3656,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // budget starts at the first *successful* lane rather than the first to answer, so
     // a lane that fails fast is skipped over instead of starting the clock on lanes
     // that still might produce the only transcript.
-    const budgetMs = Number.isFinite(settings.dualTranscriptionSecondTimeoutMs)
-      ? settings.dualTranscriptionSecondTimeoutMs
-      : DEFAULT_MULTI_SECOND_TIMEOUT_MS;
+    // Flat floor plus a share of the recording: the spread between the fastest and the
+    // slowest lane grows with the amount of audio, so a fixed budget is simultaneously
+    // too tight for a long dictation and needlessly loose for a short one. The measured
+    // duration is preferred, with the length of what was actually uploaded as a fallback
+    // for a recorder that reported nothing.
+    const budgetSeconds = recordingSeconds ?? this._lastTrim?.originalSeconds ?? null;
+    const budgetMs = resolveMultiSecondWaitMs(
+      settings.dualTranscriptionSecondTimeoutMs,
+      settings.dualTranscriptionSecondTimeoutPercent,
+      budgetSeconds
+    );
     const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
       tracked,
       settled,
@@ -3668,6 +3681,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           dropped: droppedProviders,
           kept: lanes.filter((_, i) => settled[i] !== null).map((lane) => lane.provider),
           budgetMs,
+          // Both parts, so a drop can be read as "the floor was too low" or "the
+          // recording was too short for the percentage to matter".
+          budgetFlatMs: settings.dualTranscriptionSecondTimeoutMs,
+          budgetPercent: settings.dualTranscriptionSecondTimeoutPercent,
+          recordingSeconds: budgetSeconds,
           budgetStartedAfter: lanes[firstSuccessIndex]?.provider,
         },
         "transcription"

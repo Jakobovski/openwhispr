@@ -2057,7 +2057,11 @@
       "screenContextOpenSettings": "Open Settings",
       "dualReconcileTimeout": "Wait for the merge",
       "dualReconcileTimeoutDescription": "How long the merge model gets before the best single transcript is used instead.",
-      "multiMergeConfiguredInCleanup": "The merge model, its deadline and its prompt are configured in Cleanup."
+      "multiMergeConfiguredInCleanup": "The merge model, its deadline and its prompt are configured in Cleanup.",
+      "multiSecondTimeoutPercent": "Extra wait per minute of audio",
+      "multiSecondTimeoutPercentDescription": "Added to the wait above, as a share of the recording's length. A one-minute dictation waits {{seconds}}s in total.",
+      "multiSecondTimeoutPercentOff": "Off — fixed wait only",
+      "multiSecondTimeoutPercentValue": "{{percent}}% of the recording"
     },
     "intelligence": {
       "gpuDevice": {

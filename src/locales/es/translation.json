@@ -1932,7 +1932,11 @@
       "screenContextOpenSettings": "Abrir Ajustes",
       "dualReconcileTimeout": "Espera de la combinación",
       "dualReconcileTimeoutDescription": "Cuánto tiempo tiene el modelo de combinación antes de usar la mejor transcripción individual.",
-      "multiMergeConfiguredInCleanup": "El modelo de fusión, su límite de tiempo y su prompt se configuran en Limpieza."
+      "multiMergeConfiguredInCleanup": "El modelo de fusión, su límite de tiempo y su prompt se configuran en Limpieza.",
+      "multiSecondTimeoutPercent": "Espera adicional según la duración",
+      "multiSecondTimeoutPercentDescription": "Se suma a la espera anterior, como proporción de la duración de la grabación. Un dictado de un minuto espera {{seconds}} s en total.",
+      "multiSecondTimeoutPercentOff": "Desactivado: solo espera fija",
+      "multiSecondTimeoutPercentValue": "{{percent}} % de la grabación"
     },
     "intelligence": {
       "gpuDevice": {

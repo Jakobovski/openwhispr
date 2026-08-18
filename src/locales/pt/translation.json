@@ -1863,7 +1863,11 @@
       "screenContextOpenSettings": "Abrir Ajustes",
       "dualReconcileTimeout": "Espera pela mesclagem",
       "dualReconcileTimeoutDescription": "Quanto tempo o modelo de mesclagem tem antes de usar a melhor transcrição individual.",
-      "multiMergeConfiguredInCleanup": "O modelo de fusão, seu limite de tempo e seu prompt são configurados em Limpeza."
+      "multiMergeConfiguredInCleanup": "O modelo de fusão, seu limite de tempo e seu prompt são configurados em Limpeza.",
+      "multiSecondTimeoutPercent": "Espera extra conforme a duração",
+      "multiSecondTimeoutPercentDescription": "Somada à espera acima, como proporção da duração da gravação. Um ditado de um minuto espera {{seconds}} s no total.",
+      "multiSecondTimeoutPercentOff": "Desativado — apenas espera fixa",
+      "multiSecondTimeoutPercentValue": "{{percent}} % da gravação"
     },
     "intelligence": {
       "gpuDevice": {
