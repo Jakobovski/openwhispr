@@ -65,13 +65,18 @@ test("gemini gets reasoning_effort minimal and nothing else", async () => {
   assert.deepEqual(body, { reasoning_effort: "minimal" });
 });
 
-test("openrouter gets its native reasoning toggle and nothing else", async () => {
+test("openrouter gets minimal effort, not a hard disable", async () => {
+  // { enabled: false } shipped first and was wrong: several reasoning-mandatory
+  // models reject it outright (400, "Reasoning is mandatory for this endpoint and
+  // cannot be disabled") rather than ignoring it, and that error propagates as a
+  // thrown request failure with no retry. `effort: "minimal"` is accepted by every
+  // model tested, including the ones that reject a hard disable.
   const { suppressThinking } = await load();
 
   const body = {};
   suppressThinking(body, "openrouter", "qwen/qwen3-32b");
 
-  assert.deepEqual(body, { reasoning: { enabled: false } });
+  assert.deepEqual(body, { reasoning: { effort: "minimal" } });
 });
 
 test("local gets think false plus chat_template_kwargs", async () => {

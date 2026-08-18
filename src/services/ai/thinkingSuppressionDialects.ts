@@ -39,8 +39,17 @@ export function suppressThinking(
 
   // OpenRouter forwards unknown params to upstream backends, which may reject
   // them — use its native reasoning control instead.
+  //
+  // Not `{ enabled: false }`: several reasoning-mandatory models (verified live —
+  // Gemini 3.6/3.7 Flash, Meta's Muse Glimmer) reject that outright with "Reasoning
+  // is mandatory for this endpoint and cannot be disabled," a 400 that propagates
+  // as a thrown error with no retry — so the reconcile call for those models never
+  // completed, and every merge silently fell back to picking a lane instead. Their
+  // *effort* can still be turned down even when it can't be turned off: `minimal`
+  // is accepted by all three and got Gemini's reasoning token count to zero in
+  // testing (Muse Glimmer still spends a small amount, but far less than default).
   if (providerKey === "openrouter") {
-    requestBody.reasoning = { enabled: false };
+    requestBody.reasoning = { effort: "minimal" };
     return;
   }
 
