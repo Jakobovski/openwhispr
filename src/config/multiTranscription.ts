@@ -113,16 +113,17 @@ export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = Object.fromEntries
 // about what was actually said, so it wants a strong model, and it sits in the paste
 // path, so it wants a fast and predictable one.
 //
-// Benchmarked over the real reconcile prompt on 2026-08-03, three runs each: this
-// model returned in 600-660ms, the tightest spread of everything measured, against
-// 521-830ms for Groq's gpt-oss-120b and 5.2-6.4s for grok-4.5, whose reasoning tokens
-// make it unusable here even at reasoning_effort low. It is also the non-reasoning
-// variant, so it has no thinking budget to blow through on a hard disagreement.
+// Benchmarked over the real reconcile prompt on 2026-08-18, 15 requests each, against
+// the five candidates in RECONCILE_PROVIDER_IDS' openrouter entry plus the prior
+// default: Inkling Small came back fastest and tightest — 321ms median, 291-779ms
+// range, 14/15 correct — against 641ms/493-836ms/14-15 for xAI, the previous default.
+// It has no thinking to suppress (supportsThinking: false in the registry), so there
+// is no reasoning-token variance to begin with.
 //
 // Same two-defaults hazard as the timeout below: the store seeds these and
 // audioManager falls back to them.
-export const DEFAULT_RECONCILE_PROVIDER = "xai";
-export const DEFAULT_RECONCILE_MODEL = "grok-4.20-0309-non-reasoning";
+export const DEFAULT_RECONCILE_PROVIDER = "openrouter";
+export const DEFAULT_RECONCILE_MODEL = "thinkingmachines/inkling-small";
 
 // Tie-break order for the merge, best first. Azure's MAI-Transcribe leads because it is
 // the only lane that can be biased *before* recognition: the phrase list carries the
