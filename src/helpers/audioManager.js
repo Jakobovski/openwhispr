@@ -30,7 +30,7 @@ import {
 } from "../stores/settingsStore";
 import { recordCleanupFailure } from "../stores/cleanupFailureStore";
 import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
-import { transcriptsAgree } from "../utils/transcriptReconcile";
+import { transcriptsAgree, chooseFallbackTranscript } from "../utils/transcriptReconcile";
 import { wordErrorRate } from "../utils/wordErrorRate";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
 import { concatFrames } from "../utils/pcmAudio";
@@ -3757,6 +3757,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       vocabulary,
     });
 
+    // Which answer stands if the merge does not produce one — computed before the call so
+    // the timeout path and the failure path cannot disagree about it.
+    const fallback = chooseFallbackTranscript(answered);
+
     try {
       const mergePromise = ReasoningService.processText(
         request.input,
@@ -3769,20 +3773,24 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const { timedOut, value: outcome } = await raceWithBudget(mergePromise, reconcileBudgetMs);
 
       if (timedOut) {
-        // The best single transcript, not an error: `answered` is in slot order, so this
-        // is the highest-priority provider that actually returned — xAI by default.
+        // The best single transcript, not an error: slot order decides, except where one
+        // lane returned visibly less of the dictation than another — see
+        // chooseFallbackTranscript.
         logger.info(
           "Multi transcription: merge took too long, using the best single transcript",
           {
             budgetMs: reconcileBudgetMs,
-            using: answered[0].provider,
+            using: fallback.provider,
+            // Named when slot order was overridden, since that is the interesting case:
+            // the first lane returned visibly less of the dictation than another did.
+            insteadOf: fallback === answered[0] ? undefined : answered[0].provider,
             candidates: answered.map((side) => side.provider),
           },
           "transcription"
         );
         return {
           ...base,
-          text: answered[0].text,
+          text: fallback.text,
           reconciled: false,
           reconcileDropped: true,
         };
@@ -3799,11 +3807,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       };
     } catch (error) {
       logger.warn(
-        "Multi transcription: reconcile failed, using the first answer",
-        { error: error.message },
+        "Multi transcription: reconcile failed, using the best single transcript",
+        { error: error.message, using: fallback.provider },
         "transcription"
       );
-      return { ...base, text: answered[0].text, reconciled: false };
+      return { ...base, text: fallback.text, reconciled: false };
     }
   }
 
