@@ -368,6 +368,7 @@ function TranscriptionSection({
   const groqApiKey = useSettingsStore((s) => s.groqApiKey);
   const xaiApiKey = useSettingsStore((s) => s.xaiApiKey);
   const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
+  const azureSpeechApiKey = useSettingsStore((s) => s.azureSpeechApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
 
   const dualModelA = useSettingsStore((s) => s.dualTranscriptionModelA);
@@ -382,11 +383,17 @@ function TranscriptionSection({
   // Multi mode needs a key for each configured lane and at least two lanes, and stays off
   // otherwise (see isMultiTranscriptionEnabled). Silently reverting to one provider while
   // the toggle reads "on" is the confusing part, so name what is missing.
+  // Keyed by apiKeyField so it can be looked up straight from the provider table. It is
+  // still written out by hand — a hook cannot be called in a loop over the providers —
+  // so byokKeyWiring.test.js asserts every lane's key field appears here. Azure Speech
+  // was missing and the warning fired for a key that was present and working, since
+  // nothing on the actual transcription path reads this map.
   const dualApiKeys: Record<string, string> = {
     groqApiKey,
     xaiApiKey,
     openaiApiKey,
     openrouterApiKey,
+    azureSpeechApiKey,
   };
   // What will actually run, resolved exactly as the fan-out resolves it. Reading the slots
   // directly would show a provider that a duplicate collapse has already dropped — which

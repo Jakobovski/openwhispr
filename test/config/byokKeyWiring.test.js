@@ -110,3 +110,30 @@ test("every key's env var is a secret, so it is stored encrypted", () => {
     "SECRET_KEYS must be derived from the table"
   );
 });
+
+test("every lane's key field is in the settings page's own key map", () => {
+  // A third hand-maintained list, and the one that produced a false alarm: the settings
+  // page builds its own {apiKeyField: value} map to decide which lanes are missing a
+  // key. Azure Speech was absent, so the warning claimed a missing key for a key that
+  // was present — and nothing caught it, because the transcription path never reads
+  // this map, so the lane worked while the UI said it could not.
+  const { MULTI_TRANSCRIPTION_PROVIDERS } = require("../../src/config/multiTranscription.ts");
+  const settingsPage = read("src", "components", "SettingsPage.tsx");
+
+  const map = settingsPage.slice(
+    settingsPage.indexOf("const dualApiKeys: Record<string, string> = {"),
+    settingsPage.indexOf(
+      "};",
+      settingsPage.indexOf("const dualApiKeys: Record<string, string> = {")
+    )
+  );
+
+  for (const provider of MULTI_TRANSCRIPTION_PROVIDERS) {
+    assert.match(
+      map,
+      new RegExp(`\\b${provider.apiKeyField}\\b`),
+      `${provider.id}'s ${provider.apiKeyField} is missing from dualApiKeys, so the ` +
+        `settings page will report its key missing even when it is set`
+    );
+  }
+});
