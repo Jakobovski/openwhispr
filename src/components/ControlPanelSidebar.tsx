@@ -5,7 +5,6 @@ import {
   BookOpen,
   Sliders,
   Mic,
-  Brain,
   Wand2,
   Keyboard,
   CreditCard,
@@ -138,10 +137,11 @@ export default function ControlPanelSidebar({
       label: t("settingsModal.groups.aiModels"),
       items: [
         { id: "speechToText", label: t("settingsModal.sections.speechToText.label"), icon: Mic },
-        { id: "llms", label: t("settingsModal.sections.llms.label"), icon: Brain },
-        // The merge model and the prompt it runs. Its own destination rather than a tab
-        // under Language Models, because in multi transcription the merge *is* the
-        // cleanup — there is no separate cleanup pass to configure beside it.
+        // Language Models (Voice Agent, Translation, Note Formatting, Chat) is
+        // deliberately not offered here: it configures the single-provider features,
+        // and this app is multi-transcription only now. The section itself still
+        // exists — see the note on "llms" in settingsSections.ts — so nothing crashes
+        // if something old still points at it, but there is no button to find it from.
         { id: "cleanup", label: t("settingsModal.sections.cleanup.label"), icon: Wand2 },
       ],
     },

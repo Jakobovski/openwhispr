@@ -39,6 +39,14 @@ export function isSettingsSection(view: string): view is SettingsSectionType {
 // tab is gone: multi transcription merges the candidate transcripts and cleans them in
 // the same call, so the prompt that matters is the merge prompt. Both now land on the
 // Cleanup section, which is where that prompt lives.
+//
+// "llms" itself is no longer offered in the sidebar — see ControlPanelSidebar.tsx — this
+// app runs multi-transcription only, and Language Models configured the single-provider
+// features (Voice Agent, Translation, Note Formatting, Chat). It stays a valid section
+// rather than being deleted, the same way "personal-notes" stays a valid view without a
+// sidebar entry: `agentConfig`/`agentMode`/`meetings` below still have to resolve to
+// something, and those four settings panels still exist and still work with whatever is
+// already saved — there is just no button left that finds them.
 const SECTION_ALIASES: Record<string, SettingsSectionType> = {
   aiModels: "cleanup",
   agentConfig: "llms",

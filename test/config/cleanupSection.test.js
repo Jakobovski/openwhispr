@@ -67,16 +67,36 @@ test("cleanup is a registered section with a sidebar entry", () => {
   );
 });
 
-test("every settings section is reachable from the sidebar", () => {
+// "llms" is the one deliberate exception: this app is multi-transcription only, and
+// Language Models configured the single-provider features (Voice Agent, Translation,
+// Note Formatting, Chat). It stays a valid section — the same way "personal-notes"
+// stays a valid view without a sidebar entry — so legacy aliases still resolve to
+// something real, but there is no button that finds it. See settingsSections.ts.
+const SECTIONS_WITHOUT_SIDEBAR_ENTRY = new Set(["llms"]);
+
+test("every settings section is reachable from the sidebar, except the documented exceptions", () => {
   // The general form of the check above: a section only the URL can reach is a panel
-  // the user cannot find.
+  // the user cannot find. Anything exempted has to be listed and explained, or a
+  // section could quietly lose its sidebar entry with nothing catching it.
   for (const id of SETTINGS_SECTION_IDS) {
+    if (SECTIONS_WITHOUT_SIDEBAR_ENTRY.has(id)) continue;
     assert.match(
       sidebar,
       new RegExp(`id: "${id}"`),
       `the "${id}" section has no sidebar entry, so only a deep link can open it`
     );
   }
+});
+
+test("language models is gone from the sidebar on purpose", () => {
+  // The inverse of the check above, for the one section that is meant to be missing:
+  // this fails the moment someone re-adds the button without meaning to, the same way
+  // the positive check fails when one goes missing by accident.
+  assert.doesNotMatch(
+    sidebar,
+    /id: "llms"/,
+    'the "llms" sidebar entry is back — Language Models was deliberately removed'
+  );
 });
 
 test("the merge prompt is editable, and only from here", () => {
