@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   awaitLanesWithBudget,
+  raceLanesForFirstSuccess,
   raceWithBudget,
 } = require("../../src/helpers/multiTranscriptionRace");
 
@@ -173,4 +174,65 @@ test("a merge that fails before the deadline still reports the failure", async (
   // Distinct from timing out: the caller falls back either way, but must not mistake a
   // failure for a usable result.
   await assert.rejects(() => raceWithBudget(failsAfter(10, "bad request"), 500), /bad request/);
+});
+
+// --- the merge race: first success wins, no grace period for the other side ---
+
+test("the first lane to succeed wins immediately, not after waiting for the other", async () => {
+  // The bug this exists to catch: awaitLanesWithBudget waits out its whole budget
+  // after the first success because the transcription fan-out wants every candidate
+  // it can get. The merge race wants exactly one answer, so a fast winner must return
+  // long before a slow second lane — or worse, the full budget — has elapsed.
+  const { tracked, settled } = lanes([
+    { ms: 20, ok: true },
+    { ms: 3000, ok: true },
+  ]);
+
+  const startedAt = Date.now();
+  const result = await raceLanesForFirstSuccess(tracked, settled, 500);
+  const elapsed = Date.now() - startedAt;
+
+  assert.deepEqual(result, { winnerIndex: 0, timedOut: false });
+  assert.ok(elapsed < 200, `returned in ${elapsed}ms rather than waiting on the slow lane`);
+});
+
+test("a fast failure does not win, and the race continues to the next lane", async () => {
+  const { tracked, settled } = lanes([
+    { ms: 5, ok: false },
+    { ms: 40, ok: true },
+  ]);
+
+  const result = await raceLanesForFirstSuccess(tracked, settled, 500);
+
+  assert.deepEqual(result, { winnerIndex: 1, timedOut: false });
+});
+
+test("every lane failing is reported distinctly from timing out", async () => {
+  const { tracked, settled } = lanes([
+    { ms: 5, ok: false },
+    { ms: 20, ok: false },
+  ]);
+
+  const startedAt = Date.now();
+  const result = await raceLanesForFirstSuccess(tracked, settled, 1000);
+  const elapsed = Date.now() - startedAt;
+
+  assert.deepEqual(result, { winnerIndex: -1, timedOut: false });
+  assert.ok(elapsed < 500, `reported the failures without waiting out the budget`);
+});
+
+test("nothing answering in time is a timeout, not a failure", async () => {
+  const { tracked, settled } = lanes([{ ms: 5000, ok: true }]);
+
+  const result = await raceLanesForFirstSuccess(tracked, settled, 50);
+
+  assert.deepEqual(result, { winnerIndex: -1, timedOut: true });
+});
+
+test("a single lane needs no second lane to race against", async () => {
+  const { tracked, settled } = lanes([{ ms: 10, ok: true }]);
+
+  const result = await raceLanesForFirstSuccess(tracked, settled, 200);
+
+  assert.deepEqual(result, { winnerIndex: 0, timedOut: false });
 });

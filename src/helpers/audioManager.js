@@ -19,7 +19,7 @@ import { ActiveMicRecoveryController } from "./activeMicRecovery";
 import { followsSystemDefaultMic, reconcileSavedMicSelection } from "./micSelectionRecovery";
 import { isStaleDeviceError } from "./staleMicDevice";
 import { shouldSaveDiscardedRecording } from "./discardedRecording";
-import { awaitLanesWithBudget } from "./multiTranscriptionRace";
+import { awaitLanesWithBudget, raceLanesForFirstSuccess } from "./multiTranscriptionRace";
 import {
   getSettings,
   getEffectiveCleanupModel,
@@ -3842,44 +3842,35 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       });
     });
 
-    const { firstSuccessIndex: reconcileFirstSuccessIndex, droppedIndexes: reconcileDroppedIndexes } =
-      await awaitLanesWithBudget(reconcileTracked, reconcileSettled, reconcileBudgetMs);
+    // First lane to succeed wins, immediately — there is no reconciliation between the
+    // two merge outputs to wait for, so a second answer is never used once the first
+    // one lands. See raceLanesForFirstSuccess for why this is a different primitive
+    // from the one the transcription fan-out above uses.
+    const { winnerIndex: reconcileWinnerIndex, timedOut: reconcileTimedOut } =
+      await raceLanesForFirstSuccess(reconcileTracked, reconcileSettled, reconcileBudgetMs);
 
-    if (reconcileFirstSuccessIndex === -1) {
-      // Every merge lane failed outright — not the same as timing out, but the same
-      // fallback: the best single transcript stands.
+    if (reconcileWinnerIndex === -1) {
+      // Either every merge lane failed outright, or none answered within the budget —
+      // either way there is no reconciled text, so the best single transcript stands.
       logger.warn(
-        "Multi transcription: every merge lane failed, using the best single transcript",
+        reconcileTimedOut
+          ? "Multi transcription: merge race timed out, using the best single transcript"
+          : "Multi transcription: every merge lane failed, using the best single transcript",
         {
           using: fallback.provider,
           lanes: reconcileLanes.map((lane) => `${lane.provider}/${lane.model}`),
+          ...(reconcileTimedOut ? { budgetMs: reconcileBudgetMs } : {}),
         },
         "transcription"
       );
       return { ...base, text: fallback.text, reconciled: false, mergedFrom: answered.length, agreed };
     }
 
-    const winner = reconcileLanes[reconcileFirstSuccessIndex];
-    if (reconcileDroppedIndexes.length > 0) {
-      // Only reachable with dual cleanup on: the other slot did not answer within its
-      // grace period after the first one did. It keeps running in the background — see
-      // the stats recording above — but this dictation does not wait for it.
-      logger.info(
-        "Multi transcription: merge race — one side did not finish in time",
-        {
-          budgetMs: reconcileBudgetMs,
-          won: `${winner.provider}/${winner.model}`,
-          stillRunning: reconcileDroppedIndexes.map(
-            (index) => `${reconcileLanes[index].provider}/${reconcileLanes[index].model}`
-          ),
-        },
-        "transcription"
-      );
-    }
+    const winner = reconcileLanes[reconcileWinnerIndex];
 
     const trimmed =
-      typeof reconcileSettled[reconcileFirstSuccessIndex].value === "string"
-        ? reconcileSettled[reconcileFirstSuccessIndex].value.trim()
+      typeof reconcileSettled[reconcileWinnerIndex].value === "string"
+        ? reconcileSettled[reconcileWinnerIndex].value.trim()
         : "";
     if (!trimmed) {
       // The winning lane technically succeeded but returned nothing usable — same

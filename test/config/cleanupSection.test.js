@@ -166,7 +166,7 @@ test("dual cleanup mode races two lanes, each carrying its own provider and mode
   // nothing about the race would look broken. Sliced from a stable anchor rather than
   // matching the whole block verbatim, so unrelated edits in between don't rot this test.
   const start = audioManager.indexOf("const reconcileLanes = [");
-  const end = audioManager.indexOf("awaitLanesWithBudget(", start);
+  const end = audioManager.indexOf("raceLanesForFirstSuccess(", start);
   assert.ok(start > -1 && end > start, "could not find the reconcile race — has it moved?");
   const section = audioManager.slice(start, end);
 

@@ -68,6 +68,51 @@ async function awaitLanesWithBudget(tracked, settled, budgetMs) {
 }
 
 /**
+ * First lane to succeed wins, immediately — no grace period for the rest.
+ *
+ * This is the merge race, not the transcription fan-out: awaitLanesWithBudget waits
+ * out its budget after the first success because it is gathering candidate
+ * transcripts for something downstream to reconcile. The merge race has nothing
+ * downstream — each lane's answer is already the final, cleaned text, so a second one
+ * is never used once the first lands, and waiting for it would only add latency for
+ * nothing.
+ *
+ * @param {Array<Promise<number>>} tracked One promise per lane, each resolving to its
+ *   own index once that lane has settled. Never rejects.
+ * @param {Array<{status: string}|null>} settled Written by the caller as lanes settle;
+ *   read here to tell a success from a failure. Indexes match `tracked`.
+ * @param {number} budgetMs How long to wait for ANY lane to succeed before giving up.
+ * @returns {Promise<{winnerIndex: number, timedOut: boolean}>} winnerIndex is -1 when
+ *   nothing succeeded — either every lane failed (timedOut false, nothing left to
+ *   wait for) or the budget ran out with lanes still outstanding (timedOut true).
+ */
+async function raceLanesForFirstSuccess(tracked, settled, budgetMs) {
+  let remaining = tracked.map((promise, index) => ({ promise, index }));
+  let timer;
+  const expired = Symbol("expired");
+  const deadline = new Promise((resolve) => {
+    timer = setTimeout(() => resolve(expired), budgetMs);
+  });
+
+  try {
+    while (remaining.length > 0) {
+      const winner = await Promise.race([...remaining.map((entry) => entry.promise), deadline]);
+      if (winner === expired) return { winnerIndex: -1, timedOut: true };
+      remaining = remaining.filter((entry) => entry.index !== winner);
+      if (settled[winner]?.status === "fulfilled") {
+        return { winnerIndex: winner, timedOut: false };
+      }
+      // That lane failed — keep racing whatever's left against the same deadline.
+    }
+    // Every lane failed outright, and the loop already awaited all of them: nothing
+    // left to wait for, so there is no need to also wait out the deadline.
+    return { winnerIndex: -1, timedOut: false };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Awaits a promise, giving up after `budgetMs`.
  *
  * Used for the merge, which sits in the paste path and so gets a deadline like the
@@ -102,4 +147,4 @@ async function raceWithBudget(promise, budgetMs) {
   }
 }
 
-module.exports = { awaitLanesWithBudget, raceWithBudget };
+module.exports = { awaitLanesWithBudget, raceLanesForFirstSuccess, raceWithBudget };
