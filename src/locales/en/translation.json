@@ -1222,7 +1222,7 @@
         "label": "Speech-to-Text"
       },
       "llms": {
-        "description": "Models for chat, cleanup & summaries",
+        "description": "Models for the voice agent, notes & chat",
         "label": "Language Models"
       },
       "cleanup": {
@@ -1914,7 +1914,7 @@
     },
     "llms": {
       "title": "Language Models",
-      "description": "Configure models for cleanup, note formatting, and chat",
+      "description": "Configure models for the voice agent, translation, notes, and chat",
       "tabs": {
         "dictationCleanup": "Dictation Cleanup",
         "dictationAgent": "Voice Agent",

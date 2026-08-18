@@ -1130,7 +1130,7 @@
         "label": "语音转文字"
       },
       "llms": {
-        "description": "用于清理、笔记格式化和聊天的模型",
+        "description": "用于语音代理、笔记和聊天的模型",
         "label": "语言模型"
       },
       "cleanup": {
@@ -1736,7 +1736,7 @@
     },
     "llms": {
       "title": "语言模型",
-      "description": "配置用于听写清理、笔记格式化和聊天的模型",
+      "description": "配置用于语音代理、翻译、笔记和聊天的模型",
       "tabs": {
         "dictationCleanup": "听写清理",
         "dictationAgent": "Voice Agent",

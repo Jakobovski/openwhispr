@@ -1109,7 +1109,7 @@
         "label": "Voz para texto"
       },
       "llms": {
-        "description": "Modelos para chat, limpeza e resumos",
+        "description": "Modelos para o agente de voz, notas e chat",
         "label": "Modelos de linguagem"
       },
       "cleanup": {
@@ -1720,7 +1720,7 @@
     },
     "llms": {
       "title": "Modelos de linguagem",
-      "description": "Configure modelos para limpeza, formatação de notas e chat",
+      "description": "Configure modelos para o agente de voz, tradução, notas e chat",
       "tabs": {
         "dictationCleanup": "Limpeza do ditado",
         "dictationAgent": "Voice Agent",

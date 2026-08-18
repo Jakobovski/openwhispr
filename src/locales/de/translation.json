@@ -1130,7 +1130,7 @@
         "label": "Spracherkennung"
       },
       "llms": {
-        "description": "Modelle für Chat, Bereinigung & Zusammenfassungen",
+        "description": "Modelle für Sprachagent, Notizen & Chat",
         "label": "Sprachmodelle"
       },
       "cleanup": {
@@ -1741,7 +1741,7 @@
     },
     "llms": {
       "title": "Sprachmodelle",
-      "description": "Konfigurieren Sie Modelle für Bereinigung, Notizformatierung und Chat",
+      "description": "Konfigurieren Sie Modelle für den Sprachagenten, Übersetzung, Notizen und Chat",
       "tabs": {
         "dictationCleanup": "Diktat-Bereinigung",
         "dictationAgent": "Voice Agent",

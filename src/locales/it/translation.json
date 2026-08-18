@@ -1130,7 +1130,7 @@
         "label": "Riconoscimento vocale"
       },
       "llms": {
-        "description": "Modelli per chat, pulizia e riassunti",
+        "description": "Modelli per agente vocale, note e chat",
         "label": "Modelli linguistici"
       },
       "cleanup": {
@@ -1741,7 +1741,7 @@
     },
     "llms": {
       "title": "Modelli linguistici",
-      "description": "Configura modelli per pulizia, formattazione note e chat",
+      "description": "Configura modelli per l'agente vocale, la traduzione, le note e la chat",
       "tabs": {
         "dictationCleanup": "Pulizia della dettatura",
         "dictationAgent": "Voice Agent",

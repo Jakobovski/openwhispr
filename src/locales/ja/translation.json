@@ -1130,7 +1130,7 @@
         "label": "音声認識"
       },
       "llms": {
-        "description": "クリーンアップ、ノートのフォーマット、チャット用のモデル",
+        "description": "音声エージェント、ノート、チャット用のモデル",
         "label": "言語モデル"
       },
       "cleanup": {
@@ -1741,7 +1741,7 @@
     },
     "llms": {
       "title": "言語モデル",
-      "description": "クリーンアップ、ノートのフォーマット、チャット用のモデルを設定",
+      "description": "音声エージェント、翻訳、ノート、チャット用のモデルを設定",
       "tabs": {
         "dictationCleanup": "ディクテーションのクリーンアップ",
         "dictationAgent": "Voice Agent",

@@ -1178,7 +1178,7 @@
         "label": "Reconnaissance vocale"
       },
       "llms": {
-        "description": "Modèles pour chat, nettoyage & résumés",
+        "description": "Modèles pour l'agent vocal, les notes & le chat",
         "label": "Modèles de langage"
       },
       "cleanup": {
@@ -1789,7 +1789,7 @@
     },
     "llms": {
       "title": "Modèles de langage",
-      "description": "Configurez les modèles pour le nettoyage, la mise en forme des notes et le chat",
+      "description": "Configurez les modèles pour l'agent vocal, la traduction, les notes et le chat",
       "tabs": {
         "dictationCleanup": "Nettoyage de la dictée",
         "dictationAgent": "Voice Agent",
