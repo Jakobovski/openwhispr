@@ -43,7 +43,9 @@
       "size": "631MB",
       "sizeMb": 631,
       "language": "en",
-      "supportedLanguages": ["en"],
+      "supportedLanguages": [
+        "en"
+      ],
       "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2",
       "extractDir": "sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming",
       "descriptionKey": "models.descriptions.parakeet.parakeet_unified_en_0_6b"
@@ -54,7 +56,9 @@
       "size": "632MB",
       "sizeMb": 632,
       "language": "en",
-      "supportedLanguages": ["en"],
+      "supportedLanguages": [
+        "en"
+      ],
       "runtime": "online",
       "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25.tar.bz2",
       "extractDir": "sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25",
@@ -553,6 +557,36 @@
           "description": "No thinking tokens, lowest latency",
           "supportsThinking": false,
           "descriptionKey": "models.descriptions.cloud.xai_grok_4_20_0309_non_reasoning"
+        }
+      ]
+    },
+    {
+      "id": "openrouter",
+      "name": "OpenRouter",
+      "models": [
+        {
+          "id": "google/gemini-3.6-flash",
+          "name": "Gemini 3.6 Flash",
+          "description": "Via OpenRouter. Reasoning cannot be disabled on this endpoint — ~1.7s median for a merge, slower than xAI's default",
+          "supportsThinking": true
+        },
+        {
+          "id": "google/gemini-3.7-flash",
+          "name": "Gemini 3.7 Flash",
+          "description": "Via OpenRouter. Reasoning cannot be disabled on this endpoint — ~2.3s median for a merge, slower than 3.6",
+          "supportsThinking": true
+        },
+        {
+          "id": "meta/muse-glimmer-30b",
+          "name": "Muse Glimmer 30B",
+          "description": "Via OpenRouter. Reasoning cannot be disabled — usually 2-6s, one observed 20s stall",
+          "supportsThinking": true
+        },
+        {
+          "id": "thinkingmachines/inkling-small",
+          "name": "Inkling Small",
+          "description": "Via OpenRouter. Fastest measured: 321ms median, tight 291-779ms range, no reasoning to suppress",
+          "supportsThinking": false
         }
       ]
     },

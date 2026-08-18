@@ -142,7 +142,15 @@ export const TRANSCRIPTION_QUALITY_ORDER = ["azure-speech", "xai", "openai", "gr
 // Providers offered for reconciliation. Limited to the ones whose model list the
 // static registry knows, so the model picker beside it can be a closed choice
 // rather than free text — tinfoil and corti fetch theirs at runtime.
-export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "gemini"];
+//
+// OpenRouter's models are picked deliberately rather than the whole 400+ catalog:
+// each one here was benchmarked against the real reconcile prompt (2026-08-18,
+// 15 real requests apiece) and does the job. One candidate that was tested and
+// excluded: nvidia/nemotron-3.5-lightning — usually fast (~500ms) but swung to
+// 6-8s on several calls for no apparent reason, and once returned another test
+// case's answer outright. Numbers like that in a paste-path call are worse than
+// a slower model that is at least predictable.
+export const RECONCILE_PROVIDER_IDS = ["groq", "xai", "openai", "anthropic", "gemini", "openrouter"];
 
 // How long the second provider gets *after* the first has answered. Past this the
 // slow side is abandoned and the result already in hand is used, so this is exactly
