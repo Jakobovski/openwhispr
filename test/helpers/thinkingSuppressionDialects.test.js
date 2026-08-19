@@ -81,6 +81,39 @@ test("openrouter gets a hard disable, not the softer effort request", async () =
   assert.deepEqual(body, { reasoning: { enabled: false } });
 });
 
+test("a reasoningMandatory model gets the softer request up front, not after a rejection", async () => {
+  // Models that refuse a hard disable ("Reasoning is mandatory for this endpoint and
+  // cannot be disabled" — live for openai/gpt-oss-120b, Gemini 3.6/3.7 Flash, Muse
+  // Glimmer) are declared in the registry, so the first call already sends what they
+  // accept. Without this every call to such a model burns a whole round trip being
+  // rejected: 67ms of a 189ms merge for gpt-oss-120b, and that merge is in the paste
+  // path.
+  const { suppressThinking } = await load();
+
+  const body = {};
+  suppressThinking(body, "openrouter", "openai/gpt-oss-120b", true);
+
+  assert.deepEqual(body, { reasoning: { effort: "minimal" } });
+});
+
+test("an unflagged or unknown model keeps the hard disable", async () => {
+  // The flag must never be assumed. nemotron-3.5-lightning accepts { enabled: false }
+  // and *ignores* effort:minimal, so downgrading a model that didn't ask for it is the
+  // regression this asserts against — both for an explicit false and for a model the
+  // registry has no opinion about (undefined).
+  const { suppressThinking } = await load();
+
+  for (const flag of [undefined, false]) {
+    const body = {};
+    suppressThinking(body, "openrouter", "nvidia/nemotron-3.5-lightning", flag);
+    assert.deepEqual(
+      body,
+      { reasoning: { enabled: false } },
+      `flag ${String(flag)} must not weaken the request`
+    );
+  }
+});
+
 test("local gets think false plus chat_template_kwargs", async () => {
   const { suppressThinking } = await load();
 

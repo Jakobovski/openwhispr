@@ -45,6 +45,18 @@ export interface CloudModelDefinition {
   descriptionKey?: string;
   disableThinking?: boolean;
   supportsThinking?: boolean;
+  /**
+   * Reasoning can be lowered but not switched off: the backend rejects a hard disable
+   * with "Reasoning is mandatory for this endpoint and cannot be disabled" rather than
+   * ignoring it. Set this and the suppression dialect sends the softer request the
+   * first time, instead of spending a whole round trip getting rejected on every call.
+   *
+   * Distinct from supportsThinking, which is about whether there is any reasoning to
+   * suppress at all. A model can support thinking and still refuse to turn it off.
+   * Verify against the live API before setting it — see the sibling comment in
+   * thinkingSuppressionDialects.ts for why guessing either way has burned us.
+   */
+  reasoningMandatory?: boolean;
   tokenParam?: "max_tokens" | "max_completion_tokens";
   supportsTemperature?: boolean;
 }
@@ -474,14 +486,38 @@ export function getWhisperModelInfo(modelId: string): WhisperModelInfo | undefin
 
 export const WHISPER_MODEL_INFO = modelData.whisperModels;
 
-export function getCloudModel(modelId: string): CloudModelDefinition | undefined {
-  for (const provider of modelData.cloudProviders) {
-    const model = provider.models.find((m) => m.id === modelId);
-    if (model) return model;
+/**
+ * The registry entry for a model id, preferring a given provider's copy of it.
+ *
+ * The same id can appear under more than one provider with genuinely different
+ * behaviour: openai/gpt-oss-120b ships from both groq and openrouter, and only the
+ * OpenRouter one refuses a hard reasoning disable. Without `providerId` the answer is
+ * decided by the order providers happen to sit in the JSON — groq is scanned before
+ * openrouter, so an OpenRouter call silently got groq's entry and its missing flags.
+ *
+ * `providerId` is optional so existing single-provider callers are unaffected, and it
+ * falls back to the id-only scan when that provider has no entry for the id.
+ */
+export function getCloudModel(
+  modelId: string,
+  providerId?: string
+): CloudModelDefinition | undefined {
+  const groups = [modelData.cloudProviders, modelData.enterpriseProviders];
+
+  if (providerId) {
+    const wanted = providerId.toLowerCase();
+    for (const group of groups) {
+      const provider = group.find((p) => p.id.toLowerCase() === wanted);
+      const model = provider?.models.find((m) => m.id === modelId);
+      if (model) return model;
+    }
   }
-  for (const provider of modelData.enterpriseProviders) {
-    const model = provider.models.find((m) => m.id === modelId);
-    if (model) return model;
+
+  for (const group of groups) {
+    for (const provider of group) {
+      const model = provider.models.find((m) => m.id === modelId);
+      if (model) return model;
+    }
   }
   return undefined;
 }

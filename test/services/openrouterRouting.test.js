@@ -17,8 +17,6 @@ const {
   OPENROUTER_MAX_LATENCY_P90_SECONDS,
   OPENROUTER_MIN_THROUGHPUT_P90_TPS,
   PINNED_PROVIDER_MODEL_IDS,
-  isReasoningMandatoryModel,
-  rememberReasoningMandatory,
 } = require("../../src/services/ai/openrouterRouting.ts");
 const modelRegistryData = require("../../src/models/modelRegistryData.json");
 
@@ -138,61 +136,4 @@ test("openai.ts retries a rejected reasoning disable rather than giving up", () 
   const retryAt = openaiClient.indexOf("isReasoningMandatoryError(");
   const genericErrorAt = openaiClient.indexOf("const errorData = await res.json()");
   assert.ok(retryAt > 0 && genericErrorAt > 0 && retryAt < genericErrorAt);
-});
-
-// --- the learned reasoning-mandatory cache ---
-//
-// Why learned and not declared: a static list of models that reject a hard reasoning
-// disable can only ever be behind whatever OpenRouter has added since it was written,
-// which is why the retry deliberately has none. But that left every call to such a
-// model paying for a rejected request first — 67ms of a 189ms merge for gpt-oss-120b,
-// measured, and that merge sits in the paste path. Remembering what the rejection
-// already told us costs nothing and cannot be wrong about a model it has not seen.
-
-test("a model is not assumed reasoning-mandatory until it has actually said so", () => {
-  // The property that makes this safe to do at all: no model is pre-declared, so a
-  // model that accepts a hard disable is never wrongly downgraded to effort:minimal
-  // (the nemotron failure mode — it accepts {enabled:false} and *ignores* minimal,
-  // spending its whole completion budget on reasoning tokens).
-  assert.equal(isReasoningMandatoryModel("some/never-seen-model"), false);
-});
-
-test("a model that rejected once is remembered, so later calls skip the doomed attempt", () => {
-  const model = "test/remembered-model";
-  assert.equal(isReasoningMandatoryModel(model), false);
-  rememberReasoningMandatory(model);
-  assert.equal(isReasoningMandatoryModel(model), true);
-});
-
-test("remembering is idempotent and does not affect other models", () => {
-  rememberReasoningMandatory("test/model-a");
-  rememberReasoningMandatory("test/model-a");
-  assert.equal(isReasoningMandatoryModel("test/model-a"), true);
-  assert.equal(isReasoningMandatoryModel("test/model-b"), false);
-});
-
-test("openai.ts records the rejection and skips the hard disable on later calls", () => {
-  const openaiClient = fs.readFileSync(
-    path.join(__dirname, "..", "..", "src", "services", "ai", "inferenceProviders", "openai.ts"),
-    "utf8"
-  );
-
-  // Both halves are required. Recording without skipping wastes the round trip forever;
-  // skipping without recording never learns anything and is dead code.
-  assert.match(
-    openaiClient,
-    /rememberReasoningMandatory\(model\);/,
-    "the rejection must be recorded, or the next call pays for it again"
-  );
-  assert.match(
-    openaiClient,
-    /isReasoningMandatoryModel\(model\)\)\s*\{\s*\n\s*requestBody\.reasoning = fallbackReasoningRequest\(\);/,
-    "a known reasoning-mandatory model must skip straight to the softer request"
-  );
-
-  // The skip has to be applied after suppression set the hard disable, or it is
-  // overwritten by it and silently does nothing.
-  const suppressionAt = openaiClient.indexOf("applyThinkingSuppression(requestBody");
-  const skipAt = openaiClient.indexOf("isReasoningMandatoryModel(model)");
-  assert.ok(suppressionAt > 0 && skipAt > suppressionAt, "the skip must come after suppression");
 });

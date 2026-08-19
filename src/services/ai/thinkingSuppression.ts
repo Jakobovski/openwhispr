@@ -11,7 +11,11 @@ export function applyThinkingSuppression(
 ): void {
   // A known endpoint host wins over the generic provider dialect.
   const providerKey = detectEndpointDialect(baseUrl)?.key ?? provider.toLowerCase();
-  const cloudModel = getCloudModel(model);
+  // Scoped to the provider actually being called: openai/gpt-oss-120b exists under both
+  // groq and openrouter with different reasoning behaviour, and an id-only lookup
+  // returns whichever the JSON lists first (groq), so an OpenRouter call would read the
+  // wrong entry's flags.
+  const cloudModel = getCloudModel(model, provider);
 
   if (cloudModel?.disableThinking && providerKey === "groq") {
     suppressThinking(requestBody, providerKey, model);
@@ -24,5 +28,7 @@ export function applyThinkingSuppression(
   const knownModel = cloudModel || localModel;
   if (knownModel && !knownModel.supportsThinking) return;
 
-  suppressThinking(requestBody, providerKey, model);
+  // The registry is the single place that records which models refuse a hard disable;
+  // the dialect table takes it as an argument so it keeps no runtime imports.
+  suppressThinking(requestBody, providerKey, model, cloudModel?.reasoningMandatory);
 }

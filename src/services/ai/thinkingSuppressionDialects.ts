@@ -30,7 +30,14 @@ export function detectEndpointDialect(baseUrl: string | null | undefined): Endpo
 export function suppressThinking(
   requestBody: Record<string, unknown>,
   providerKey: string,
-  model: string
+  model: string,
+  /**
+   * The model's `reasoningMandatory` flag from the registry, passed in rather than
+   * looked up so this table keeps no runtime imports. Undefined for a model the
+   * registry does not know, which is treated the same as false: probe with the hard
+   * disable and let openai.ts's retry cover it.
+   */
+  reasoningMandatory?: boolean
 ): void {
   if (providerKey === "gemini") {
     requestBody.reasoning_effort = "minimal";
@@ -48,12 +55,19 @@ export function suppressThinking(
   //
   // Some models reject the hard disable outright instead of just ignoring it —
   // "Reasoning is mandatory for this endpoint and cannot be disabled," confirmed
-  // live for Gemini 3.6/3.7 Flash and Meta's Muse Glimmer — which the OpenAI-
-  // compatible client has no generic retry for; see openrouterRouting.ts and its
-  // use in openai.ts, which catches exactly that error and retries once with the
-  // softer request those models do accept.
+  // live for openai/gpt-oss-120b, Gemini 3.6/3.7 Flash and Meta's Muse Glimmer.
+  // Those carry reasoningMandatory in the registry and get the softer request up
+  // front, because otherwise every single call to them spends a whole round trip
+  // being rejected first — measured at 67ms of a 189ms merge for gpt-oss-120b,
+  // which sits in the paste path.
+  //
+  // The flag is per model rather than a rule about the provider because the two
+  // behaviours coexist under openrouter, and getting it wrong in either direction
+  // has cost us: guessing "mandatory" for a model that actually accepts the hard
+  // disable is the nemotron regression above. openai.ts still retries on the
+  // rejection, so a missing or stale flag costs latency, never a failed merge.
   if (providerKey === "openrouter") {
-    requestBody.reasoning = { enabled: false };
+    requestBody.reasoning = reasoningMandatory ? { effort: "minimal" } : { enabled: false };
     return;
   }
 
