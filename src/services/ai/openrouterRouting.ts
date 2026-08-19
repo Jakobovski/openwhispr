@@ -86,3 +86,55 @@ export function isReasoningMandatoryError(message: string | null | undefined): b
 export function fallbackReasoningRequest(): Record<string, unknown> {
   return { effort: "minimal" };
 }
+
+// Models observed to reject a hard reasoning disable, learned from the rejection itself
+// rather than hardcoded.
+//
+// The retry in openai.ts deliberately keeps no static list of these models, because such
+// a list can only ever be behind whatever OpenRouter has added since it was written.
+// That reasoning holds — but it left every single call to such a model paying for a
+// rejected request first: measured at 67ms of a 189ms merge for openai/gpt-oss-120b,
+// which is reasoning-mandatory on every call and is now a merge default sitting in the
+// paste path.
+//
+// So this remembers what the rejection already told us, the same way rememberPreference()
+// remembers that an endpoint only speaks /chat/completions after one 404. Nothing is
+// declared up front, so it cannot go stale or be wrong about a model it has not seen:
+// the first call still probes, and only the calls after it skip straight to the softer
+// request. Persisted so that cost is once per install rather than once per launch.
+const REASONING_MANDATORY_STORAGE_KEY = "openrouter-reasoning-mandatory-models";
+const reasoningMandatoryCache = new Set<string>();
+let reasoningMandatoryLoaded = false;
+
+function loadReasoningMandatory(): void {
+  if (reasoningMandatoryLoaded) return;
+  reasoningMandatoryLoaded = true;
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    const raw = window.localStorage.getItem(REASONING_MANDATORY_STORAGE_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (Array.isArray(parsed)) {
+      for (const id of parsed) if (typeof id === "string") reasoningMandatoryCache.add(id);
+    }
+  } catch {}
+}
+
+/** Whether a previous call already proved this model rejects a hard reasoning disable. */
+export function isReasoningMandatoryModel(model: string): boolean {
+  loadReasoningMandatory();
+  return reasoningMandatoryCache.has(model);
+}
+
+/** Record that this model rejected a hard disable, so later calls skip that attempt. */
+export function rememberReasoningMandatory(model: string): void {
+  loadReasoningMandatory();
+  if (reasoningMandatoryCache.has(model)) return;
+  reasoningMandatoryCache.add(model);
+  if (typeof window === "undefined" || !window.localStorage) return;
+  try {
+    window.localStorage.setItem(
+      REASONING_MANDATORY_STORAGE_KEY,
+      JSON.stringify([...reasoningMandatoryCache])
+    );
+  } catch {}
+}

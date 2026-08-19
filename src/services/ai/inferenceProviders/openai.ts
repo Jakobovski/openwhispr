@@ -11,6 +11,8 @@ import {
   buildOpenRouterProviderRouting,
   isReasoningMandatoryError,
   fallbackReasoningRequest,
+  isReasoningMandatoryModel,
+  rememberReasoningMandatory,
 } from "../openrouterRouting";
 import { extractApiErrorMessage } from "../apiErrorMessage";
 import { wrapCleanupTranscript } from "../../../config/prompts";
@@ -230,6 +232,14 @@ export const openaiProvider: InferenceProvider = {
               requestBody.reasoning_effort = "low";
             }
             applyThinkingSuppression(requestBody, model, resolvedProvider, config, openAiBase);
+
+            // A model that already rejected a hard disable once will reject it every
+            // time. Skipping straight to the softer request saves that whole round trip
+            // — 67ms of a 189ms merge for gpt-oss-120b, which is in the paste path.
+            // Nothing is skipped for a model that hasn't rejected anything yet.
+            if (isOpenRouter && requestBody.reasoning && isReasoningMandatoryModel(model)) {
+              requestBody.reasoning = fallbackReasoningRequest();
+            }
           }
 
           if (apiConfig.supportsTemperature) {
@@ -262,6 +272,9 @@ export const openaiProvider: InferenceProvider = {
               .json()
               .catch(() => null);
             if (isReasoningMandatoryError(rejection ? extractApiErrorMessage(rejection, "") : null)) {
+              // Remembered so this is the last call that pays for the rejection; see
+              // rememberReasoningMandatory for why this is learned rather than declared.
+              rememberReasoningMandatory(model);
               requestBody.reasoning = fallbackReasoningRequest();
               res = await doFetch();
             }
