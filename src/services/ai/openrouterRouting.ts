@@ -18,7 +18,51 @@
 export const OPENROUTER_MAX_LATENCY_P90_SECONDS = 1;
 export const OPENROUTER_MIN_THROUGHPUT_P90_TPS = 80;
 
-export function buildOpenRouterProviderRouting(): Record<string, unknown> {
+/**
+ * Models routed to one named backend instead of by the preferences above.
+ *
+ * The soft preferences are the right default precisely because they need no
+ * per-model upkeep, but they are *soft*: a model served by many backends of wildly
+ * different speed can still be handed to a slow one. `only` is a hard restriction,
+ * so it is worth spending an entry here when one backend is the entire reason the
+ * model is on offer at all.
+ *
+ * openai/gpt-oss-120b is served by 20 backends. Cerebras is the fast one, measured
+ * 2026-08-19 over the production request shape (8 samples, 1s apart): 189ms median,
+ * 154-286ms, against 595ms median / 540-1097ms for the Claude Haiku 4.5 it replaces
+ * as a merge default. Unpinned throughput sorting happened to pick Cerebras in all 8
+ * samples too (224ms median), so this pin is about removing the other 19 as a
+ * possibility rather than about correcting today's routing.
+ *
+ * Provider slugs are lowercase per OpenRouter's provider-selection docs.
+ */
+const PINNED_PROVIDERS: Record<string, string[]> = {
+  "openai/gpt-oss-120b": ["cerebras"],
+};
+
+/**
+ * Which model ids carry a pin. Exported so a test can check the reverse direction —
+ * that every pinned id is one the registry still offers — which cannot be derived by
+ * probing the factory with registry ids: a pin for a model the registry *doesn't*
+ * have would never be probed, and the check would silently pass.
+ */
+export const PINNED_PROVIDER_MODEL_IDS = Object.keys(PINNED_PROVIDERS);
+
+/**
+ * Routing preferences for one OpenRouter call.
+ *
+ * Takes the model id so a pin can be looked up here rather than at the call site:
+ * openai.ts stays model-agnostic, and a model added to the registry still needs no
+ * routing config of its own to get the defaults.
+ */
+export function buildOpenRouterProviderRouting(model?: string): Record<string, unknown> {
+  const pinned = model ? PINNED_PROVIDERS[model] : undefined;
+  if (pinned) {
+    // No sort or soft preferences alongside `only`: with a single permitted backend
+    // there is nothing left to sort or deprioritise, and listing thresholds a pinned
+    // backend might miss reads as though they could still route around it.
+    return { only: pinned };
+  }
   return {
     sort: "throughput",
     preferred_max_latency: { p90: OPENROUTER_MAX_LATENCY_P90_SECONDS },

@@ -113,28 +113,30 @@ export const DEFAULT_SLOT_PROVIDERS: Record<string, string> = Object.fromEntries
 // about what was actually said, so it wants a strong model, and it sits in the paste
 // path, so it wants a fast and predictable one.
 //
-// Benchmarked over the real reconcile prompt on 2026-08-18, 15 requests each, against
-// the five candidates in RECONCILE_PROVIDER_IDS' openrouter entry plus the prior
-// default: Inkling Small, Claude Haiku 4.5 and xAI all tied at 14/14 once a shared
-// miscalibrated test case is set aside, so accuracy did not decide the default. Claude
-// Haiku 4.5 was chosen instead — 685ms median for a merge.
+// Grok 4.20 non-reasoning leads: no thinking tokens to suppress (supportsThinking:
+// false in the registry), so no reasoning-token variance to begin with, and it was one
+// of three candidates tied at 14/14 on accuracy in the 2026-08-18 benchmark (15
+// requests each over the real reconcile prompt, scored against per-case checks) once a
+// shared miscalibrated case is set aside.
 //
 // Same two-defaults hazard as the timeout below: the store seeds these and
 // audioManager falls back to them.
-export const DEFAULT_RECONCILE_PROVIDER = "openrouter";
-export const DEFAULT_RECONCILE_MODEL = "anthropic/claude-haiku-4.5";
+export const DEFAULT_RECONCILE_PROVIDER = "xai";
+export const DEFAULT_RECONCILE_MODEL = "grok-4.20-0309-non-reasoning";
 
 // The merge always races two models, not a mode the user can turn off — the whole
 // reason to add a second model is that the merge sits in the paste path, so racing
 // trades one extra API call for a latency floor set by whichever of the two is faster
 // on a given dictation, rather than by picking one in advance and living with it.
 //
-// Grok 4.20 non-reasoning as the second: no thinking tokens to suppress
-// (supportsThinking: false in the registry), so no reasoning-token variance, and a
-// different provider from slot A means a stall on one side — a rate limit, an
-// outage — is unlikely to also stall the other.
-export const DEFAULT_RECONCILE_PROVIDER_B = "xai";
-export const DEFAULT_RECONCILE_MODEL_B = "grok-4.20-0309-non-reasoning";
+// gpt-oss-120b as the second, and it is the fast one: 189ms median over the production
+// request shape (measured 2026-08-19, 8 samples, 1s apart), against 595ms for the
+// Claude Haiku 4.5 it replaces here. It is pinned to Cerebras — see PINNED_PROVIDERS
+// in openrouterRouting.ts, since OpenRouter serves this model from 20 backends and
+// only one of them is that fast. Being a different provider from slot A also means a
+// stall on one side — a rate limit, an outage — is unlikely to also stall the other.
+export const DEFAULT_RECONCILE_PROVIDER_B = "openrouter";
+export const DEFAULT_RECONCILE_MODEL_B = "openai/gpt-oss-120b";
 
 // Tie-break order for the merge, best first. Azure's MAI-Transcribe leads because it is
 // the only lane that can be biased *before* recognition: the phrase list carries the

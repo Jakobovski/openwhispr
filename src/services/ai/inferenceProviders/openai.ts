@@ -212,9 +212,11 @@ export const openaiProvider: InferenceProvider = {
 
           // Applies to every OpenRouter call, present and future models alike — see
           // openrouterRouting.ts for why (a model added to the registry needs no
-          // routing config of its own to get this).
+          // routing config of its own to get this). The model id is passed so that
+          // file can pin a specific backend for one model without this call site
+          // knowing which models those are.
           if (isOpenRouter) {
-            requestBody.provider = buildOpenRouterProviderRouting();
+            requestBody.provider = buildOpenRouterProviderRouting(model);
           }
 
           if (type === "responses") {

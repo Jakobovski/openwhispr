@@ -16,7 +16,9 @@ const {
   fallbackReasoningRequest,
   OPENROUTER_MAX_LATENCY_P90_SECONDS,
   OPENROUTER_MIN_THROUGHPUT_P90_TPS,
+  PINNED_PROVIDER_MODEL_IDS,
 } = require("../../src/services/ai/openrouterRouting.ts");
+const modelRegistryData = require("../../src/models/modelRegistryData.json");
 
 test("the routing object matches OpenRouter's documented field names and shape", () => {
   // preferred_max_latency and preferred_min_throughput take a percentile object
@@ -28,6 +30,44 @@ test("the routing object matches OpenRouter's documented field names and shape",
     preferred_max_latency: { p90: OPENROUTER_MAX_LATENCY_P90_SECONDS },
     preferred_min_throughput: { p90: OPENROUTER_MIN_THROUGHPUT_P90_TPS },
   });
+});
+
+test("an unpinned model gets the soft preferences, pinned or not-passed alike", () => {
+  // The defaults must not depend on being called with a model id: every model that
+  // isn't explicitly pinned, and a call that passes nothing at all, get the same thing.
+  assert.deepEqual(
+    buildOpenRouterProviderRouting("anthropic/claude-haiku-4.5"),
+    buildOpenRouterProviderRouting()
+  );
+  assert.deepEqual(
+    buildOpenRouterProviderRouting("some/model-added-tomorrow"),
+    buildOpenRouterProviderRouting()
+  );
+});
+
+test("gpt-oss-120b is hard-pinned to Cerebras, with no soft preferences alongside", () => {
+  // `only` is a hard restriction where sort/preferred_* are explicitly soft — the
+  // whole reason to pin is that this model is served by 20 backends and only Cerebras
+  // is fast. Soft preferences beside `only` would imply it could still route around it.
+  const routing = buildOpenRouterProviderRouting("openai/gpt-oss-120b");
+  assert.deepEqual(routing, { only: ["cerebras"] });
+});
+
+test("every pinned model id is one the registry actually offers", () => {
+  // A pin keyed on a model id the registry no longer has is dead config that still
+  // reads as though it does something.
+  //
+  // This has to iterate the *pins* and look each one up in the registry, not the other
+  // way round. Deriving the pinned set by probing the factory with registry ids was the
+  // first attempt and it was vacuous: a pin for a model absent from the registry is
+  // never probed, so the one failure the test is named for passed cleanly.
+  const openrouter = modelRegistryData.cloudProviders.find((p) => p.id === "openrouter");
+  const offered = openrouter.models.map((m) => m.id);
+
+  assert.ok(PINNED_PROVIDER_MODEL_IDS.length > 0, "no pins at all — has the table moved?");
+  for (const id of PINNED_PROVIDER_MODEL_IDS) {
+    assert.ok(offered.includes(id), `${id} is pinned but not offered by the registry`);
+  }
 });
 
 test("the thresholds are the values asked for: 1000ms and 80 t/s at p90", () => {
@@ -49,13 +89,21 @@ test("a model added to the registry needs no routing config of its own", () => {
   );
   assert.match(
     openaiClient,
-    /if \(isOpenRouter\) \{\s*\n\s*requestBody\.provider = buildOpenRouterProviderRouting\(\);/,
+    /if \(isOpenRouter\) \{\s*\n\s*requestBody\.provider = buildOpenRouterProviderRouting\(model\);/,
     "the routing factory must be applied unconditionally for every OpenRouter call"
   );
   assert.doesNotMatch(
     openaiClient,
     /model\.includes\(.*openrouter.*\).*provider/is,
     "routing looks like it's gated on a specific model id rather than applied generically"
+  );
+  // Passing the model id is how a pin is looked up, but the call site must stay
+  // model-agnostic: the moment openai.ts names a model to decide routing, adding the
+  // next one becomes a two-file change again.
+  assert.doesNotMatch(
+    openaiClient,
+    /requestBody\.provider = [^;]*(cerebras|gpt-oss)/i,
+    "the call site must not name a specific model or backend when setting routing"
   );
 });
 

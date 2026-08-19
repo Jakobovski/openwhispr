@@ -1,13 +1,13 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-// The merge provider picker is deliberately three options, in priority order: Inkling
-// Small and Haiku 4.5 (both via OpenRouter, the default and its equally-accurate
-// runner-up) and xAI (the original default). Chosen after a real benchmark
-// (2026-08-18): 15 requests per candidate against the actual reconcile prompt, scored
-// against objective per-case checks, not eyeballed. Everything else tried —
-// Gemini 3.6/3.7 Flash, Muse Glimmer 30B, nvidia/nemotron-3.5-lightning — was cut for a
-// measured reason, not left out by omission; see the comments in multiTranscription.ts.
+// The merge provider picker is deliberately two providers, in priority order:
+// OpenRouter and xAI. Its models were chosen after real benchmarks, not eyeballed —
+// 2026-08-18, 15 requests per candidate against the actual reconcile prompt scored on
+// per-case checks, then 2026-08-19 for gpt-oss-120b over the production request shape.
+// Everything else tried — Gemini 3.6/3.7 Flash, Muse Glimmer 30B,
+// nvidia/nemotron-3.5-lightning — was cut for a measured reason, not left out by
+// omission; see the comments in multiTranscription.ts.
 
 const { RECONCILE_PROVIDER_IDS } = require("../../src/config/multiTranscription.ts");
 const modelRegistryData = require("../../src/models/modelRegistryData.json");
@@ -16,12 +16,19 @@ test("the merge provider picker offers exactly openrouter and xai", () => {
   assert.deepEqual(RECONCILE_PROVIDER_IDS, ["openrouter", "xai"]);
 });
 
-test("openrouter has a registry entry with exactly the two kept models, Inkling first", () => {
+test("openrouter has a registry entry with the kept models, fastest first", () => {
   const provider = modelRegistryData.cloudProviders.find((p) => p.id === "openrouter");
   assert.ok(provider, "no openrouter entry in cloudProviders — the picker would show nothing");
 
+  // gpt-oss-120b first on purpose: resolveUsableModel heals a stored model the provider
+  // no longer offers to the first entry, so the fastest measured one should be what a
+  // stale setting lands on.
   const ids = provider.models.map((m) => m.id);
-  assert.deepEqual(ids, ["thinkingmachines/inkling-small", "anthropic/claude-haiku-4.5"]);
+  assert.deepEqual(ids, [
+    "openai/gpt-oss-120b",
+    "thinkingmachines/inkling-small",
+    "anthropic/claude-haiku-4.5",
+  ]);
 
   for (const cut of [
     "google/gemini-3.6-flash",

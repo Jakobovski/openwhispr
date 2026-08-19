@@ -558,6 +558,12 @@
       "name": "OpenRouter",
       "models": [
         {
+          "id": "openai/gpt-oss-120b",
+          "name": "gpt-oss-120b (Cerebras)",
+          "description": "Via OpenRouter, pinned to Cerebras. Fastest measured merge: 189ms median, 154-286ms range. Reasoning can only be lowered, not disabled, so every call costs one rejected attempt first",
+          "supportsThinking": true
+        },
+        {
           "id": "thinkingmachines/inkling-small",
           "name": "Inkling Small",
           "description": "Via OpenRouter. Fastest measured: 321ms median, tight 291-779ms range, no reasoning to suppress",
