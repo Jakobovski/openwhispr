@@ -49,6 +49,7 @@
     "pack": "npm run build:renderer && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --dir",
     "predist": "npm run compile:native && npm run download:whisper-cpp && npm run download:llama-server && npm run download:sherpa-onnx && npm run download:yt-dlp && npm run download:qdrant && npm run download:meeting-aec-helper && npm run download:whisper-vad-model && npm run download:diarization-models -- --output-dir resources/bin/diarization-models",
     "dist": "npm run build:renderer && electron-builder",
+    "dist:local": "node scripts/dist-local.js",
     "download:whisper-cpp": "node scripts/download-whisper-cpp.js --current",
     "download:whisper-cpp:all": "node scripts/download-whisper-cpp.js --all",
     "download:llama-server": "node scripts/download-llama-server.js --current",
