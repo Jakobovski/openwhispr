@@ -80,6 +80,7 @@ import { evaluateFinishedRecording } from "./recordingValidation";
 import { isEmptyRecording } from "./recordingGuard";
 import { matchesDictionaryPrompt } from "../utils/dictionaryEchoFilter.js";
 import { planSilenceTrim, applySilenceTrim, resolveSilenceTrimOptions } from "../utils/silenceTrim";
+import { planAutoGain } from "../utils/autoGain";
 import { getDictionaryHintWords } from "../utils/snippets";
 
 const REASONING_CACHE_TTL = 30000; // 30 seconds
@@ -349,7 +350,11 @@ async function resampleForUpload(samples, sampleRate) {
   return { samples: rendered.getChannelData(0), sampleRate: UPLOAD_SAMPLE_RATE };
 }
 
-function encodeWavPcm16(samples, sampleRate) {
+// `gain` is folded into the clamp below rather than applied in a pass of its own: this
+// loop already touches and clamps every sample, so amplifying here costs one multiply
+// and no second traversal or allocation. See autoGain.js for why that matters — a
+// separate apply pass was measured at 5.5ms on a five-minute recording.
+function encodeWavPcm16(samples, sampleRate, gain = 1) {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
   const writeAscii = (offset, text) => {
@@ -372,7 +377,10 @@ function encodeWavPcm16(samples, sampleRate) {
 
   let offset = 44;
   for (let i = 0; i < samples.length; i++) {
-    const clamped = Math.max(-1, Math.min(1, samples[i]));
+    // The clamp is what makes amplifying safe here: autoGain leaves headroom against a
+    // robust peak, so the true maximum can sit above it by design and the loudest few
+    // samples must saturate rather than wrap.
+    const clamped = Math.max(-1, Math.min(1, samples[i] * gain));
     view.setInt16(offset, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
     offset += 2;
   }
@@ -698,7 +706,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       }
 
       const resampled = await resampleForUpload(samples, decoded.sampleRate);
-      const wav = encodeWavPcm16(resampled.samples, resampled.sampleRate);
+
+      // After the resample, so the level is measured on exactly the samples that get
+      // uploaded, and on the fewest of them. After the trim too, so the trim's own
+      // adaptive threshold still sees the original levels it was tuned against.
+      const gainPlan = planAutoGain(resampled.samples, resampled.sampleRate);
+      const wav = encodeWavPcm16(resampled.samples, resampled.sampleRate, gainPlan.gain);
 
       // Reported even at 0%, so the stats readout can tell "nothing to trim" apart from
       // "trimming did not run".
@@ -717,6 +730,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           toSampleRate: resampled.sampleRate,
           originalBytes: audioBlob.size,
           uploadBytes: wav.size,
+          // Reported even when it did nothing, with the reason, so "the level was fine"
+          // is distinguishable from "gain never ran".
+          gain: +gainPlan.gain.toFixed(2),
+          gainReason: gainPlan.reason ?? "applied",
+          speechRms: +gainPlan.speechRms.toFixed(4),
         },
         "transcription"
       );
