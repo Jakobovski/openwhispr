@@ -3674,13 +3674,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const api = STREAMING_PROVIDERS[streamingKey];
       if (!api?.start) continue;
       try {
+        // Deliberately no model: lane.model is the provider's *batch* model, and the
+        // streaming socket rejects it. Soniox answers "Specified model stt-async-v5 does
+        // not support real-time transcription" and closes; the lane then looked merely
+        // slow and got dropped, with the real reason never surfacing. The dialect's own
+        // default is the streaming model for that provider, which is what should be sent.
         const result = await api.start({
           sampleRate: UPLOAD_SAMPLE_RATE,
           language: language && language !== "auto" ? language : undefined,
           vocabulary: await this.getProviderTerms(lane.provider, {
             includeScreenTerms: false,
           }),
-          model: lane.model,
         });
         if (result?.success === false) {
           // Not fatal: the lane falls back to its one-shot path, which is slower but
@@ -3692,7 +3696,17 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           );
           continue;
         }
-        this._liveLanes.push({ provider: lane.provider, api });
+        // Subscribed so the provider's own words reach the log. Without this a fatal
+        // error — a rejected model, a bad key — appeared only as repeated "audio send
+        // dropped" warnings, which says the symptom and hides the cause.
+        const unsubscribe = api.onError?.((message) => {
+          logger.warn(
+            "Live transcription lane error",
+            { provider: lane.provider, error: message },
+            "streaming"
+          );
+        });
+        this._liveLanes.push({ provider: lane.provider, api, unsubscribe });
       } catch (error) {
         logger.warn(
           "Live transcription lane threw while starting, falling back to batch",
@@ -3748,6 +3762,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     await Promise.all(
       lanes.map(async (lane) => {
         try {
+          lane.unsubscribe?.();
           lane.api.finalize?.();
           const result = await lane.api.stop();
           const text = (result?.text || "").trim();

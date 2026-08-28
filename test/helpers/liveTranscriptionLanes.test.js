@@ -356,3 +356,47 @@ test("a streaming provider is one row, not split by which route ran it", () => {
     "deepgram and friends need a fallback"
   );
 });
+
+test("the streaming socket is never handed the provider's batch model", () => {
+  // The bug this fixes, and the API said it plainly:
+  //   "Specified model stt-async-v5 does not support real-time transcription.
+  //    If you wish to use real-time transcription, specify model stt-rt-v5."
+  // The socket closed immediately, the lane then looked merely slow and was dropped, and
+  // the real reason never appeared. lane.model is the batch model — the dialect's own
+  // default is the streaming one, so the model must simply not be overridden here.
+  const method = audioManager.slice(
+    audioManager.indexOf("async startLiveTranscriptionLanes()"),
+    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
+  );
+  const startCall = method.slice(
+    method.indexOf("api.start({"),
+    method.indexOf("});", method.indexOf("api.start({"))
+  );
+  assert.doesNotMatch(
+    startCall,
+    /model:/,
+    "passing lane.model sends the batch model to the streaming socket"
+  );
+  // The dialects must still carry the streaming model, or nothing supplies one.
+  const dialects = read("src", "helpers", "liveTranscriptionDialects.js");
+  assert.match(dialects, /defaultModel: gemini\.GEMINI_TRANSCRIBE_LIVE_MODEL/);
+  assert.match(dialects, /defaultModel: soniox\.SONIOX_REALTIME_MODEL/);
+});
+
+test("a live lane's provider error is logged, not just its symptom", () => {
+  // Nothing subscribed to the error channel, so a fatal API message surfaced only as
+  // repeated "audio send dropped" warnings — the symptom, with the cause hidden.
+  const method = audioManager.slice(
+    audioManager.indexOf("async startLiveTranscriptionLanes()"),
+    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
+  );
+  assert.match(method, /api\.onError\?\.\(/, "the lane must subscribe to its error channel");
+  assert.match(method, /"Live transcription lane error"/, "and log what the provider said");
+
+  // And the subscription is released with the lane, or each dictation adds another.
+  const collect = audioManager.slice(
+    audioManager.indexOf("async collectLiveTranscriptionLanes()"),
+    audioManager.indexOf("async transcribeOneShotWithProvider(")
+  );
+  assert.match(collect, /lane\.unsubscribe\?\.\(\)/, "the listener must be cleaned up");
+});
