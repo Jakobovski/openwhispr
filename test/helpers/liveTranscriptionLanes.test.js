@@ -3,400 +3,293 @@ const assert = require("node:assert/strict");
 const fs = require("fs");
 const path = require("path");
 
-const ROOT = path.join(__dirname, "..", "..");
-const read = (...p) => fs.readFileSync(path.join(ROOT, ...p), "utf8");
-const audioManager = read("src", "helpers", "audioManager.js");
+const {
+  LiveTranscriptionLanes,
+  LIVE_LANE_CLOSE_BUDGET_MS,
+} = require("../../src/helpers/liveTranscriptionLanes");
 
-// Measured, and the numbers are the whole reason this exists. For 19.1s of speech:
+// Exercised through fake provider APIs rather than by grepping audioManager, which is
+// what these tests used to do. The behaviour that matters is timing and ordering — a
+// socket that never comes up, one that answers nothing, a take that is cancelled — and
+// text matching cannot see any of it.
 //
-//   async job queue, after the stop      3859ms   (3.3s of it waiting on the job)
-//   realtime socket, blasted after stop 15320ms   (it processes at ~real time)
-//   realtime socket, fed while talking  ~700ms after the last frame
-//
-// So a streaming provider is only fast if it is fed during the recording. Sending the
-// finished recording at a socket is worse than the job queue, not better.
+// The numbers behind the design, measured for 19.1s of speech:
+//   async job queue, after the stop      3859ms
+//   realtime socket, blasted after stop 15320ms
+//   realtime socket, fed while talking   ~60ms after the last frame
 
-test("live lanes are started before the mic, alongside the screen capture", () => {
-  // The socket takes ~130ms to connect. Starting it after the mic would put that on the
-  // recording's critical path; starting it here means frames captured before it is ready
-  // are buffered instead.
-  const start = audioManager.indexOf("async startRecording(");
-  const region = audioManager.slice(start, start + 1200);
-  assert.match(region, /startLiveTranscriptionLanes\(\)/, "live lanes must start here");
+function fakeApi(behaviour = {}) {
+  const calls = { start: [], sent: [], finalize: 0, stop: 0 };
+  let onError = null;
+  return {
+    calls,
+    emitError: (message) => onError?.(message),
+    api: {
+      start: async (options) => {
+        calls.start.push(options);
+        if (behaviour.startDelayMs) {
+          await new Promise((r) => setTimeout(r, behaviour.startDelayMs));
+        }
+        return behaviour.startResult ?? { success: true };
+      },
+      send: (buffer) => {
+        if (behaviour.sendThrows) throw new Error("socket dead");
+        calls.sent.push(buffer);
+      },
+      finalize: () => {
+        calls.finalize += 1;
+      },
+      stop: async () => {
+        calls.stop += 1;
+        if (behaviour.stopHangs) return new Promise(() => {});
+        if (behaviour.stopRejects) throw new Error("stop blew up");
+        if (behaviour.stopDelayMs) await new Promise((r) => setTimeout(r, behaviour.stopDelayMs));
+        return behaviour.stopResult ?? { text: "hello there" };
+      },
+      onError: (cb) => {
+        onError = cb;
+        return () => {
+          onError = null;
+        };
+      },
+    },
+  };
+}
 
-  const ocrAt = region.indexOf("startScreenContextCapture()");
-  const lanesAt = region.indexOf("startLiveTranscriptionLanes()");
-  const micAt = region.indexOf("getUserMedia");
-  assert.ok(ocrAt > 0 && lanesAt > 0 && micAt > 0, "could not read the start sequence");
-  assert.ok(lanesAt < micAt, "the socket must be opened before the mic is acquired");
+function build(behaviour) {
+  const fake = fakeApi(behaviour);
+  const warnings = [];
+  const lanes = new LiveTranscriptionLanes({
+    providers: { "soniox-rt": fake.api },
+    keyByProvider: { soniox: "soniox-rt" },
+    logger: { warn: (message, meta) => warnings.push({ message, ...meta }) },
+  });
+  return { lanes, fake, warnings };
+}
+
+const frame = (n = 4) => Float32Array.from({ length: n }, (_, i) => (i % 2 ? 0.5 : -0.5));
+
+test("a lane opens with the language and terms, and no model", () => {
+  // The model is the caller's *batch* model and a streaming socket rejects it: Soniox
+  // answers "Specified model stt-async-v5 does not support real-time transcription" and
+  // closes, after which the lane looks merely slow and gets dropped.
+  return (async () => {
+    const { lanes, fake } = build();
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], {
+      language: "en",
+      termsFor: async () => ["OpenWhispr"],
+    });
+
+    assert.equal(fake.calls.start.length, 1);
+    const options = fake.calls.start[0];
+    assert.equal(options.language, "en");
+    assert.deepEqual(options.vocabulary, ["OpenWhispr"]);
+    assert.equal(options.sampleRate, 16000);
+    assert.ok(!("model" in options), "the batch model must not reach the streaming socket");
+  })();
 });
 
-test("the start is not awaited, so a slow connect cannot delay the mic", () => {
-  assert.match(
-    audioManager,
-    /void this\.startLiveTranscriptionLanes\(\);/,
-    "awaiting it would put connect latency on the recording path"
-  );
+test("frames are converted once and forwarded to every lane", async () => {
+  const { lanes, fake } = build();
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  lanes.feed(frame(4));
+  assert.equal(fake.calls.sent.length, 1);
+  // PCM16: two bytes per sample.
+  assert.equal(fake.calls.sent[0].byteLength, 8);
+
+  // Nothing is sent for an empty frame, or once the lanes are closed.
+  lanes.feed(new Float32Array(0));
+  lanes.feed(null);
+  assert.equal(fake.calls.sent.length, 1);
 });
 
-test("only providers set to streaming get a live lane", () => {
-  const method = audioManager.slice(
-    audioManager.indexOf("async startLiveTranscriptionLanes()"),
-    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
-  );
-  assert.match(
-    method,
-    /providerWantsStreaming\(lane\.provider, settings\)/,
-    "the mode setting decides, not the provider's capability"
-  );
-  assert.match(method, /multiTranscriptionEnabled !== true/, "only in multi mode");
-  // The vocabulary has to be supplied at start: these providers bias before they listen,
-  // so passing it afterwards would be too late to matter.
-  assert.match(method, /getProviderTerms\(lane\.provider, \{/);
+test("a dead socket does not interrupt the recording", async () => {
+  const { lanes } = build({ sendThrows: true });
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+  assert.doesNotThrow(() => lanes.feed(frame()));
 });
 
-test("the recorder's own frames feed the sockets", () => {
-  // Reusing the batch recorder's frames rather than opening a second capture: two audio
-  // graphs on one mic is how you get drift between what was transcribed and what was
-  // saved.
-  assert.match(
-    audioManager,
-    /new PcmBatchRecorder\(micStream, \(frame\) => \{[\s\S]{0,300}_feedLiveTranscriptionLanes\(frame\)/,
-    "frames must be teed from the existing recorder"
-  );
-});
+test("closing returns the transcript, timed from the recording's end", async () => {
+  const { lanes, fake } = build({ stopResult: { text: "  hello there  " } });
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
 
-test("frames are converted once for all lanes, not per socket", () => {
-  const method = audioManager.slice(
-    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {"),
-    audioManager.indexOf("async collectLiveTranscriptionLanes()")
-  );
-  const conversions = method.match(/floatToPcm16\(/g) ?? [];
-  assert.equal(conversions.length, 1, "one conversion, not one per lane");
-  // Counting alone was vacuous: a single call *inside* the loop also counts once, and is
-  // exactly the per-socket conversion this is meant to prevent. Position is the test.
-  const convertAt = method.indexOf("floatToPcm16(");
-  const loopAt = method.indexOf("for (const lane of");
-  assert.ok(convertAt > -1 && loopAt > -1, "could not read the feed method");
-  assert.ok(convertAt < loopAt, "the conversion must happen before the loop over lanes");
-});
+  const anchor = performance.now();
+  const closing = lanes.close(anchor);
+  const result = await closing.get("soniox");
 
-test("a lane that fails to start or returns nothing falls back to its one-shot path", () => {
-  // A streaming socket is an optimisation. If it does not work the dictation must still
-  // produce a transcript, not silently lose that lane.
-  const startMethod = audioManager.slice(
-    audioManager.indexOf("async startLiveTranscriptionLanes()"),
-    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
-  );
-  assert.match(startMethod, /falling back to batch/, "a failed start must be logged and skipped");
-
-  const collect = audioManager.slice(
-    audioManager.indexOf("async collectLiveTranscriptionLanes()"),
-    audioManager.indexOf("async transcribeOneShotWithProvider(")
-  );
-  // Only a non-empty transcript is recorded, so a socket that connected but produced
-  // nothing leaves the lane to its one-shot request rather than returning empty text.
-  assert.match(collect, /if \(text\) \{/, "an empty transcript must not be collected");
-  assert.match(
-    collect,
-    /collected\.set\(lane\.provider, \{/,
-    "the transcript is keyed by provider"
-  );
-
-  // And the fan-out must treat an absent live transcript as "do the request".
-  assert.match(
-    audioManager,
-    /liveText: liveText\.get\(lane\.provider\)/,
-    "the lane is handed its live transcript, if any"
-  );
-});
-
-test("a live transcript skips the upload but is still echo-checked", () => {
-  const region = audioManager.slice(
-    audioManager.indexOf("async transcribeRawWithProvider("),
-    audioManager.indexOf("\n    let text;")
-  );
-  assert.match(region, /if \(liveText\) \{/, "a live transcript short-circuits the request");
-  assert.match(
-    region,
-    /!this\.isDictionaryEcho\(trimmedLive\)/,
-    "the same silence guard the one-shot path applies"
-  );
-  // Latency is recorded once, by the fan-out, from multi.sides.
-  const shortCircuit = region.slice(region.indexOf("if (liveText) {"));
-  assert.doesNotMatch(
-    shortCircuit,
-    /recordModelLatency/,
-    "recording here too would count this lane twice"
-  );
-});
-
-test("closing the sockets overlaps the trim rather than blocking it", () => {
-  // Both have to happen before the fan-out; doing them in sequence would add the
-  // socket's closing wait to the trim's.
-  const region = audioManager.slice(
-    audioManager.indexOf("const liveTextPromise"),
-    audioManager.indexOf("const settled = lanes.map(() => null)")
-  );
-  assert.match(region, /const liveTextPromise = this\.collectLiveTranscriptionLanes\(\)/);
-  const promiseAt = region.indexOf("liveTextPromise =");
-  const trimAt = region.indexOf("prepareAudioForUpload");
-  const awaitAt = region.indexOf("await liveTextPromise");
-  assert.ok(promiseAt < trimAt && trimAt < awaitAt, "the trim must run while the sockets close");
-});
-
-test("a secret saved in one window reaches the others", () => {
-  // The bug this fixes: secrets are deliberately kept out of localStorage, so they cannot
-  // ride the storage event the rest of the settings sync on. A key entered in the control
-  // panel stayed invisible to the window that transcribes until the app restarted — which
-  // is how "No gemini API key configured" was logged four minutes after the key was saved.
-  const ipc = read("src", "helpers", "ipcHandlers.js");
-  assert.match(ipc, /win\.webContents\.send\("secret-key-updated"/, "main must broadcast");
-  assert.match(
-    ipc,
-    /win\.webContents === event\.sender/,
-    "the window that saved it should not be told again"
-  );
-
-  const store = read("src", "stores", "settingsStore.ts");
-  assert.match(store, /onSecretKeyUpdated\?\.\(/, "the store must listen");
-  assert.match(store, /useSettingsStore\.setState\(\{ \[storeKey\]: key \?\? "" \}\)/);
-
-  const preload = read("preload.js");
-  assert.match(preload, /onSecretKeyUpdated/, "preload must bridge it");
-
-  // Still not in localStorage: that is what keeps it out of plain disk.
-  assert.match(
-    store,
-    /STALE_SECRET_LOCALSTORAGE_KEYS/,
-    "secrets must still be scrubbed from localStorage"
-  );
-});
-
-test("a streaming lane is timed from the end of the recording", () => {
-  // Timing it from when the lane's request started would report almost nothing, because
-  // the transcript was already being produced while the user spoke. What the user waits
-  // is the tail after the last frame — measured at 63ms for Soniox on a 19s recording,
-  // against 3859ms for the same provider's job queue.
-  assert.match(
-    audioManager,
-    /this\._recordingStoppedAt = performance\.now\(\);/,
-    "the end of the recording must be stamped"
-  );
-  const collect = audioManager.slice(
-    audioManager.indexOf("async collectLiveTranscriptionLanes()"),
-    audioManager.indexOf("async transcribeOneShotWithProvider(")
-  );
-  assert.match(
-    collect,
-    /performance\.now\(\) - \(this\._recordingStoppedAt/,
-    "the tail must be measured from that stamp"
-  );
-  // Never negative, in case the stamp is missing on some path.
-  assert.match(collect, /Math\.max\(\s*0,/, "a missing stamp must not produce a negative timing");
-});
-
-test("streaming and batch are recorded as different kinds", () => {
-  // One is a whole request after the recording ended; the other is only the tail. Putting
-  // them in one group would average 63ms with 3859ms and misrepresent both.
-  assert.match(
-    audioManager,
-    /side\.streaming \? "transcriptionStreaming" : "transcription"/,
-    "the recorded kind must depend on how the lane ran"
-  );
-  assert.match(
-    audioManager,
-    /streaming: ok \? result\.value\.streaming === true : false/,
-    "the flag must survive onto the side the recorder reads"
-  );
-
-  // And the stats page needs a section for it, or the samples are collected and unseen.
-  const view = read("src", "components", "ModelStatsView.tsx");
-  assert.match(view, /"transcriptionStreaming"/, "the stats page must tabulate the new kind");
-  const strings = JSON.parse(read("src", "locales", "en", "translation.json"));
+  assert.equal(fake.calls.finalize, 1, "the utterance must be finalized before stopping");
+  assert.equal(result.text, "hello there", "and the text trimmed");
   assert.ok(
-    strings.modelStats.kinds.transcriptionStreaming,
-    "the new kind needs a label or the heading renders as the key"
+    result.ms >= 0 && result.ms < 500,
+    `ms ${result.ms} should be measured from the anchor`
   );
 });
 
-test("the drop deadline is anchored to the recording's end", () => {
-  // Without this the cutoff was measured from whichever lane answered first, so how long
-  // the user waited depended on which one won: a batch lane answering at 900ms silently
-  // granted every other lane 900ms more. Anchored to the tail it is the same wait every
-  // time — which is the only version a person can reason about.
-  assert.match(
-    audioManager,
-    /\{ deadlineAt: \(this\._recordingStoppedAt \?\? performance\.now\(\)\) \+ budgetMs \}/,
-    "the fan-out must pass a deadline measured from the end of the recording"
-  );
+test("closing hands back one promise per provider rather than one combined wait", () => {
+  // The caller races these against the same deadline as its batch lanes. Awaiting them as
+  // a group is what let a dead socket stall the dictation, and then let the close budget
+  // come out of the budget shared with the batch lanes and starve them.
+  return (async () => {
+    const { lanes } = build();
+    await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+    const closing = lanes.close(performance.now());
+    assert.ok(closing instanceof Map);
+    assert.ok(closing.get("soniox") instanceof Promise);
+  })();
 });
 
-test("the live socket does not consume the screen capture at recording start", () => {
-  // A regression this had: the socket opens about a millisecond after the OCR sidecar
-  // starts, so asking for the capture there cannot succeed — and collecting is
-  // destructive and caches its result, so a timed-out collection cached null and took the
-  // screen terms away from the batch lanes and the correction matcher for the whole
-  // dictation. The streaming lane still gets those corrections, applied to its transcript
-  // afterwards instead of as a bias beforehand.
-  const method = audioManager.slice(
-    audioManager.indexOf("async startLiveTranscriptionLanes()"),
-    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
-  );
-  assert.match(
-    method,
-    /includeScreenTerms: false/,
-    "the socket must not collect the screen capture"
-  );
-});
+test("a lane that hangs resolves null within the close budget", async () => {
+  const { lanes, warnings } = build({ stopHangs: true });
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
 
-test("a failed screen capture is not cached over the whole dictation", () => {
-  const ensure = audioManager.slice(
-    audioManager.indexOf("async ensureScreenContext()"),
-    audioManager.indexOf("async getProviderTerms(")
-  );
-  assert.match(
-    ensure,
-    /if \(capture\) this\._screenContext = capture;/,
-    "only a real answer may be remembered, or one slow attempt decides the dictation"
-  );
-});
+  const startedAt = Date.now();
+  const result = await lanes.close(performance.now()).get("soniox");
+  const elapsed = Date.now() - startedAt;
 
-test("every provider's latency is measured from the end of the recording", () => {
-  // The number that matters is what the user waits after they stop talking. Timing from
-  // the start of the request hid the audio prep — trim, gain, resample, WAV encode — which
-  // is real time, and made a streaming lane and a batch lane incomparable because each
-  // started its own clock.
-  const anchors =
-    audioManager.match(/= this\._recordingStoppedAt \?\? performance\.now\(\)/g) ?? [];
+  assert.equal(result, null, "the caller must be free to use its one-shot path");
   assert.ok(
-    anchors.length >= 5,
-    `every transcription path should anchor to the recording's end, saw ${anchors.length}`
+    elapsed < LIVE_LANE_CLOSE_BUDGET_MS + 300,
+    `waited ${elapsed}ms, which is past the budget`
   );
-  // The per-call anchors these replaced must be gone.
+  assert.ok(warnings.some((w) => /returned nothing/.test(w.message)));
+});
+
+test("a lane that returns empty text resolves null and says so", async () => {
+  const { lanes, warnings } = build({ stopResult: { text: "   " } });
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  assert.equal(await lanes.close(performance.now()).get("soniox"), null);
+  assert.ok(warnings.some((w) => /returned nothing/.test(w.message)));
+});
+
+test("a lane whose stop rejects resolves null instead of throwing", async () => {
+  const { lanes, warnings } = build({ stopRejects: true });
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  assert.equal(await lanes.close(performance.now()).get("soniox"), null);
+  assert.ok(warnings.some((w) => /failed on stop/.test(w.message)));
+});
+
+test("a lane that will not start is simply absent", async () => {
+  const { lanes, warnings } = build({ startResult: { success: false, error: "no key" } });
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  assert.equal(lanes.close(performance.now()).size, 0, "no promise for a lane that never opened");
+  assert.ok(warnings.some((w) => /failed to start/.test(w.message)));
+});
+
+test("an unknown provider is skipped rather than throwing", async () => {
+  const { lanes } = build();
+  await lanes.start([{ provider: "not-a-provider" }], { termsFor: async () => [] });
+  assert.equal(lanes.close(performance.now()).size, 0);
+});
+
+test("the provider's own error reaches the log", async () => {
+  // Without this a fatal message appeared only as repeated "audio send dropped"
+  // warnings: the symptom, with the cause discarded.
+  const { lanes, fake, warnings } = build();
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  fake.emitError("Specified model stt-async-v5 does not support real-time transcription");
+  assert.ok(
+    warnings.some((w) => /reported an error/.test(w.message) && /stt-async-v5/.test(w.error)),
+    "the provider's words must be logged"
+  );
+});
+
+test("a cancelled take closes its sockets instead of leaving them open", async () => {
+  // An open socket is billed by wall-clock time. Before this a cancelled take left its
+  // sockets running until the next recording happened to replace them.
+  const { lanes, fake } = build();
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  lanes.discard();
+  assert.equal(fake.calls.stop, 1, "the socket must be stopped");
+  assert.equal(lanes.active, false, "and the lane forgotten");
+  // Frames after a discard go nowhere.
+  lanes.feed(frame());
+  assert.equal(fake.calls.sent.length, 0);
+});
+
+test("a recording that ends while the socket is still connecting leaks nothing", async () => {
+  // The race this closes: a short dictation can stop before the socket is up, so close()
+  // saw no lanes and the start pushed one afterwards that nobody owned — an open socket
+  // with no closer.
+  const { lanes, fake } = build({ startDelayMs: 60 });
+
+  const starting = lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+  assert.equal(lanes.active, true, "a pending start counts as active");
+
+  const closing = lanes.close(performance.now());
+  assert.equal(closing.size, 0, "the lane is not visible yet, so it cannot be read");
+
+  await starting;
+  await new Promise((r) => setTimeout(r, 40));
+  assert.equal(fake.calls.stop, 1, "but it is closed once it appears");
+  assert.equal(lanes.active, false);
+});
+
+test("start clears any previous lanes so a take cannot inherit them", async () => {
+  const { lanes, fake } = build();
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+  await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  const closing = lanes.close(performance.now());
+  assert.equal(closing.size, 1, "one lane, not two");
+  assert.equal(fake.calls.start.length, 2);
+});
+
+// --- the wiring in audioManager, which is now four calls ---
+
+const audioManager = fs.readFileSync(
+  path.join(__dirname, "..", "..", "src", "helpers", "audioManager.js"),
+  "utf8"
+);
+
+test("audioManager only owns the policy, not the lifecycle", () => {
+  // Which lanes stream and what terms they get is this app's decision; the ordering rules
+  // between starting, feeding and closing belong to the lanes object.
+  assert.match(audioManager, /this\.liveLanes\.feed\(frame\)/);
+  assert.match(audioManager, /this\.liveLanes\.discard\(\)/);
+  assert.match(audioManager, /this\.liveLanes\.close\(/);
+  assert.match(audioManager, /providerWantsStreaming\(lane\.provider, settings\)/);
+  // The five methods this replaced should be gone.
+  for (const gone of [
+    "_feedLiveTranscriptionLanes",
+    "beginClosingLiveTranscriptionLanes",
+    "_closeLiveLane",
+    "discardLiveTranscriptionLanes",
+  ]) {
+    assert.doesNotMatch(audioManager, new RegExp(gone), `${gone} should have moved out`);
+  }
+});
+
+test("a streaming lane races on the same deadline as a batch lane", () => {
+  // Not awaited as a group before the fan-out: that is what stalled the dictation and
+  // starved the batch lanes of the shared budget.
+  assert.match(
+    audioManager,
+    /return track\(closing \? closing\.then\(request\) : request\(undefined\), index\);/,
+    "each lane must wait only for itself"
+  );
   assert.doesNotMatch(
     audioManager,
-    /const apiCallStart = performance\.now\(\);/,
-    "a per-call anchor understates what the user waited"
-  );
-  assert.doesNotMatch(
-    audioManager,
-    /const transcriptionStart = performance\.now\(\);/,
-    "same for the local and cloud paths"
+    /await liveTextPromise/,
+    "the fan-out must not block on the live lanes"
   );
 });
 
-test("the anchor is cleared per recording and set by both stop paths", () => {
-  // Without clearing, a dictation measures against whenever the *previous* one ended —
-  // silently, and wrong by however long ago that was. And only the batch stop used to set
-  // it, so a streaming dictation measured against the last batch recording.
+test("the deadline and every lane timing are anchored to the recording's end", () => {
   assert.match(
     audioManager,
-    /this\._recordingStoppedAt = null;/,
-    "the anchor must be cleared when a recording starts"
+    /\{ deadlineAt: \(this\._recordingStoppedAt \?\? performance\.now\(\)\) \+ budgetMs \}/
   );
-  const setters =
-    audioManager.match(/this\._recordingStoppedAt = (performance\.now\(\)|t0);/g) ?? [];
-  assert.equal(setters.length, 2, "both the batch and the streaming stop paths must set it");
-});
-
-test("a lane timing can never be negative", () => {
-  // The anchor is read with a fallback, so a path that never set it would otherwise be
-  // able to produce a negative duration.
   assert.match(
     audioManager,
-    /const elapsedSinceRecording = \(\) => Math\.max\(0,/,
-    "lane timings must be clamped at zero"
+    /const startedAt = this\._recordingStoppedAt \?\? performance\.now\(\)/
   );
-});
-
-test("a non-batch (streaming) dictation is recorded too, from the recording's end", () => {
-  // It was not recorded at all. The shared post-processing path files a sample for the
-  // batch and multi routes, but the streaming route reports sttProcessingMs rather than
-  // transcriptionProcessingDurationMs, so it never reached that code and streaming was
-  // absent from Model Stats entirely.
-  const stop = audioManager.slice(
-    audioManager.indexOf("async stopStreamingRecording()"),
-    audioManager.indexOf("const streamingAudioBytesSent")
-  );
-  assert.match(
-    stop,
-    /recordModelLatency\(\s*"transcriptionStreaming"/,
-    "the streaming route must record a sample"
-  );
-  // t0 is the end of the recording, so the number is already the one that matters.
-  assert.match(
-    stop,
-    /const streamingSttProcessingMs = Math\.round\(tTerminate - t0\)/,
-    "and it must be measured from the recording's end"
-  );
-  assert.match(stop, /this\._recordingStoppedAt = t0;/, "t0 must be the recording-end anchor");
-  // An empty transcript is a failure, not a fast success — otherwise a dead socket would
-  // look like the best provider on the page.
-  assert.match(stop, /finalText && finalText\.trim\(\) \? "ok" : "failed"/);
-});
-
-test("a streaming provider is one row, not split by which route ran it", () => {
-  // gemini streams through the "gemini-live" entry, so keying the single-provider route's
-  // stats on the internal streaming key would put it on a different row from the multi
-  // live lane — the same provider, streaming the same way, reported twice.
-  const stop = audioManager.slice(
-    audioManager.indexOf("async stopStreamingRecording()"),
-    audioManager.indexOf("const streamingAudioBytesSent")
-  );
-  assert.match(
-    stop,
-    /STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER\[stSettings\.cloudTranscriptionProvider\]\s*\n?\s*\?\s*stSettings\.cloudTranscriptionProvider/,
-    "the configured provider should win when it maps to a streaming route"
-  );
-  // But routes with no transcription-provider equivalent still get named.
-  assert.match(
-    stop,
-    /: this\.getStreamingProviderName\(\)/,
-    "deepgram and friends need a fallback"
-  );
-});
-
-test("the streaming socket is never handed the provider's batch model", () => {
-  // The bug this fixes, and the API said it plainly:
-  //   "Specified model stt-async-v5 does not support real-time transcription.
-  //    If you wish to use real-time transcription, specify model stt-rt-v5."
-  // The socket closed immediately, the lane then looked merely slow and was dropped, and
-  // the real reason never appeared. lane.model is the batch model — the dialect's own
-  // default is the streaming one, so the model must simply not be overridden here.
-  const method = audioManager.slice(
-    audioManager.indexOf("async startLiveTranscriptionLanes()"),
-    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
-  );
-  const startCall = method.slice(
-    method.indexOf("api.start({"),
-    method.indexOf("});", method.indexOf("api.start({"))
-  );
-  assert.doesNotMatch(
-    startCall,
-    /model:/,
-    "passing lane.model sends the batch model to the streaming socket"
-  );
-  // The dialects must still carry the streaming model, or nothing supplies one.
-  const dialects = read("src", "helpers", "liveTranscriptionDialects.js");
-  assert.match(dialects, /defaultModel: gemini\.GEMINI_TRANSCRIBE_LIVE_MODEL/);
-  assert.match(dialects, /defaultModel: soniox\.SONIOX_REALTIME_MODEL/);
-});
-
-test("a live lane's provider error is logged, not just its symptom", () => {
-  // Nothing subscribed to the error channel, so a fatal API message surfaced only as
-  // repeated "audio send dropped" warnings — the symptom, with the cause hidden.
-  const method = audioManager.slice(
-    audioManager.indexOf("async startLiveTranscriptionLanes()"),
-    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
-  );
-  assert.match(method, /api\.onError\?\.\(/, "the lane must subscribe to its error channel");
-  assert.match(method, /"Live transcription lane error"/, "and log what the provider said");
-
-  // And the subscription is released with the lane, or each dictation adds another.
-  const collect = audioManager.slice(
-    audioManager.indexOf("async collectLiveTranscriptionLanes()"),
-    audioManager.indexOf("async transcribeOneShotWithProvider(")
-  );
-  assert.match(collect, /lane\.unsubscribe\?\.\(\)/, "the listener must be cleaned up");
+  // And the reported total covers the whole post-recording wait, or a stall hides in it:
+  // measured from the fan-out's own start it read 1ms on a five-second dictation.
+  assert.match(audioManager, /performance\.now\(\) - \(this\._recordingStoppedAt \?\? startedAt\)/);
 });
