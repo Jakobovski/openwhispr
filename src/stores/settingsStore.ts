@@ -6,6 +6,7 @@ import { chooseDictionaryStartupAction } from "../helpers/dictionaryStartup";
 import { useStreamingProvidersStore } from "./streamingProvidersStore";
 import logger from "../utils/logger";
 import whisperVadConstants from "../constants/whisperVad.json";
+import { DEFAULT_AUTO_GAIN_ENABLED } from "../utils/autoGain";
 import settingsDefaults from "../config/settingsDefaults.json";
 import { BYOK_API_KEYS } from "../config/secretKeys";
 import { deriveTranscriptionMode, hasNoStoredProviderSettings } from "../config/inferenceModes";
@@ -136,6 +137,7 @@ migrateMeetingFollowFlags();
 
 const BOOLEAN_SETTINGS = new Set([
   "silenceTrimEnabled",
+  "autoGainEnabled",
   "screenContextEnabled",
   "multiTranscriptionEnabled",
   "useLocalWhisper",
@@ -667,9 +669,11 @@ export interface SettingsState
   xaiTranscriptionMode: string;
   // Silence trimming before upload, and how much to cut.
   silenceTrimEnabled: boolean;
+  autoGainEnabled: boolean;
   silenceTrimStrength: string;
   setXaiTranscriptionMode: (value: string) => void;
   setSilenceTrimEnabled: (value: boolean) => void;
+  setAutoGainEnabled: (value: boolean) => void;
   setSilenceTrimStrength: (value: string) => void;
 
   // Screen context: OCR the focused window while recording and use the terms on
@@ -1077,6 +1081,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   // mishearing that no later stage can recover. The upload is resampled to 16 kHz
   // either way, so leaving it off does not cost bandwidth. Still available in Settings.
   silenceTrimEnabled: readBoolean("silenceTrimEnabled", false),
+  autoGainEnabled: readBoolean("autoGainEnabled", DEFAULT_AUTO_GAIN_ENABLED),
   // On by default: the names it fixes are the ones a recogniser reliably gets
   // wrong, so the feature is worth having on rather than discovering.
   //
@@ -1673,6 +1678,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setCortiEnvironment: createStringSetter("cortiEnvironment"),
   setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
   setSilenceTrimEnabled: createBooleanSetter("silenceTrimEnabled"),
+  setAutoGainEnabled: createBooleanSetter("autoGainEnabled"),
   setScreenContextEnabled: createBooleanSetter("screenContextEnabled"),
   setSilenceTrimStrength: createStringSetter("silenceTrimStrength"),
   setMultiTranscriptionEnabled: createBooleanSetter("multiTranscriptionEnabled"),

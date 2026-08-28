@@ -361,6 +361,8 @@ function TranscriptionSection({
   );
 
   const silenceTrimEnabled = useSettingsStore((s) => s.silenceTrimEnabled);
+  const autoGainEnabled = useSettingsStore((s) => s.autoGainEnabled);
+  const setAutoGainEnabled = useSettingsStore((s) => s.setAutoGainEnabled);
   const setSilenceTrimEnabled = useSettingsStore((s) => s.setSilenceTrimEnabled);
   const silenceTrimStrength = useSettingsStore((s) => s.silenceTrimStrength);
   const setSilenceTrimStrength = useSettingsStore((s) => s.setSilenceTrimStrength);
@@ -446,6 +448,14 @@ function TranscriptionSection({
 
   const renderSilenceTrim = () => (
     <SettingsPanel>
+      <SettingsPanelRow>
+        <SettingsRow
+          label={t("settingsPage.transcription.autoGain")}
+          description={t("settingsPage.transcription.autoGainDescription")}
+        >
+          <Toggle checked={autoGainEnabled} onChange={setAutoGainEnabled} />
+        </SettingsRow>
+      </SettingsPanelRow>
       <SettingsPanelRow>
         <SettingsRow
           label={t("settingsPage.transcription.silenceTrim")}

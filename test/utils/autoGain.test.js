@@ -227,3 +227,64 @@ test("the level is measured after the trim and the resample", () => {
   assert.ok(gainAt > trimAt, "gain must be measured after the silence trim");
   assert.ok(gainAt > resampleAt, "gain must be measured after the resample");
 });
+
+test("the setting can turn gain off, and absent means the default", () => {
+  // `=== false`, not a truthy check: an absent setting must resolve to the store's
+  // default rather than silently meaning off, which is the second-default bug this
+  // repo's settingsDefaults guard exists for.
+  assert.match(
+    audioManager,
+    /trimSettings\.autoGainEnabled === false/,
+    "the check must be strict, or an unset value reads as disabled"
+  );
+  // Disabled must be a real no-op: gain exactly 1 and a reason, so the log can tell
+  // "switched off" apart from "nothing to raise".
+  assert.match(
+    audioManager,
+    /\{ gain: 1, applied: false, speechRms: 0, reason: "disabled" \}/,
+    "disabling must produce a unity-gain plan with a stated reason"
+  );
+  // And the disabled path must not call the planner at all — measuring and then
+  // discarding the result would keep paying for a feature that is switched off.
+  const start = audioManager.indexOf("const gainPlan =");
+  const decision = audioManager.slice(start, start + 260);
+  assert.ok(
+    decision.indexOf("autoGainEnabled === false") < decision.indexOf("planAutoGain("),
+    "the setting must be checked before the planner runs"
+  );
+});
+
+test("the default is on, declared once, and reachable from the store", () => {
+  const { DEFAULT_AUTO_GAIN_ENABLED } = require("../../src/utils/autoGain.js");
+  assert.equal(DEFAULT_AUTO_GAIN_ENABLED, true, "a quiet recording should be fixed by default");
+
+  const store = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "stores", "settingsStore.ts"),
+    "utf8"
+  );
+  assert.match(
+    store,
+    /readBoolean\("autoGainEnabled", DEFAULT_AUTO_GAIN_ENABLED\)/,
+    "the store must seed from the shared constant, not a literal"
+  );
+});
+
+test("the toggle is rendered where the other audio settings are", () => {
+  // A setting with no control is a setting nobody can use — the same gap that left the
+  // Soniox key unenterable.
+  const settingsPage = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "components", "SettingsPage.tsx"),
+    "utf8"
+  );
+  assert.match(settingsPage, /checked=\{autoGainEnabled\} onChange=\{setAutoGainEnabled\}/);
+  assert.match(settingsPage, /settingsPage\.transcription\.autoGain/);
+
+  const strings = JSON.parse(
+    fs.readFileSync(
+      path.join(__dirname, "..", "..", "src", "locales", "en", "translation.json"),
+      "utf8"
+    )
+  );
+  assert.ok(strings.settingsPage.transcription.autoGain, "the label needs a string");
+  assert.ok(strings.settingsPage.transcription.autoGainDescription, "and a description");
+});

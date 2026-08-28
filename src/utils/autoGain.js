@@ -25,6 +25,12 @@
 // or allocation. There is deliberately no second apply function here: a separate one
 // would be a second place for the clamping rule to live and drift.
 
+// On by default: a quiet recording transcribes badly and this is a no-op when the level
+// is already healthy. Exposed as a setting because it is a change to the audio the
+// provider hears, and someone who suspects it of a problem needs to be able to rule it
+// out rather than reason about it.
+const DEFAULT_AUTO_GAIN_ENABLED = true;
+
 const DEFAULTS = {
   // Matches the window silenceTrim uses: long enough for RMS to be stable, short
   // enough that one window is either speech or not.
@@ -139,4 +145,4 @@ function planAutoGain(samples, sampleRate, options = {}) {
   return { gain, applied: true, speechRms, peak, windowsExamined: written };
 }
 
-module.exports = { planAutoGain, AUTO_GAIN_DEFAULTS: DEFAULTS };
+module.exports = { planAutoGain, AUTO_GAIN_DEFAULTS: DEFAULTS, DEFAULT_AUTO_GAIN_ENABLED };

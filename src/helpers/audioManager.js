@@ -784,7 +784,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // After the resample, so the level is measured on exactly the samples that get
       // uploaded, and on the fewest of them. After the trim too, so the trim's own
       // adaptive threshold still sees the original levels it was tuned against.
-      const gainPlan = planAutoGain(resampled.samples, resampled.sampleRate);
+      //
+      // `=== false` rather than a truthy check: an absent setting must mean the default,
+      // not off, or this becomes a second default that disagrees with the store's.
+      const gainPlan =
+        trimSettings.autoGainEnabled === false
+          ? { gain: 1, applied: false, speechRms: 0, reason: "disabled" }
+          : planAutoGain(resampled.samples, resampled.sampleRate);
       const wav = encodeWavPcm16(resampled.samples, resampled.sampleRate, gainPlan.gain);
 
       // Reported even at 0%, so the stats readout can tell "nothing to trim" apart from

@@ -2042,6 +2042,8 @@
       "dualMissingKeys": "Add an API key for {{providers}} — multi-transcription stays off until every selected provider has one.",
       "silenceTrim": "Trim silence",
       "silenceTrimDescription": "Remove silence before uploading, so you are not billed for pauses.",
+      "autoGain": "Auto gain",
+      "autoGainDescription": "Raise the level of a quiet recording before it is sent, so a mic set too low still transcribes well. Never lowers a recording that is already loud enough.",
       "silenceTrimStrength": "Trim strength",
       "silenceTrimStrengthDescription": "How much silence to remove. Lighter is safer for clipped words.",
       "silenceTrimLevels": {
