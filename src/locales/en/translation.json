@@ -549,6 +549,7 @@
     },
     "apiKeyOptional": "API Key (Optional)",
     "getKey": "Get key ->",
+    "mode": "Mode",
     "endpointUrl": "Endpoint URL",
     "azureHint": "Azure AI Foundry: enter your resource endpoint (e.g. https://your-resource.cognitiveservices.azure.com) and set Model to your exact deployment name.",
     "customProvider": "Custom",
@@ -570,9 +571,6 @@
     },
     "xai": {
       "mode": "Transcription mode"
-    },
-    "soniox": {
-      "mode": "Mode"
     }
   },
   "hooks": {

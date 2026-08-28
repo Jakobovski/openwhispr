@@ -239,7 +239,8 @@ interface ProviderCredentialField {
     | "sonioxApiKey"
     | "geminiApiKey"
     | "openrouterApiKey"
-    | "sonioxTranscriptionMode";
+    | "sonioxTranscriptionMode"
+    | "geminiTranscriptionMode";
   input: "secret" | "text" | "select";
   labelKey?: string;
   placeholder?: string;
@@ -265,10 +266,10 @@ const PROVIDER_CREDENTIALS: Record<
       {
         key: "xaiTranscriptionMode",
         input: "select",
-        labelKey: "transcription.xai.mode",
+        labelKey: "transcription.mode",
         options: [
-          { value: "streaming", label: "Streaming" },
           { value: "batch", label: "Batch" },
+          { value: "streaming", label: "Streaming" },
         ],
       },
     ],
@@ -312,7 +313,7 @@ const PROVIDER_CREDENTIALS: Record<
         // and an async job API, and which one runs is not something to infer.
         key: "sonioxTranscriptionMode",
         input: "select",
-        labelKey: "transcription.soniox.mode",
+        labelKey: "transcription.mode",
         options: [
           { value: "batch", label: "Batch" },
           { value: "streaming", label: "Streaming" },
@@ -322,7 +323,18 @@ const PROVIDER_CREDENTIALS: Record<
   },
   gemini: {
     consoleUrl: "https://aistudio.google.com/apikey",
-    fields: [{ key: "geminiApiKey", input: "secret" }],
+    fields: [
+      { key: "geminiApiKey", input: "secret" },
+      {
+        key: "geminiTranscriptionMode",
+        input: "select",
+        labelKey: "transcription.mode",
+        options: [
+          { value: "batch", label: "Batch" },
+          { value: "streaming", label: "Streaming" },
+        ],
+      },
+    ],
   },
   openrouter: {
     consoleUrl: "https://openrouter.ai/keys",
@@ -423,6 +435,8 @@ export default function TranscriptionModelPicker({
   const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
   const sonioxTranscriptionMode = useSettingsStore((s) => s.sonioxTranscriptionMode);
   const setSonioxTranscriptionMode = useSettingsStore((s) => s.setSonioxTranscriptionMode);
+  const geminiTranscriptionMode = useSettingsStore((s) => s.geminiTranscriptionMode);
+  const setGeminiTranscriptionMode = useSettingsStore((s) => s.setGeminiTranscriptionMode);
   const customTranscriptionApiKey = useSettingsStore((s) => s.customTranscriptionApiKey);
   const setCustomTranscriptionApiKey = useSettingsStore((s) => s.setCustomTranscriptionApiKey);
   const effectiveLocal = mode === "local" ? true : mode === "cloud" ? false : useLocalWhisper;
@@ -816,6 +830,7 @@ export default function TranscriptionModelPicker({
     geminiApiKey,
     openrouterApiKey,
     sonioxTranscriptionMode,
+    geminiTranscriptionMode,
   };
   const credentialSetters: Record<ProviderCredentialField["key"], (value: string) => void> = {
     openaiApiKey: setOpenaiApiKey,
@@ -832,6 +847,7 @@ export default function TranscriptionModelPicker({
     geminiApiKey: setGeminiApiKey,
     openrouterApiKey: setOpenrouterApiKey,
     sonioxTranscriptionMode: setSonioxTranscriptionMode,
+    geminiTranscriptionMode: setGeminiTranscriptionMode,
   };
 
   const cloudModelOptions = useMemo(() => {

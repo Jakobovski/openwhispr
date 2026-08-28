@@ -287,41 +287,60 @@ test("both providers have somewhere to enter their key", () => {
   }
 });
 
-test("batch is the default mode, and it is selectable", () => {
-  // Selecting Soniox as the single provider used to always route to the realtime socket
-  // with no way to ask for the async path — so "batch mode" was unreachable.
+test("every streaming-capable provider gets a mode control, defaulting to batch", () => {
+  // Soniox as a *batch* lane was measured at 3859ms for a 19-second recording against a
+  // 2500ms lane budget, so the fan-out dropped it every time. Streaming is the fix, and
+  // which path runs has to be selectable rather than inferred — for every provider that
+  // offers both, not just the one that prompted it.
   const config = fs.readFileSync(
     path.join(__dirname, "..", "..", "src", "config", "multiTranscription.ts"),
     "utf8"
   );
-  assert.match(config, /DEFAULT_SONIOX_TRANSCRIPTION_MODE = "batch"/);
-
   const store = fs.readFileSync(
     path.join(__dirname, "..", "..", "src", "stores", "settingsStore.ts"),
     "utf8"
   );
-  assert.match(
-    store,
-    /"sonioxTranscriptionMode",\s*\n?\s*DEFAULT_SONIOX_TRANSCRIPTION_MODE/,
-    "the store must seed from the shared constant"
-  );
-  // xAI's default moved to batch for the same reason.
-  assert.match(config, /DEFAULT_XAI_TRANSCRIPTION_MODE = "batch"/);
-  assert.match(store, /"xaiTranscriptionMode", DEFAULT_XAI_TRANSCRIPTION_MODE/);
-
   const picker = fs.readFileSync(
     path.join(__dirname, "..", "..", "src", "components", "TranscriptionModelPicker.tsx"),
     "utf8"
   );
-  assert.match(picker, /key: "sonioxTranscriptionMode"/, "the mode needs a control");
-  assert.match(picker, /sonioxTranscriptionMode: setSonioxTranscriptionMode/, "wired to its setter");
+
+  assert.match(config, /DEFAULT_PROVIDER_TRANSCRIPTION_MODE = TRANSCRIPTION_MODE_BATCH/);
+
+  // Derived from the table, so a provider added there without a control or a store field
+  // fails here rather than rendering a dropdown that changes nothing.
+  const table = config.slice(
+    config.indexOf("export const STREAMING_CAPABLE_PROVIDERS"),
+    config.indexOf("export const TRANSCRIPTION_MODE_BATCH")
+  );
+  const entries = [...table.matchAll(/\{ id: "([a-z-]+)", modeKey: "([A-Za-z]+)" \}/g)];
+  assert.ok(entries.length >= 3, `expected the streaming-capable providers, saw ${entries.length}`);
+
+  for (const [, id, modeKey] of entries) {
+    assert.match(
+      store,
+      new RegExp(`"${modeKey}",\\s*\\n?\\s*DEFAULT_PROVIDER_TRANSCRIPTION_MODE`),
+      `${id}: the store must seed ${modeKey} from the shared default`
+    );
+    assert.match(picker, new RegExp(`key: "${modeKey}"`), `${id} needs a mode control`);
+    assert.match(
+      picker,
+      new RegExp(`${modeKey}: set[A-Za-z]+,`),
+      `${id}'s mode control must be wired to a setter`
+    );
+  }
 });
 
-test("the streaming route is skipped when the mode is batch", () => {
-  // Without this the mode selector would render and change nothing.
+test("the streaming route is table-driven, not a branch per provider", () => {
+  // The whole point of the table: adding a provider should not mean another `if` here.
   assert.match(
     audioManager,
+    /providerWantsStreaming\(s\.cloudTranscriptionProvider, s\)/,
+    "routing must consult the shared helper"
+  );
+  assert.doesNotMatch(
+    audioManager,
     /s\.sonioxTranscriptionMode !== "batch"/,
-    "streaming must be conditional on the mode"
+    "the per-provider branch should be gone"
   );
 });

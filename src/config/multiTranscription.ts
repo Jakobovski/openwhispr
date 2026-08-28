@@ -121,15 +121,51 @@ export const MULTI_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object
 // lane most likely to be right belongs first.
 //
 // It replaces Azure's MAI-Transcribe in the defaults, which stays selectable.
-// xAI serves both a streaming and a batch transcription API. Batch is the default: it
-// is the one that returns a single settled transcript, which is what the merge reads,
-// and streaming only pays off when a live preview is actually being shown.
-export const DEFAULT_XAI_TRANSCRIPTION_MODE = "batch";
+/**
+ * Providers that serve both a streaming socket and a one-shot API, so which one runs is
+ * a choice rather than something to infer.
+ *
+ * One table instead of a constant and an `if` per provider: the settings picker renders a
+ * mode control for anything listed here, and the streaming router consults the same
+ * table, so adding a provider is one entry rather than edits in three files.
+ *
+ * Batch is the default for all of them. It returns a single settled transcript, which is
+ * what the merge reads, and streaming only pays off when a live preview is on screen.
+ *
+ * Streaming is not merely a preference for the slow ones — it is the fix. A batch lane
+ * cannot start until the recording ends, so Soniox's async queue was measured at 3859ms
+ * for a 19-second recording (3.3s of it waiting on the job) against a 2500ms lane budget,
+ * and the fan-out dropped it every time. A streaming lane transcribes while the user
+ * talks and is finished when they stop.
+ *
+ * openai, corti and tinfoil are deliberately absent: they already choose streaming from
+ * the selected model or the cloud mode, and giving them a second, contradicting control
+ * would be a way to make a working setup stop working.
+ */
+export const STREAMING_CAPABLE_PROVIDERS = [
+  { id: "xai", modeKey: "xaiTranscriptionMode" },
+  { id: "soniox", modeKey: "sonioxTranscriptionMode" },
+  { id: "gemini", modeKey: "geminiTranscriptionMode" },
+] as const;
 
-// Soniox likewise serves a realtime socket and an async job API. Batch by default for the
-// same reason, and because async is the variant that accepts the recording whole — the
-// streaming path only helps when a live preview is on screen.
-export const DEFAULT_SONIOX_TRANSCRIPTION_MODE = "batch";
+export const TRANSCRIPTION_MODE_BATCH = "batch";
+export const TRANSCRIPTION_MODE_STREAMING = "streaming";
+export const DEFAULT_PROVIDER_TRANSCRIPTION_MODE = TRANSCRIPTION_MODE_BATCH;
+
+export const PROVIDER_MODE_KEYS: Record<string, string> = Object.fromEntries(
+  STREAMING_CAPABLE_PROVIDERS.map((provider) => [provider.id, provider.modeKey])
+);
+
+/** Whether this provider should stream, given the settings. Batch unless asked. */
+export function providerWantsStreaming(
+  provider: string,
+  settings: Record<string, unknown>
+): boolean {
+  const modeKey = PROVIDER_MODE_KEYS[provider];
+  if (!modeKey) return false;
+  const mode = (settings?.[modeKey] as string) || DEFAULT_PROVIDER_TRANSCRIPTION_MODE;
+  return mode === TRANSCRIPTION_MODE_STREAMING;
+}
 
 export const DEFAULT_MULTI_PROVIDER_A = "soniox";
 export const DEFAULT_MULTI_PROVIDER_B = "xai";

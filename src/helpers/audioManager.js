@@ -50,6 +50,7 @@ import {
   DEFAULT_RECONCILE_PROVIDER_B,
   DEFAULT_RECONCILE_TIMEOUT_MS,
   resolveMultiTranscriptionModel,
+  providerWantsStreaming,
 } from "../config/multiTranscription";
 
 import {
@@ -436,6 +437,16 @@ function encodeWavPcm16(samples, sampleRate, gain = 1) {
   }
   return new Blob([buffer], { type: "audio/wav" });
 }
+
+// Which STREAMING_PROVIDERS entry a transcription provider streams through. Separate
+// from the table of *which* providers can stream (STREAMING_CAPABLE_PROVIDERS) because
+// the names differ: the xai provider streams through the "xai" entry, gemini through
+// "gemini-live".
+const STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER = {
+  xai: "xai",
+  soniox: "soniox",
+  gemini: "gemini-live",
+};
 
 const STREAMING_PROVIDERS = {
   deepgram: {
@@ -966,24 +977,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     if (s.cloudTranscriptionProvider === "corti" && s.cloudTranscriptionMode === "byok") {
       return "corti";
     }
+    // Table-driven: every provider that serves both a socket and a one-shot API picks
+    // between them from its own mode setting, so adding one is an entry in
+    // STREAMING_CAPABLE_PROVIDERS rather than another branch here.
     if (
-      s.cloudTranscriptionProvider === "xai" &&
       s.cloudTranscriptionMode === "byok" &&
-      s.xaiTranscriptionMode !== "batch"
+      providerWantsStreaming(s.cloudTranscriptionProvider, s)
     ) {
-      return "xai";
-    }
-    // Both stream natively and bias on the vocabulary passed at start, so streaming is
-    // the better path for them whenever they are the selected provider.
-    if (s.cloudTranscriptionProvider === "gemini" && s.cloudTranscriptionMode === "byok") {
-      return "gemini-live";
-    }
-    if (
-      s.cloudTranscriptionProvider === "soniox" &&
-      s.cloudTranscriptionMode === "byok" &&
-      s.sonioxTranscriptionMode !== "batch"
-    ) {
-      return "soniox";
+      return STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER[s.cloudTranscriptionProvider];
     }
     if (REALTIME_MODELS.has(s.cloudTranscriptionModel)) {
       return "openai-realtime";

@@ -33,8 +33,7 @@ import {
   DEFAULT_RECONCILE_MODEL,
   DEFAULT_RECONCILE_PROVIDER_B,
   DEFAULT_RECONCILE_MODEL_B,
-  DEFAULT_XAI_TRANSCRIPTION_MODE,
-  DEFAULT_SONIOX_TRANSCRIPTION_MODE,
+  DEFAULT_PROVIDER_TRANSCRIPTION_MODE,
 } from "../config/multiTranscription";
 import {
   INFERENCE_SCOPES,
@@ -670,12 +669,14 @@ export interface SettingsState
   // upload the finished recording to the REST endpoint instead.
   xaiTranscriptionMode: string;
   sonioxTranscriptionMode: string;
+  geminiTranscriptionMode: string;
   // Silence trimming before upload, and how much to cut.
   silenceTrimEnabled: boolean;
   autoGainEnabled: boolean;
   silenceTrimStrength: string;
   setXaiTranscriptionMode: (value: string) => void;
   setSonioxTranscriptionMode: (value: string) => void;
+  setGeminiTranscriptionMode: (value: string) => void;
   setSilenceTrimEnabled: (value: boolean) => void;
   setAutoGainEnabled: (value: boolean) => void;
   setSilenceTrimStrength: (value: string) => void;
@@ -1078,8 +1079,15 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cleanupCloudBaseUrl: readString("cleanupCloudBaseUrl", API_ENDPOINTS.OPENAI_BASE),
   cortiEnvironment: readString("cortiEnvironment", settingsDefaults.storeDefaults.cortiEnvironment),
   cortiTenant: readString("cortiTenant", settingsDefaults.storeDefaults.cortiTenant),
-  xaiTranscriptionMode: readString("xaiTranscriptionMode", DEFAULT_XAI_TRANSCRIPTION_MODE),
-  sonioxTranscriptionMode: readString("sonioxTranscriptionMode", DEFAULT_SONIOX_TRANSCRIPTION_MODE),
+  xaiTranscriptionMode: readString("xaiTranscriptionMode", DEFAULT_PROVIDER_TRANSCRIPTION_MODE),
+  sonioxTranscriptionMode: readString(
+    "sonioxTranscriptionMode",
+    DEFAULT_PROVIDER_TRANSCRIPTION_MODE
+  ),
+  geminiTranscriptionMode: readString(
+    "geminiTranscriptionMode",
+    DEFAULT_PROVIDER_TRANSCRIPTION_MODE
+  ),
   // Off by default. It cut little in practice, and what it did cut was suspected of
   // costing accuracy: the pauses it removes are partly what a recogniser uses to place
   // sentence boundaries, and an onset clipped at the front of a quiet consonant is a
@@ -1683,6 +1691,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setCortiEnvironment: createStringSetter("cortiEnvironment"),
   setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
   setSonioxTranscriptionMode: createStringSetter("sonioxTranscriptionMode"),
+  setGeminiTranscriptionMode: createStringSetter("geminiTranscriptionMode"),
   setSilenceTrimEnabled: createBooleanSetter("silenceTrimEnabled"),
   setAutoGainEnabled: createBooleanSetter("autoGainEnabled"),
   setScreenContextEnabled: createBooleanSetter("screenContextEnabled"),
