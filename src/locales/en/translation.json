@@ -570,6 +570,9 @@
     },
     "xai": {
       "mode": "Transcription mode"
+    },
+    "soniox": {
+      "mode": "Mode"
     }
   },
   "hooks": {

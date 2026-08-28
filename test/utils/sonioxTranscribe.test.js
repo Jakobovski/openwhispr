@@ -286,3 +286,42 @@ test("both providers have somewhere to enter their key", () => {
     );
   }
 });
+
+test("batch is the default mode, and it is selectable", () => {
+  // Selecting Soniox as the single provider used to always route to the realtime socket
+  // with no way to ask for the async path — so "batch mode" was unreachable.
+  const config = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "config", "multiTranscription.ts"),
+    "utf8"
+  );
+  assert.match(config, /DEFAULT_SONIOX_TRANSCRIPTION_MODE = "batch"/);
+
+  const store = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "stores", "settingsStore.ts"),
+    "utf8"
+  );
+  assert.match(
+    store,
+    /"sonioxTranscriptionMode",\s*\n?\s*DEFAULT_SONIOX_TRANSCRIPTION_MODE/,
+    "the store must seed from the shared constant"
+  );
+  // xAI's default moved to batch for the same reason.
+  assert.match(config, /DEFAULT_XAI_TRANSCRIPTION_MODE = "batch"/);
+  assert.match(store, /"xaiTranscriptionMode", DEFAULT_XAI_TRANSCRIPTION_MODE/);
+
+  const picker = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "components", "TranscriptionModelPicker.tsx"),
+    "utf8"
+  );
+  assert.match(picker, /key: "sonioxTranscriptionMode"/, "the mode needs a control");
+  assert.match(picker, /sonioxTranscriptionMode: setSonioxTranscriptionMode/, "wired to its setter");
+});
+
+test("the streaming route is skipped when the mode is batch", () => {
+  // Without this the mode selector would render and change nothing.
+  assert.match(
+    audioManager,
+    /s\.sonioxTranscriptionMode !== "batch"/,
+    "streaming must be conditional on the mode"
+  );
+});

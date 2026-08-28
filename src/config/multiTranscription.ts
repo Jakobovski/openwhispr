@@ -121,6 +121,16 @@ export const MULTI_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object
 // lane most likely to be right belongs first.
 //
 // It replaces Azure's MAI-Transcribe in the defaults, which stays selectable.
+// xAI serves both a streaming and a batch transcription API. Batch is the default: it
+// is the one that returns a single settled transcript, which is what the merge reads,
+// and streaming only pays off when a live preview is actually being shown.
+export const DEFAULT_XAI_TRANSCRIPTION_MODE = "batch";
+
+// Soniox likewise serves a realtime socket and an async job API. Batch by default for the
+// same reason, and because async is the variant that accepts the recording whole — the
+// streaming path only helps when a live preview is on screen.
+export const DEFAULT_SONIOX_TRANSCRIPTION_MODE = "batch";
+
 export const DEFAULT_MULTI_PROVIDER_A = "soniox";
 export const DEFAULT_MULTI_PROVIDER_B = "xai";
 export const DEFAULT_MULTI_PROVIDER_C = "openai";

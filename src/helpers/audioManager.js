@@ -978,7 +978,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     if (s.cloudTranscriptionProvider === "gemini" && s.cloudTranscriptionMode === "byok") {
       return "gemini-live";
     }
-    if (s.cloudTranscriptionProvider === "soniox" && s.cloudTranscriptionMode === "byok") {
+    if (
+      s.cloudTranscriptionProvider === "soniox" &&
+      s.cloudTranscriptionMode === "byok" &&
+      s.sonioxTranscriptionMode !== "batch"
+    ) {
       return "soniox";
     }
     if (REALTIME_MODELS.has(s.cloudTranscriptionModel)) {

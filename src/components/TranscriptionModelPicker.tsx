@@ -238,7 +238,8 @@ interface ProviderCredentialField {
     | "tinfoilApiKey"
     | "sonioxApiKey"
     | "geminiApiKey"
-    | "openrouterApiKey";
+    | "openrouterApiKey"
+    | "sonioxTranscriptionMode";
   input: "secret" | "text" | "select";
   labelKey?: string;
   placeholder?: string;
@@ -304,7 +305,20 @@ const PROVIDER_CREDENTIALS: Record<
   },
   soniox: {
     consoleUrl: "https://console.soniox.com",
-    fields: [{ key: "sonioxApiKey", input: "secret" }],
+    fields: [
+      { key: "sonioxApiKey", input: "secret" },
+      {
+        // Same choice xAI offers, for the same reason: Soniox serves a realtime socket
+        // and an async job API, and which one runs is not something to infer.
+        key: "sonioxTranscriptionMode",
+        input: "select",
+        labelKey: "transcription.soniox.mode",
+        options: [
+          { value: "batch", label: "Batch" },
+          { value: "streaming", label: "Streaming" },
+        ],
+      },
+    ],
   },
   gemini: {
     consoleUrl: "https://aistudio.google.com/apikey",
@@ -407,6 +421,8 @@ export default function TranscriptionModelPicker({
   const setGeminiApiKey = useSettingsStore((s) => s.setGeminiApiKey);
   const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
   const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
+  const sonioxTranscriptionMode = useSettingsStore((s) => s.sonioxTranscriptionMode);
+  const setSonioxTranscriptionMode = useSettingsStore((s) => s.setSonioxTranscriptionMode);
   const customTranscriptionApiKey = useSettingsStore((s) => s.customTranscriptionApiKey);
   const setCustomTranscriptionApiKey = useSettingsStore((s) => s.setCustomTranscriptionApiKey);
   const effectiveLocal = mode === "local" ? true : mode === "cloud" ? false : useLocalWhisper;
@@ -799,6 +815,7 @@ export default function TranscriptionModelPicker({
     sonioxApiKey,
     geminiApiKey,
     openrouterApiKey,
+    sonioxTranscriptionMode,
   };
   const credentialSetters: Record<ProviderCredentialField["key"], (value: string) => void> = {
     openaiApiKey: setOpenaiApiKey,
@@ -814,6 +831,7 @@ export default function TranscriptionModelPicker({
     sonioxApiKey: setSonioxApiKey,
     geminiApiKey: setGeminiApiKey,
     openrouterApiKey: setOpenrouterApiKey,
+    sonioxTranscriptionMode: setSonioxTranscriptionMode,
   };
 
   const cloudModelOptions = useMemo(() => {
