@@ -5556,6 +5556,22 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const stSettings = getSettings();
     const streamingSttModel = stopResult?.model || "nova-3";
     const streamingSttProcessingMs = Math.round(tTerminate - t0);
+
+    // Recorded here because nothing downstream does it. The shared post-processing path
+    // records a sample for the batch and multi routes, but a streaming dictation reports
+    // sttProcessingMs rather than transcriptionProcessingDurationMs and so never reached
+    // it — streaming never appeared in Model Stats at all.
+    //
+    // t0 is the end of the recording, so this is already the number that matters: what the
+    // user waited after they stopped talking. Filed under the streaming kind so it is not
+    // averaged with batch requests, which measure a different thing.
+    this.recordModelLatency(
+      "transcriptionStreaming",
+      this.getStreamingProviderName(),
+      streamingSttModel || null,
+      streamingSttProcessingMs,
+      finalText && finalText.trim() ? "ok" : "failed"
+    );
     const streamingAudioBytesSent = stopResult?.audioBytesSent || 0;
     const streamingSttLanguage =
       getBaseLanguageCode(this.getEffectiveSttLanguage(stSettings)) || undefined;

@@ -267,7 +267,8 @@ test("every provider's latency is measured from the end of the recording", () =>
   // the start of the request hid the audio prep — trim, gain, resample, WAV encode — which
   // is real time, and made a streaming lane and a batch lane incomparable because each
   // started its own clock.
-  const anchors = audioManager.match(/= this\._recordingStoppedAt \?\? performance\.now\(\)/g) ?? [];
+  const anchors =
+    audioManager.match(/= this\._recordingStoppedAt \?\? performance\.now\(\)/g) ?? [];
   assert.ok(
     anchors.length >= 5,
     `every transcription path should anchor to the recording's end, saw ${anchors.length}`
@@ -294,7 +295,8 @@ test("the anchor is cleared per recording and set by both stop paths", () => {
     /this\._recordingStoppedAt = null;/,
     "the anchor must be cleared when a recording starts"
   );
-  const setters = audioManager.match(/this\._recordingStoppedAt = (performance\.now\(\)|t0);/g) ?? [];
+  const setters =
+    audioManager.match(/this\._recordingStoppedAt = (performance\.now\(\)|t0);/g) ?? [];
   assert.equal(setters.length, 2, "both the batch and the streaming stop paths must set it");
 });
 
@@ -306,4 +308,30 @@ test("a lane timing can never be negative", () => {
     /const elapsedSinceRecording = \(\) => Math\.max\(0,/,
     "lane timings must be clamped at zero"
   );
+});
+
+test("a non-batch (streaming) dictation is recorded too, from the recording's end", () => {
+  // It was not recorded at all. The shared post-processing path files a sample for the
+  // batch and multi routes, but the streaming route reports sttProcessingMs rather than
+  // transcriptionProcessingDurationMs, so it never reached that code and streaming was
+  // absent from Model Stats entirely.
+  const stop = audioManager.slice(
+    audioManager.indexOf("async stopStreamingRecording()"),
+    audioManager.indexOf("const streamingAudioBytesSent")
+  );
+  assert.match(
+    stop,
+    /recordModelLatency\(\s*"transcriptionStreaming"/,
+    "the streaming route must record a sample"
+  );
+  // t0 is the end of the recording, so the number is already the one that matters.
+  assert.match(
+    stop,
+    /const streamingSttProcessingMs = Math\.round\(tTerminate - t0\)/,
+    "and it must be measured from the recording's end"
+  );
+  assert.match(stop, /this\._recordingStoppedAt = t0;/, "t0 must be the recording-end anchor");
+  // An empty transcript is a failure, not a fast success — otherwise a dead socket would
+  // look like the best provider on the page.
+  assert.match(stop, /finalText && finalText\.trim\(\) \? "ok" : "failed"/);
 });
