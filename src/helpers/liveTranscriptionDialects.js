@@ -50,11 +50,18 @@ const geminiLiveDialect = {
       case "partial":
         return { kind: "partial", text: parsed.text };
       case "final":
-        // Gemini's inputTranscription is the whole utterance, not an increment, so it
-        // replaces the accumulator rather than appending to it.
-        return { kind: "final", text: parsed.text, replaces: true };
+        // One per *speech segment*, not one per utterance: a pause makes Gemini finalise
+        // what it has and start a new segment. Confirmed against the live API — three
+        // phrases separated by one-second silences produced two finals, the first
+        // arriving mid-recording. Replacing here kept only the last segment; appending is
+        // what reassembles the dictation.
+        return { kind: "final", text: parsed.text, replaces: false };
       case "done":
-        return { kind: "finished" };
+        // generationComplete closes a *segment*, and one arrives after every pause, so it
+        // cannot mean the stream is over. The socket decides that, from whether
+        // end-of-stream has been sent — otherwise the first pause ended the dictation and
+        // everything after it was thrown away.
+        return { kind: "segment-end" };
       default:
         return null;
     }

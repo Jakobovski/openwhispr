@@ -18,6 +18,15 @@
 const WebSocket = require("ws");
 const debugLogger = require("./debugLogger");
 
+/** Joins finalised pieces without gluing words together or doubling a space. */
+function joinTranscriptParts(existing, addition) {
+  if (!addition) return existing;
+  if (!existing) return addition;
+  return /\s$/.test(existing) || /^\s/.test(addition)
+    ? existing + addition
+    : `${existing} ${addition}`;
+}
+
 const CONNECT_TIMEOUT_MS = 10000;
 // How long to wait after end-of-stream for the provider's final transcript. Both emit it
 // within ~1s in practice; this is the ceiling before giving up and returning whatever
@@ -63,6 +72,9 @@ class LiveTranscriptionSocket {
     // to resolve at the moment the news arrives. That cost a 5 second stall before the
     // fallback transcript could be pasted.
     this._streamEnded = false;
+    // Set by finalize(). Until then a provider's "complete" marks the end of a
+    // speech segment, not of the stream: Gemini emits one after every pause.
+    this._endOfStreamSent = false;
   }
 
   getStatus() {
@@ -87,6 +99,7 @@ class LiveTranscriptionSocket {
     this._connectSettled = false;
     this._sawProviderFinal = false;
     this._streamEnded = false;
+    this._endOfStreamSent = false;
     this.sessionId = `${this.dialect.name}-${options.sessionSeed ?? ""}${Date.now()}`;
     this.sessionStartedAt = Date.now();
     this.currentModel = options.model ?? this.dialect.defaultModel ?? null;
@@ -201,19 +214,27 @@ class LiveTranscriptionSocket {
         this.onPartialTranscript?.(this.finalText + this.lastPartial);
         return;
       case "final":
-        // Appended, not assigned: Soniox emits newly finalised fragments, so assigning
-        // would keep only the last one. Gemini emits the whole utterance once, where
-        // appending to an empty accumulator is the same thing.
+        // Appended, not assigned: both providers finalise in pieces — Soniox per token
+        // group, Gemini per speech segment — so assigning keeps only the last piece.
         if (parsed.replaces) this.finalText = parsed.text ?? "";
-        else this.finalText += parsed.text ?? "";
+        else this.finalText = joinTranscriptParts(this.finalText, parsed.text ?? "");
         this.lastPartial = "";
         this._sawProviderFinal = true;
         this.onFinalTranscript?.(this.finalText);
         return;
+      case "segment-end":
+        // A pause, not the end. Only end-of-stream having been sent makes it the end;
+        // treating the first one as final is what truncated a dictation to its opening
+        // words and returned in 9ms.
+        if (this._endOfStreamSent) {
+          this._sawProviderFinal = true;
+          this._resolveFinal();
+        }
+        return;
       case "finished":
         if (parsed.text) {
           if (parsed.replaces) this.finalText = parsed.text;
-          else this.finalText += parsed.text;
+          else this.finalText = joinTranscriptParts(this.finalText, parsed.text);
         }
         this._sawProviderFinal = true;
         this._resolveFinal();
@@ -264,6 +285,8 @@ class LiveTranscriptionSocket {
     this._markReady();
     const signal = this.dialect.buildEndOfStream?.();
     if (signal === null || signal === undefined) return false;
+    // From here a provider's segment-complete does mean the stream is complete.
+    this._endOfStreamSent = true;
     this.ws.send(signal);
     return true;
   }
