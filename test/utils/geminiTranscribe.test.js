@@ -186,13 +186,15 @@ const audioManager = fs.readFileSync(
   "utf8"
 );
 
-test("the gemini lane sends dictionary plus screen terms at the full 1000", () => {
+test("the gemini request sends dictionary plus screen terms at the full 1000", () => {
   // The point of this provider for this app: it accepts the vocabulary at five times
   // Azure's cap, so passing the shared 200-term limit would throw away 800 terms of the
   // speaker's own words for no reason.
-  const start = audioManager.indexOf('provider === "gemini"');
-  assert.ok(start > 0, "the gemini branch is missing");
-  const branch = audioManager.slice(start, start + 1600);
+  // Sliced from the shared builder rather than the lane branch: the lane now delegates
+  // to transcribeOneShotWithProvider, which both it and the single-provider path call.
+  const start = audioManager.indexOf("async transcribeOneShotWithProvider(");
+  assert.ok(start > 0, "the shared one-shot builder is missing");
+  const branch = audioManager.slice(start, start + 2400);
 
   assert.match(
     branch,
@@ -207,9 +209,9 @@ test("the gemini lane sends dictionary plus screen terms at the full 1000", () =
   );
 });
 
-test("the gemini lane posts to interactions, not generateContent", () => {
-  const start = audioManager.indexOf('provider === "gemini"');
-  const branch = audioManager.slice(start, start + 1600);
+test("the gemini request posts to interactions, not generateContent", () => {
+  const start = audioManager.indexOf("async transcribeOneShotWithProvider(");
+  const branch = audioManager.slice(start, start + 2400);
   assert.match(branch, /GEMINI_INTERACTIONS_PATH/, "must use the interactions endpoint");
 
   // Comments stripped first: the branch explains in prose *why* generateContent is not

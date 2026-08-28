@@ -82,9 +82,24 @@ test("finals accumulate across messages while interim is replaced", () => {
   // replaces the interim tail. Appending interim instead would duplicate every word as
   // it firms up.
   const messages = [
-    { tokens: [{ text: "Let's", is_final: true }, { text: " sh", is_final: false }] },
-    { tokens: [{ text: " ship", is_final: true }, { text: " the", is_final: false }] },
-    { tokens: [{ text: " the build.", is_final: true }, { text: "<end>", is_final: true }] },
+    {
+      tokens: [
+        { text: "Let's", is_final: true },
+        { text: " sh", is_final: false },
+      ],
+    },
+    {
+      tokens: [
+        { text: " ship", is_final: true },
+        { text: " the", is_final: false },
+      ],
+    },
+    {
+      tokens: [
+        { text: " the build.", is_final: true },
+        { text: "<end>", is_final: true },
+      ],
+    },
   ];
   let final = "";
   let interim = "";
@@ -188,7 +203,11 @@ test("the soniox lane sends dictionary plus screen terms", () => {
     /getProviderTerms\("soniox"\)/,
     "must get its terms from the shared shaper, which applies soniox's cap"
   );
-  assert.match(method, /buildSonioxAsyncRequest\(/, "must build the request with the shared module");
+  assert.match(
+    method,
+    /buildSonioxAsyncRequest\(/,
+    "must build the request with the shared module"
+  );
   assert.match(method, /parseSonioxAsyncTranscript\(/, "must parse with the shared module");
 });
 
@@ -212,4 +231,58 @@ test("polling is bounded, so a stuck job cannot wait forever", () => {
   const method = audioManager.slice(start, start + 3200);
   assert.match(method, /SONIOX_ASYNC_TIMEOUT_MS/, "the poll loop needs a ceiling");
   assert.match(method, /SONIOX_ASYNC_POLL_MS/, "and an interval between attempts");
+});
+
+test("gemini and soniox work as the single provider, not just as lanes", () => {
+  // The bug this covers: both were added to the multi-transcription fan-out only, so
+  // choosing either as the *only* provider fell through to the OpenAI-compatible table,
+  // which has no entry for them, and failed with "no transcription endpoint configured"
+  // — while the same provider transcribed fine as a lane.
+  assert.match(
+    audioManager,
+    /if \(provider === "gemini" \|\| provider === "soniox"\) \{\s*\n\s*const oneShotText = await this\.transcribeOneShotWithProvider\(/,
+    "the single-provider path must handle them"
+  );
+
+  // And both paths must call the same request builder, or they can diverge again.
+  const calls = audioManager.match(/this\.transcribeOneShotWithProvider\(/g) ?? [];
+  assert.ok(
+    calls.length >= 2,
+    `both the fan-out and the single-provider path must use it, saw ${calls.length}`
+  );
+  const definitions = audioManager.match(/async transcribeOneShotWithProvider\(/g) ?? [];
+  assert.equal(definitions.length, 1, "there must be exactly one such builder");
+});
+
+test("both providers have somewhere to enter their key", () => {
+  // Without a provider tab and a credential field there is no way to enter the key at
+  // all: the lane reports it missing and the settings page offers no input. OpenRouter
+  // had the same gap and only worked because a key happened to be in the bundled env.
+  const picker = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "components", "TranscriptionModelPicker.tsx"),
+    "utf8"
+  );
+  for (const [tab, field] of [
+    ["soniox", "sonioxApiKey"],
+    ["gemini", "geminiApiKey"],
+    ["openrouter", "openrouterApiKey"],
+  ]) {
+    assert.match(
+      picker,
+      new RegExp(`id: "${tab}"`),
+      `${tab} needs a provider tab or its credential field is unreachable`
+    );
+    assert.match(
+      picker,
+      new RegExp(`key: "${field}", input: "secret"`),
+      `${tab} needs a secret credential field`
+    );
+    // A field with no value/setter wiring renders empty and silently discards input.
+    assert.match(picker, new RegExp(`${field},`), `${field} must be in the values map`);
+    assert.match(
+      picker,
+      new RegExp(`${field}: set[A-Za-z]+,`),
+      `${field} must be in the setters map`
+    );
+  }
 });

@@ -213,6 +213,14 @@ const CLOUD_PROVIDER_TABS = [
   { id: "mistral", name: "Mistral" },
   { id: "corti", name: "Corti" },
   { id: "tinfoil", name: "Tinfoil" },
+  // These three were reachable as multi-transcription lanes and as merge providers
+  // before they had a tab here, which meant there was nowhere in the app to enter their
+  // keys — the lane just reported the key missing with no way to fix it. OpenRouter in
+  // particular is a merge default, and only worked because a key happened to be present
+  // in the bundled env.
+  { id: "soniox", name: "Soniox" },
+  { id: "gemini", name: "Google Gemini" },
+  { id: "openrouter", name: "OpenRouter" },
   { id: "custom", name: "Custom" },
 ];
 
@@ -227,7 +235,10 @@ interface ProviderCredentialField {
     | "cortiClientSecret"
     | "cortiEnvironment"
     | "cortiTenant"
-    | "tinfoilApiKey";
+    | "tinfoilApiKey"
+    | "sonioxApiKey"
+    | "geminiApiKey"
+    | "openrouterApiKey";
   input: "secret" | "text" | "select";
   labelKey?: string;
   placeholder?: string;
@@ -290,6 +301,18 @@ const PROVIDER_CREDENTIALS: Record<
   tinfoil: {
     consoleUrl: "https://tinfoil.sh/inference?utm_source=referral&utm_campaign=openwhispr",
     fields: [{ key: "tinfoilApiKey", input: "secret" }],
+  },
+  soniox: {
+    consoleUrl: "https://console.soniox.com",
+    fields: [{ key: "sonioxApiKey", input: "secret" }],
+  },
+  gemini: {
+    consoleUrl: "https://aistudio.google.com/apikey",
+    fields: [{ key: "geminiApiKey", input: "secret" }],
+  },
+  openrouter: {
+    consoleUrl: "https://openrouter.ai/keys",
+    fields: [{ key: "openrouterApiKey", input: "secret" }],
   },
 };
 
@@ -378,6 +401,12 @@ export default function TranscriptionModelPicker({
   const setCortiTenant = useSettingsStore((s) => s.setCortiTenant);
   const tinfoilApiKey = useSettingsStore((s) => s.tinfoilApiKey);
   const setTinfoilApiKey = useSettingsStore((s) => s.setTinfoilApiKey);
+  const sonioxApiKey = useSettingsStore((s) => s.sonioxApiKey);
+  const setSonioxApiKey = useSettingsStore((s) => s.setSonioxApiKey);
+  const geminiApiKey = useSettingsStore((s) => s.geminiApiKey);
+  const setGeminiApiKey = useSettingsStore((s) => s.setGeminiApiKey);
+  const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
+  const setOpenrouterApiKey = useSettingsStore((s) => s.setOpenrouterApiKey);
   const customTranscriptionApiKey = useSettingsStore((s) => s.customTranscriptionApiKey);
   const setCustomTranscriptionApiKey = useSettingsStore((s) => s.setCustomTranscriptionApiKey);
   const effectiveLocal = mode === "local" ? true : mode === "cloud" ? false : useLocalWhisper;
@@ -767,6 +796,9 @@ export default function TranscriptionModelPicker({
     cortiEnvironment,
     cortiTenant,
     tinfoilApiKey,
+    sonioxApiKey,
+    geminiApiKey,
+    openrouterApiKey,
   };
   const credentialSetters: Record<ProviderCredentialField["key"], (value: string) => void> = {
     openaiApiKey: setOpenaiApiKey,
@@ -779,6 +811,9 @@ export default function TranscriptionModelPicker({
     cortiEnvironment: setCortiEnvironment,
     cortiTenant: setCortiTenant,
     tinfoilApiKey: setTinfoilApiKey,
+    sonioxApiKey: setSonioxApiKey,
+    geminiApiKey: setGeminiApiKey,
+    openrouterApiKey: setOpenrouterApiKey,
   };
 
   const cloudModelOptions = useMemo(() => {

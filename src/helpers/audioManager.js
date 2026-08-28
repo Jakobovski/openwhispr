@@ -3306,6 +3306,33 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         throw new Error("No text transcribed - xAI response was empty");
       }
 
+      // Gemini and Soniox are neither OpenAI-compatible nor proxied, so the
+      // single-provider path needs them explicitly. Both reuse the exact request the
+      // multi-transcription lanes make — transcribeOneShotWithProvider is the same code
+      // both paths call, so a fix to either applies to both.
+      if (provider === "gemini" || provider === "soniox") {
+        const oneShotText = await this.transcribeOneShotWithProvider(optimizedAudio, provider, {
+          language,
+          model,
+        });
+
+        if (oneShotText && oneShotText.trim().length > 0) {
+          if (this.isDictionaryEcho(oneShotText)) {
+            throw new Error("No audio detected");
+          }
+          timings.transcriptionProcessingDurationMs = Math.round(performance.now() - apiCallStart);
+          const rawText = oneShotText;
+          const reasoningStart = performance.now();
+          const text = await this.processTranscription(oneShotText, provider);
+          timings.reasoningProcessingDurationMs = Math.round(performance.now() - reasoningStart);
+
+          const source = (await this.isReasoningAvailable()) ? `${provider}-reasoned` : provider;
+          return { success: true, text, rawText, source, timings };
+        }
+
+        throw new Error(`No text transcribed - ${provider} response was empty`);
+      }
+
       // Corti uses OAuth client credentials and an interaction-based REST flow — proxy through main process
       if (provider === "corti" && window.electronAPI?.proxyCortiTranscription) {
         const audioBuffer = await optimizedAudio.arrayBuffer();
@@ -3561,6 +3588,60 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   /**
+   * One recording, one transcript, for the providers that are neither OpenAI-compatible
+   * nor proxied through the main process.
+   *
+   * Called by both the multi-transcription fan-out and the single-provider path. They
+   * had diverged: the fan-out had these providers and the single-provider path did not,
+   * so choosing Gemini or Soniox as the only provider failed with "no transcription
+   * endpoint configured" while the same provider worked fine as a lane.
+   */
+  async transcribeOneShotWithProvider(audioBlob, provider, { language, model } = {}) {
+    const settings = getSettings();
+    const resolvedModel = model || MULTI_TRANSCRIPTION_MODELS[provider];
+
+    if (provider === "gemini") {
+      const apiKey = settings.geminiApiKey;
+      if (!apiKey) throw new Error("No gemini API key configured");
+
+      // Transcription lives on the interactions endpoint, not generateContent — which
+      // this model does advertise but answers with empty text. See geminiTranscribe.js.
+      const body = buildGeminiBatchRequest({
+        audioBase64: await blobToBase64(audioBlob),
+        mimeType: audioBlob.type || "audio/wav",
+        // Bare codes are accepted, so no locale mapping; "auto" omits the hint and
+        // leaves the model's own detection in charge.
+        language: language && language !== "auto" ? language : undefined,
+        vocabulary: await this.getProviderTerms("gemini"),
+        model: resolvedModel,
+      });
+
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.GEMINI, GEMINI_INTERACTIONS_PATH), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(`Gemini transcription failed: ${response.status} ${detail.slice(0, 200)}`);
+      }
+      return parseGeminiBatchResponse(await response.json());
+    }
+
+    if (provider === "soniox") {
+      const apiKey = settings.sonioxApiKey;
+      if (!apiKey) throw new Error("No soniox API key configured");
+      return this.transcribeWithSonioxAsync(audioBlob, {
+        apiKey,
+        model: resolvedModel,
+        language,
+      });
+    }
+
+    throw new Error(`Provider ${provider} has no one-shot transcription request`);
+  }
+
+  /**
    * Soniox async transcription: upload, create, poll, fetch, delete.
    *
    * Four requests where every other lane costs one, which is the price of this provider
@@ -3696,36 +3777,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         model,
       });
       text = result?.text;
-    } else if (provider === "gemini") {
-      const apiKey = settings.geminiApiKey;
-      if (!apiKey) throw new Error("No gemini API key configured");
-
-      // Transcription lives on the interactions endpoint, not generateContent — which
-      // this model does advertise but answers with empty text. See geminiTranscribe.js.
-      const body = buildGeminiBatchRequest({
-        audioBase64: await blobToBase64(audioBlob),
-        mimeType: audioBlob.type || "audio/wav",
-        // Bare codes are accepted, so no locale mapping; "auto" omits the hint and
-        // leaves the model's own detection in charge.
-        language: language && language !== "auto" ? language : undefined,
-        vocabulary: await this.getProviderTerms("gemini"),
-        model,
-      });
-
-      const response = await fetch(buildApiUrl(API_ENDPOINTS.GEMINI, GEMINI_INTERACTIONS_PATH), {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
-        body: JSON.stringify(body),
-      });
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        throw new Error(`Gemini transcription failed: ${response.status} ${detail.slice(0, 200)}`);
-      }
-      text = parseGeminiBatchResponse(await response.json());
-    } else if (provider === "soniox") {
-      const apiKey = settings.sonioxApiKey;
-      if (!apiKey) throw new Error("No soniox API key configured");
-      text = await this.transcribeWithSonioxAsync(audioBlob, { apiKey, model, language });
+    } else if (provider === "gemini" || provider === "soniox") {
+      text = await this.transcribeOneShotWithProvider(audioBlob, provider, { language, model });
     } else {
       // Table-driven rather than a chain of ternaries, so adding an OpenAI-compatible
       // transcription provider is one entry rather than an edit in three places.
