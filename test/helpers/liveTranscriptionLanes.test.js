@@ -215,3 +215,15 @@ test("streaming and batch are recorded as different kinds", () => {
     "the new kind needs a label or the heading renders as the key"
   );
 });
+
+test("the drop deadline is anchored to the recording's end", () => {
+  // Without this the cutoff was measured from whichever lane answered first, so how long
+  // the user waited depended on which one won: a batch lane answering at 900ms silently
+  // granted every other lane 900ms more. Anchored to the tail it is the same wait every
+  // time — which is the only version a person can reason about.
+  assert.match(
+    audioManager,
+    /\{ deadlineAt: \(this\._recordingStoppedAt \?\? performance\.now\(\)\) \+ budgetMs \}/,
+    "the fan-out must pass a deadline measured from the end of the recording"
+  );
+});

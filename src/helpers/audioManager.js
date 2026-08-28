@@ -4203,7 +4203,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
       tracked,
       settled,
-      budgetMs
+      budgetMs,
+      // Measured from the end of the recording: the budget is how long the user waits
+      // after they stop talking, not how long after whichever lane answered first.
+      { deadlineAt: (this._recordingStoppedAt ?? performance.now()) + budgetMs }
     );
     const droppedProviders = droppedIndexes.map((index) => lanes[index].provider);
 

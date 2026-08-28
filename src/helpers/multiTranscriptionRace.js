@@ -5,11 +5,16 @@
 // "sometimes dictation takes ages", which is exactly the kind of thing that needs
 // tests rather than reasoning.
 //
-//   1. The budget starts when a lane *succeeds*, not when one answers. A lane that
-//      fails fast — a 401, an empty response — must not start the clock on the
-//      others: there is no transcript yet, so the budget would be spent protecting
-//      latency with nothing to show for it. Failures are skipped and the wait
-//      continues to the next lane.
+//   1. The wait for the *first* success is unbounded. A lane that fails fast — a 401,
+//      an empty response — must not shorten anyone else's wait, and dropping every
+//      lane for missing a deadline would leave the dictation with no transcript at
+//      all. Failures are skipped and the wait continues to the next lane.
+//
+//      Once there is a transcript, the cutoff is an absolute deadline the caller
+//      supplies — normally the end of the recording plus the budget. That is what the
+//      user actually experiences: time since they stopped talking. Measuring from the
+//      first answer instead makes the cutoff depend on which lane won, so a batch lane
+//      answering at 900ms silently granted everyone 900ms more.
 //
 //   2. Once a transcript exists, everything still outstanding shares one budget.
 //      Not per-lane: the point of the budget is to bound the tail latency this mode
@@ -25,10 +30,14 @@
  * @param {Array<{status: string}|null>} settled Written by the caller as lanes settle;
  *   read here to tell a success from a failure. Indexes match `tracked`.
  * @param {number} budgetMs How long the remaining lanes get after the first success.
+ * @param {object} [options]
+ * @param {number} [options.deadlineAt] Absolute performance.now() cutoff, normally the
+ *   end of the recording plus the budget. Overrides budgetMs when given, so the wait is
+ *   measured from when the user stopped talking rather than from the first answer.
  * @returns {Promise<{firstSuccessIndex: number, droppedIndexes: number[]}>}
  *   firstSuccessIndex is -1 when every lane failed.
  */
-async function awaitLanesWithBudget(tracked, settled, budgetMs) {
+async function awaitLanesWithBudget(tracked, settled, budgetMs, { deadlineAt } = {}) {
   // Race only the lanes still outstanding. A settled promise would win instantly and
   // spin this loop, so each winner is removed before the next round.
   let remaining = tracked.map((promise, index) => ({ promise, index }));
@@ -50,15 +59,32 @@ async function awaitLanesWithBudget(tracked, settled, budgetMs) {
   const outstanding = remaining.map((entry) => entry.promise);
   if (outstanding.length === 0) return { firstSuccessIndex, droppedIndexes: [] };
 
-  let timer;
-  const expired = Symbol("expired");
-  await Promise.race([
-    Promise.all(outstanding),
-    new Promise((resolve) => {
-      timer = setTimeout(() => resolve(expired), budgetMs);
-    }),
-  ]);
-  clearTimeout(timer);
+  // Anchored to the end of the recording when the caller supplies a deadline, rather than
+  // to whichever lane happened to answer first.
+  //
+  // Those differ by more than they look. A streaming lane answers about 60ms after the
+  // last frame, so a budget measured from the first success starts almost at the tail —
+  // but if a *batch* lane answers first at 900ms, the same budget pushes the cutoff to
+  // 900ms + budget after the tail. What the user waits is time since they stopped
+  // talking, so that is what the deadline is measured in.
+  //
+  // The wait for the *first* success is still unbounded on purpose: dropping every lane
+  // for missing a deadline would leave the dictation with no transcript at all, which is
+  // worse than being late.
+  const remainingMs =
+    typeof deadlineAt === "number" ? Math.max(0, deadlineAt - performance.now()) : budgetMs;
+
+  if (remainingMs > 0) {
+    let timer;
+    const expired = Symbol("expired");
+    await Promise.race([
+      Promise.all(outstanding),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(expired), remainingMs);
+      }),
+    ]);
+    clearTimeout(timer);
+  }
 
   const droppedIndexes = [];
   for (const { index } of remaining) {

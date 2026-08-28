@@ -236,3 +236,68 @@ test("a single lane needs no second lane to race against", async () => {
 
   assert.deepEqual(result, { winnerIndex: 0, timedOut: false });
 });
+
+// --- the cutoff, measured from the end of the recording ---
+
+test("a lane that lands after the deadline is dropped even though the budget is generous", async () => {
+  // First success at 40ms, deadline only 120ms after the anchor, third lane at 600ms.
+  // With a budget measured from the first success (500ms) the third lane would be kept;
+  // measured from the anchor it is late.
+  const { tracked, settled } = lanes([
+    { ms: 5, ok: false },
+    { ms: 40, ok: true },
+    { ms: 600, ok: true },
+  ]);
+
+  const anchor = performance.now();
+  const result = await awaitLanesWithBudget(tracked, settled, 500, { deadlineAt: anchor + 120 });
+
+  assert.equal(result.firstSuccessIndex, 1);
+  assert.deepEqual(result.droppedIndexes, [2], "the late lane must be dropped by the deadline");
+});
+
+test("a lane that lands before the deadline is still kept", async () => {
+  const { tracked, settled } = lanes([
+    { ms: 20, ok: true },
+    { ms: 90, ok: true },
+  ]);
+
+  const anchor = performance.now();
+  const result = await awaitLanesWithBudget(tracked, settled, 20, { deadlineAt: anchor + 400 });
+
+  // Note the budget is only 20ms: the deadline governs, not the budget, when both exist.
+  assert.deepEqual(result.droppedIndexes, [], "nothing should be dropped inside the deadline");
+});
+
+test("an already-expired deadline still waits for a first success", async () => {
+  // The property that keeps a slow dictation from producing nothing at all. The deadline
+  // bounds the *extra* lanes, never the first transcript.
+  const { tracked, settled } = lanes([
+    { ms: 5, ok: false },
+    { ms: 150, ok: true },
+    { ms: 800, ok: true },
+  ]);
+
+  const anchor = performance.now() - 10000; // long past
+  const startedAt = Date.now();
+  const result = await awaitLanesWithBudget(tracked, settled, 500, { deadlineAt: anchor + 100 });
+  const elapsed = Date.now() - startedAt;
+
+  assert.equal(result.firstSuccessIndex, 1, "the first success must still be awaited");
+  assert.deepEqual(result.droppedIndexes, [2], "but nothing extra is waited for");
+  assert.ok(elapsed < 600, `returned in ${elapsed}ms rather than waiting on the slow lane`);
+});
+
+test("without a deadline the old budget-from-first-success behaviour is unchanged", async () => {
+  // Other callers still pass only a budget; they must not change meaning.
+  const { tracked, settled } = lanes([
+    { ms: 20, ok: true },
+    { ms: 90, ok: true },
+    { ms: 3000, ok: true },
+  ]);
+
+  const result = await awaitLanesWithBudget(tracked, settled, 250);
+
+  assert.deepEqual(result.droppedIndexes, [2]);
+  assert.equal(settled[1].status, "fulfilled");
+});
