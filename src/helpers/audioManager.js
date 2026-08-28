@@ -1197,6 +1197,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         return false;
       }
 
+      // Cleared here, not just set at the stop: it is read by every timing below, and a
+      // value left over from the previous dictation would be measured against instead —
+      // silently, and wrong by however long ago that recording ended.
+      this._recordingStoppedAt = null;
+
       // Fire and forget, before the mic is even acquired: OCR then runs while
       // the user speaks instead of adding latency at the end.
       this.startScreenContextCapture();
@@ -1904,7 +1909,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         "performance"
       );
 
-      const transcriptionStart = performance.now();
+      // From the end of the recording, so this number means the same thing as every
+      // other provider's: what the user waited after they stopped talking.
+      const transcriptionStart = this._recordingStoppedAt ?? performance.now();
       const result = await window.electronAPI.transcribeLocalWhisper(arrayBuffer, options);
       timings.transcriptionProcessingDurationMs = Math.round(
         performance.now() - transcriptionStart
@@ -1989,7 +1996,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           "performance"
         );
 
-        const transcriptionStart = performance.now();
+        // From the end of the recording, so this number means the same thing as every
+        // other provider's: what the user waited after they stopped talking.
+        const transcriptionStart = this._recordingStoppedAt ?? performance.now();
         result = await window.electronAPI.transcribeLocalParakeet(arrayBuffer, { model });
         timings.transcriptionProcessingDurationMs = Math.round(
           performance.now() - transcriptionStart
@@ -2932,7 +2941,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     if (dictionaryPrompt) opts.prompt = dictionaryPrompt;
 
     // Use withSessionRefresh to handle AUTH_EXPIRED automatically
-    const transcriptionStart = performance.now();
+    // From the end of the recording, so this number means the same thing as every
+    // other provider's: what the user waited after they stopped talking.
+    const transcriptionStart = this._recordingStoppedAt ?? performance.now();
     const result = await withSessionRefresh(async () => {
       const res = await window.electronAPI.cloudTranscribe(arrayBuffer, opts);
       if (!res.success) {
@@ -3173,7 +3184,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           throw new Error("Tinfoil transcription is unavailable in this window");
         }
         const dictionaryPrompt = this.getCustomDictionaryPrompt();
-        const apiCallStart = performance.now();
+        // From the end of the recording, like the multi lanes: the audio prep that happens
+        // before this point is time the user waits too.
+        const apiCallStart = this._recordingStoppedAt ?? performance.now();
         const result = await window.electronAPI.proxyTinfoilTranscription({
           audioBuffer: await optimizedAudio.arrayBuffer(),
           language,
@@ -3272,7 +3285,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           !endpoint.includes("api.x.ai") &&
           !endpoint.includes("api.mistral.ai"));
 
-      const apiCallStart = performance.now();
+      // From the end of the recording, like the multi lanes: the audio prep that happens
+      // before this point is time the user waits too.
+      const apiCallStart = this._recordingStoppedAt ?? performance.now();
 
       // Mistral uses x-api-key auth (not Bearer) and doesn't allow browser CORS — proxy through main process
       if (provider === "mistral" && window.electronAPI?.proxyMistralTranscription) {
@@ -3921,7 +3936,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     { language, model: requestedModel, liveText } = {}
   ) {
     const settings = getSettings();
-    const startedAt = performance.now();
+    // Anchored to the end of the recording, not to the start of this call, for every lane
+    // regardless of how it runs. What the user waits is from the moment they stop talking,
+    // and this call begins after the audio has already been trimmed, gained, resampled and
+    // encoded — real time that a per-call anchor hid. It also makes a streaming lane and a
+    // batch lane directly comparable, which they are not if each starts its own clock.
+    const startedAt = this._recordingStoppedAt ?? performance.now();
+    const elapsedSinceRecording = () => Math.max(0, Math.round(performance.now() - startedAt));
 
     // A live lane already has its answer, so there is nothing to upload. No latency is
     // recorded here: processWithMultiTranscription records every lane from multi.sides,
@@ -3937,6 +3958,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           text: trimmedLive,
           // Measured from the end of the recording, not from this call: the transcript
           // was already being produced while the user spoke.
+          // Both measured from the recording's end, so either is correct; the socket's
+          // own number is used because it is taken the instant the transcript lands
+          // rather than whenever the fan-out gets around to this lane.
           ms: liveText.ms,
           // Recorded under its own kind so a streaming run and a batch run of the same
           // provider are never averaged together — they measure different things, and one
@@ -4040,7 +4064,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       provider,
       model,
       text: trimmed,
-      ms: Math.round(performance.now() - startedAt),
+      ms: elapsedSinceRecording(),
     };
   }
 
@@ -5417,6 +5441,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       : null;
 
     const t0 = performance.now();
+    // The streaming path ends a recording just as the batch path does, and every timing
+    // is measured from here. Only finalizeBatchRecording set this before, so a streaming
+    // dictation measured against whenever the last batch recording happened to end.
+    this._recordingStoppedAt = t0;
     let finalText = this.streamingFinalText || "";
 
     // 1. Update UI immediately

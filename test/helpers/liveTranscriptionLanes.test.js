@@ -261,3 +261,49 @@ test("a failed screen capture is not cached over the whole dictation", () => {
     "only a real answer may be remembered, or one slow attempt decides the dictation"
   );
 });
+
+test("every provider's latency is measured from the end of the recording", () => {
+  // The number that matters is what the user waits after they stop talking. Timing from
+  // the start of the request hid the audio prep — trim, gain, resample, WAV encode — which
+  // is real time, and made a streaming lane and a batch lane incomparable because each
+  // started its own clock.
+  const anchors = audioManager.match(/= this\._recordingStoppedAt \?\? performance\.now\(\)/g) ?? [];
+  assert.ok(
+    anchors.length >= 5,
+    `every transcription path should anchor to the recording's end, saw ${anchors.length}`
+  );
+  // The per-call anchors these replaced must be gone.
+  assert.doesNotMatch(
+    audioManager,
+    /const apiCallStart = performance\.now\(\);/,
+    "a per-call anchor understates what the user waited"
+  );
+  assert.doesNotMatch(
+    audioManager,
+    /const transcriptionStart = performance\.now\(\);/,
+    "same for the local and cloud paths"
+  );
+});
+
+test("the anchor is cleared per recording and set by both stop paths", () => {
+  // Without clearing, a dictation measures against whenever the *previous* one ended —
+  // silently, and wrong by however long ago that was. And only the batch stop used to set
+  // it, so a streaming dictation measured against the last batch recording.
+  assert.match(
+    audioManager,
+    /this\._recordingStoppedAt = null;/,
+    "the anchor must be cleared when a recording starts"
+  );
+  const setters = audioManager.match(/this\._recordingStoppedAt = (performance\.now\(\)|t0);/g) ?? [];
+  assert.equal(setters.length, 2, "both the batch and the streaming stop paths must set it");
+});
+
+test("a lane timing can never be negative", () => {
+  // The anchor is read with a fallback, so a path that never set it would otherwise be
+  // able to produce a negative duration.
+  assert.match(
+    audioManager,
+    /const elapsedSinceRecording = \(\) => Math\.max\(0,/,
+    "lane timings must be clamped at zero"
+  );
+});
