@@ -82,6 +82,41 @@ if (identities.length > 1) {
   console.log(`[dist-local] (also available: ${identities.slice(1).join(", ")})`);
 }
 
+// better-sqlite3 must be built against Electron's ABI, not Node's.
+//
+// Running the test suite requires the opposite build (`npm rebuild better-sqlite3`),
+// and whichever one ran last is the one that gets packaged. Ship the Node build and the
+// app dies on launch with "compiled against a different Node.js version using
+// NODE_MODULE_VERSION 131 ... requires 145" — which has happened twice, both times
+// discovered by installing it rather than by building it.
+//
+// The check is inverted on purpose: the correct binary is the one this Node *cannot*
+// load. Nothing else distinguishes them, since both live at the same path.
+{
+  const probe = spawnSync(
+    process.execPath,
+    ["-e", "new (require('better-sqlite3'))(':memory:')"],
+    { encoding: "utf8", cwd: __dirname + "/.." }
+  );
+  if (probe.status === 0) {
+    console.error(
+      "[dist-local] better-sqlite3 is built for Node, not Electron — packaging it would\n" +
+        "            produce an app that crashes on launch. Rebuild it first:\n\n" +
+        "              npx @electron/rebuild -f -o better-sqlite3\n"
+    );
+    process.exit(1);
+  }
+  if (!/NODE_MODULE_VERSION/.test(probe.stderr || "")) {
+    console.error(
+      "[dist-local] could not determine better-sqlite3's ABI. It failed to load for some\n" +
+        "            reason other than an ABI mismatch, so this build is not verified:\n\n" +
+        (probe.stderr || "").trim().split("\n").slice(0, 5).join("\n")
+    );
+    process.exit(1);
+  }
+  console.log("[dist-local] better-sqlite3 is built for Electron's ABI.");
+}
+
 // build:renderer first, always. Calling electron-builder without it ships a stale
 // renderer bundle — the build looks clean and the app is silently a version behind.
 for (const args of [
