@@ -81,6 +81,12 @@ import { isEmptyRecording } from "./recordingGuard";
 import { matchesDictionaryPrompt } from "../utils/dictionaryEchoFilter.js";
 import { planSilenceTrim, applySilenceTrim, resolveSilenceTrimOptions } from "../utils/silenceTrim";
 import { planAutoGain } from "../utils/autoGain";
+import {
+  buildBatchRequest as buildGeminiBatchRequest,
+  parseBatchResponse as parseGeminiBatchResponse,
+  GEMINI_INTERACTIONS_PATH,
+  GEMINI_VOCABULARY_LIMIT,
+} from "../utils/geminiTranscribe";
 import { getDictionaryHintWords } from "../utils/snippets";
 
 const REASONING_CACHE_TTL = 30000; // 30 seconds
@@ -354,6 +360,21 @@ async function resampleForUpload(samples, sampleRate) {
 // loop already touches and clamps every sample, so amplifying here costs one multiply
 // and no second traversal or allocation. See autoGain.js for why that matters — a
 // separate apply pass was measured at 5.5ms on a five-minute recording.
+// Base64 for Gemini's interactions endpoint, which takes audio inline rather than as a
+// reference to an uploaded file — one request instead of upload-then-transcribe.
+//
+// Chunked on purpose: String.fromCharCode(...bytes) over a whole recording exceeds the
+// argument limit and throws, and a 30-second dictation is already about a megabyte.
+async function blobToBase64(blob) {
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const CHUNK = 0x8000;
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + CHUNK));
+  }
+  return btoa(binary);
+}
+
 function encodeWavPcm16(samples, sampleRate, gain = 1) {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
@@ -2298,7 +2319,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    * because it is durable and deliberate, so it wins the budget when screen text is
    * plentiful.
    */
-  async getDictationVocabulary() {
+  // `limit` exists because providers disagree about how many terms they accept, and the
+  // ceiling should be the provider's, not the lowest one's: Azure's phrase list and the
+  // merge prompt want the conservative 200, while Gemini takes up to 1000 and there is
+  // no reason to throw away 800 terms of the speaker's own vocabulary on its behalf.
+  async getDictationVocabulary(limit = DICTATION_VOCABULARY_LIMIT) {
     const dictionary = this.getCustomDictionaryArray() ?? [];
     const capture = await this.ensureScreenContext();
 
@@ -2316,7 +2341,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       if (seen.has(key)) continue;
       seen.add(key);
       vocabulary.push(trimmed);
-      if (vocabulary.length >= DICTATION_VOCABULARY_LIMIT) break;
+      if (vocabulary.length >= limit) break;
     }
     return vocabulary;
   }
@@ -3488,6 +3513,35 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         model,
       });
       text = result?.text;
+    } else if (provider === "gemini") {
+      const apiKey = settings.geminiApiKey;
+      if (!apiKey) throw new Error("No gemini API key configured");
+
+      // Transcription lives on the interactions endpoint, not generateContent — which
+      // this model does advertise but answers with empty text. See geminiTranscribe.js.
+      const body = buildGeminiBatchRequest({
+        audioBase64: await blobToBase64(audioBlob),
+        mimeType: audioBlob.type || "audio/wav",
+        // Bare codes are accepted, so no locale mapping; "auto" omits the hint and
+        // leaves the model's own detection in charge.
+        language: language && language !== "auto" ? language : undefined,
+        vocabulary: await this.getDictationVocabulary(GEMINI_VOCABULARY_LIMIT),
+        model,
+      });
+
+      const response = await fetch(
+        buildApiUrl(API_ENDPOINTS.GEMINI, GEMINI_INTERACTIONS_PATH),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(`Gemini transcription failed: ${response.status} ${detail.slice(0, 200)}`);
+      }
+      text = parseGeminiBatchResponse(await response.json());
     } else {
       // Table-driven rather than a chain of ternaries, so adding an OpenAI-compatible
       // transcription provider is one entry rather than an edit in three places.

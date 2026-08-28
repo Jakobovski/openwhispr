@@ -36,17 +36,49 @@ test("the merge builds its vocabulary the same way the recogniser's is built", (
   );
 });
 
-test("one builder feeds both the recogniser and the merge", () => {
+test("one builder feeds every consumer", () => {
   // Two assemblies of the same idea drifted apart once: different caps, different
   // contents, and the merge seeing words the recogniser was never given.
-  const calls = audioManager.match(/getDictationVocabulary\(\)/g) ?? [];
-  assert.ok(calls.length >= 3, "expected the definition plus both consumers");
+  //
+  // The builder now takes a limit, because providers genuinely differ in how many terms
+  // they accept — Azure's phrase list takes 200 here, Gemini takes 1000, and passing the
+  // lowest common number would throw away 800 terms of the speaker's own vocabulary. So
+  // what has to hold is *one builder*, not one call shape: this counts definitions and
+  // consumers separately rather than matching bare `getDictationVocabulary()`, which
+  // used to include the definition and broke as soon as it took a parameter.
+  const definitions = audioManager.match(/^\s*async getDictationVocabulary\(/gm) ?? [];
+  assert.equal(definitions.length, 1, "there must be exactly one builder");
+
+  // Checked by its body, not only its name: a second builder called something else
+  // would pass the name check above while being exactly the duplicate assembly this
+  // test exists to prevent. The dictionary-then-screen-terms merge is the signature.
+  const assemblies = audioManager.match(/for \(const term of \[\.\.\.dictionary,/g) ?? [];
+  assert.equal(assemblies.length, 1, "the vocabulary must be assembled in exactly one place");
+
+  const consumers = audioManager.match(/this\.getDictationVocabulary\(/g) ?? [];
+  assert.ok(consumers.length >= 3, `expected every consumer to call it, saw ${consumers.length}`);
+
   assert.match(audioManager, /phrases: await this\.getDictationVocabulary\(\)/, "Azure uses it");
-  assert.match(audioManager, /DICTATION_VOCABULARY_LIMIT = 200/, "one cap, not one per consumer");
+  assert.match(
+    audioManager,
+    /DICTATION_VOCABULARY_LIMIT = 200/,
+    "the shared default cap must stay a single constant"
+  );
   assert.doesNotMatch(
     audioManager,
     /RECONCILE_SCREEN_TERM_LIMIT/,
     "the merge must not keep a separate cap"
+  );
+});
+
+test("no consumer trims the vocabulary itself", () => {
+  // The drift the builder exists to prevent: a caller slicing or de-duplicating the
+  // list again would produce a different vocabulary from the same source, which is how
+  // the recogniser and the merge stopped agreeing last time.
+  assert.doesNotMatch(
+    audioManager,
+    /getDictationVocabulary\([^)]*\)\s*\)?\s*\.(slice|filter|map)\(/,
+    "a consumer is re-trimming the shared vocabulary"
   );
 });
 
@@ -61,7 +93,16 @@ test("the dictionary is not sent twice to the merge", () => {
 });
 
 test("the vocabulary is capped where it is built, once", () => {
-  assert.match(audioManager, /vocabulary\.length >= DICTATION_VOCABULARY_LIMIT/);
+  // Capped inside the builder against its own parameter, so a consumer cannot end up
+  // with a longer list than it asked for or apply a cap of its own.
+  assert.match(audioManager, /vocabulary\.length >= limit/, "the cap must be inside the builder");
+  // And the parameter defaults to the shared constant, so a caller that says nothing
+  // gets the conservative cap rather than an unbounded list.
+  assert.match(
+    audioManager,
+    /async getDictationVocabulary\(limit = DICTATION_VOCABULARY_LIMIT\)/,
+    "the default must be the shared cap"
+  );
 });
 
 test("the prompt getter forwards them to the resolver", () => {

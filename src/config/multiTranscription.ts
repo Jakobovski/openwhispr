@@ -18,7 +18,12 @@ export interface MultiTranscriptionProvider {
   model: string;
   /** Settings store key holding this provider's BYOK key. Dual needs one per side. */
   apiKeyField:
-    "groqApiKey" | "xaiApiKey" | "openaiApiKey" | "openrouterApiKey" | "azureSpeechApiKey";
+    | "groqApiKey"
+    | "xaiApiKey"
+    | "openaiApiKey"
+    | "openrouterApiKey"
+    | "azureSpeechApiKey"
+    | "geminiApiKey";
 }
 
 // Order is the dropdown order and the slot defaults below, best first.
@@ -52,6 +57,17 @@ export const MULTI_TRANSCRIPTION_PROVIDERS: MultiTranscriptionProvider[] = [
     label: "Azure Speech",
     model: "mai-transcribe-1.5",
     apiKeyField: "azureSpeechApiKey",
+  },
+  // The second lane that can be biased before it listens rather than corrected after,
+  // and the only one that takes the vocabulary at full size: Azure's phrase list is
+  // capped at 200 terms here, Gemini accepts 1000. Smart mode also means this lane
+  // returns text that is already de-filled and formatted, so what the merge reads from
+  // it is closer to finished prose than a raw recogniser's output.
+  {
+    id: "gemini",
+    label: "Google Gemini",
+    model: "gemini-3.5-transcribe",
+    apiKeyField: "geminiApiKey",
   },
 ];
 

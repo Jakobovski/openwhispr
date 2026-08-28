@@ -309,6 +309,18 @@
           "description": "Microsoft speech-to-text with phrase-list biasing"
         }
       ]
+    },
+    {
+      "id": "gemini",
+      "name": "Google Gemini",
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "models": [
+        {
+          "id": "gemini-3.5-transcribe",
+          "name": "Gemini 3.5 Transcribe",
+          "description": "Smart mode: removes fillers and self-corrections, formats the result. Takes 1000 custom vocabulary terms"
+        }
+      ]
     }
   ],
   "cloudProviders": [
