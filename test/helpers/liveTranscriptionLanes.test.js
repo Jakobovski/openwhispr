@@ -94,7 +94,10 @@ test("a lane that fails to start or returns nothing falls back to its one-shot p
     audioManager.indexOf("async collectLiveTranscriptionLanes()"),
     audioManager.indexOf("async transcribeOneShotWithProvider(")
   );
-  assert.match(collect, /if \(text\) collected\.set/, "only a non-empty transcript counts");
+  // Only a non-empty transcript is recorded, so a socket that connected but produced
+  // nothing leaves the lane to its one-shot request rather than returning empty text.
+  assert.match(collect, /if \(text\) \{/, "an empty transcript must not be collected");
+  assert.match(collect, /collected\.set\(lane\.provider, \{/, "the transcript is keyed by provider");
 
   // And the fan-out must treat an absent live transcript as "do the request".
   assert.match(
@@ -163,5 +166,52 @@ test("a secret saved in one window reaches the others", () => {
     store,
     /STALE_SECRET_LOCALSTORAGE_KEYS/,
     "secrets must still be scrubbed from localStorage"
+  );
+});
+
+test("a streaming lane is timed from the end of the recording", () => {
+  // Timing it from when the lane's request started would report almost nothing, because
+  // the transcript was already being produced while the user spoke. What the user waits
+  // is the tail after the last frame — measured at 63ms for Soniox on a 19s recording,
+  // against 3859ms for the same provider's job queue.
+  assert.match(
+    audioManager,
+    /this\._recordingStoppedAt = performance\.now\(\);/,
+    "the end of the recording must be stamped"
+  );
+  const collect = audioManager.slice(
+    audioManager.indexOf("async collectLiveTranscriptionLanes()"),
+    audioManager.indexOf("async transcribeOneShotWithProvider(")
+  );
+  assert.match(
+    collect,
+    /performance\.now\(\) - \(this\._recordingStoppedAt/,
+    "the tail must be measured from that stamp"
+  );
+  // Never negative, in case the stamp is missing on some path.
+  assert.match(collect, /Math\.max\(\s*0,/, "a missing stamp must not produce a negative timing");
+});
+
+test("streaming and batch are recorded as different kinds", () => {
+  // One is a whole request after the recording ended; the other is only the tail. Putting
+  // them in one group would average 63ms with 3859ms and misrepresent both.
+  assert.match(
+    audioManager,
+    /side\.streaming \? "transcriptionStreaming" : "transcription"/,
+    "the recorded kind must depend on how the lane ran"
+  );
+  assert.match(
+    audioManager,
+    /streaming: ok \? result\.value\.streaming === true : false/,
+    "the flag must survive onto the side the recorder reads"
+  );
+
+  // And the stats page needs a section for it, or the samples are collected and unseen.
+  const view = read("src", "components", "ModelStatsView.tsx");
+  assert.match(view, /"transcriptionStreaming"/, "the stats page must tabulate the new kind");
+  const strings = JSON.parse(read("src", "locales", "en", "translation.json"));
+  assert.ok(
+    strings.modelStats.kinds.transcriptionStreaming,
+    "the new kind needs a label or the heading renders as the key"
   );
 });

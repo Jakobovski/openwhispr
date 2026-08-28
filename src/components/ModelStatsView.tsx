@@ -6,10 +6,16 @@ import { getProviderDisplayName } from "../models/ModelRegistry";
 import { cn } from "./lib/utils";
 import type { ModelLatencyStat } from "../types/electron";
 
-// Transcription, reconciliation and screen context are different jobs with different
-// budgets, so they are tabulated separately rather than sorted into one list where a
-// 600ms merge sits next to a 600ms transcription as if they were comparable.
-const KINDS = ["transcription", "reconcile", "screenContext"] as const;
+// Different jobs with different budgets, so they are tabulated separately rather than
+// sorted into one list where a 600ms merge sits next to a 600ms transcription as if they
+// were comparable.
+//
+// Streaming transcription is split from batch for a stronger version of the same reason:
+// a batch number is a whole request made after the recording ended, while a streaming
+// number is only the tail after the last frame, because the transcript was being produced
+// while the user spoke. Soniox measured 63ms streaming against 3859ms batch on the same
+// 19s recording — averaging those into one row would misrepresent both.
+const KINDS = ["transcription", "transcriptionStreaming", "reconcile", "screenContext"] as const;
 
 function formatMs(ms: number | null): string {
   if (ms == null) return "—";

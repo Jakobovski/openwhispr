@@ -3149,6 +3149,7 @@
     "dropRate": "dropped",
     "kinds": {
       "transcription": "Transcription",
+      "transcriptionStreaming": "Transcription (streaming, after recording ends)",
       "reconcile": "Merge & prepare (multi mode)",
       "screenContext": "Screen context (window OCR)"
     },
