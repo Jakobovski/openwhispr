@@ -4220,7 +4220,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         status: statusFor(index),
         text: ok ? result.value.text : null,
         ms: ok ? result.value.ms : null,
-        streaming: ok ? result.value.streaming === true : false,
+        // From the lane's configuration, not from its result: a dropped or failed lane
+        // never returns one, so reading it there filed every dropped streaming lane under
+        // the batch row — inflating that row's drop rate while the streaming row never
+        // moved. How the lane was *run* is known either way.
+        streaming: providerWantsStreaming(lane.provider, settings),
       };
     });
 

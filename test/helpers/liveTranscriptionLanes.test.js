@@ -306,3 +306,20 @@ test("the deadline and every lane timing are anchored to the recording's end", (
   // measured from the fan-out's own start it read 1ms on a five-second dictation.
   assert.match(audioManager, /performance\.now\(\) - \(this\._recordingStoppedAt \?\? startedAt\)/);
 });
+
+test("a dropped streaming lane is still filed as streaming", () => {
+  // It was read from the lane's result, which a dropped or failed lane never returns — so
+  // every dropped streaming lane landed in the batch row, inflating that row's drop rate
+  // while the streaming row never moved. How the lane was run is known from its config
+  // regardless of how it ended.
+  assert.match(
+    audioManager,
+    /streaming: providerWantsStreaming\(lane\.provider, settings\)/,
+    "the streaming flag must come from the lane's configuration"
+  );
+  assert.doesNotMatch(
+    audioManager,
+    /streaming: ok \? result\.value\.streaming/,
+    "reading it from the result loses every non-ok lane"
+  );
+});
