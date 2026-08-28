@@ -23,7 +23,8 @@ export interface MultiTranscriptionProvider {
     | "openaiApiKey"
     | "openrouterApiKey"
     | "azureSpeechApiKey"
-    | "geminiApiKey";
+    | "geminiApiKey"
+    | "sonioxApiKey";
 }
 
 // Order is the dropdown order and the slot defaults below, best first.
@@ -68,6 +69,21 @@ export const MULTI_TRANSCRIPTION_PROVIDERS: MultiTranscriptionProvider[] = [
     label: "Google Gemini",
     model: "gemini-3.5-transcribe",
     apiKeyField: "geminiApiKey",
+  },
+
+  // Also biased before it listens, via context.terms, and the most faithful to it of
+  // the three: given audio containing "OpenWhispr", "Sinead" and "zohar-mac-mini" it
+  // returned all three exactly, where Gemini's final pass gave "open whisper" and
+  // "Shinade" from the same recording.
+  //
+  // The async model, not the realtime one — this lane uploads a finished recording.
+  // Costs four requests (upload, create, poll, fetch) where every other lane costs one,
+  // which is why it is not a default.
+  {
+    id: "soniox",
+    label: "Soniox",
+    model: "stt-async-v5",
+    apiKeyField: "sonioxApiKey",
   },
 ];
 
@@ -262,9 +278,10 @@ export function resolveMultiSecondWaitMs(
   recordingSeconds: number | null | undefined,
   maxMs?: number
 ): number {
-  const flat = Number.isFinite(flatMs) && (flatMs as number) >= 0
-    ? (flatMs as number)
-    : DEFAULT_MULTI_SECOND_TIMEOUT_MS;
+  const flat =
+    Number.isFinite(flatMs) && (flatMs as number) >= 0
+      ? (flatMs as number)
+      : DEFAULT_MULTI_SECOND_TIMEOUT_MS;
   const share =
     Number.isFinite(percent) && (percent as number) >= 0
       ? (percent as number)
@@ -278,9 +295,10 @@ export function resolveMultiSecondWaitMs(
   // maxMs is the one argument where 0 is a real, intentional value ("no cap") rather
   // than a stand-in for "not configured" — an explicit undefined is what means unset
   // here, the same distinction percent already draws for its own 0.
-  const max = maxMs === undefined || !Number.isFinite(maxMs) || (maxMs as number) < 0
-    ? DEFAULT_MULTI_SECOND_MAX_WAIT_MS
-    : (maxMs as number);
+  const max =
+    maxMs === undefined || !Number.isFinite(maxMs) || (maxMs as number) < 0
+      ? DEFAULT_MULTI_SECOND_MAX_WAIT_MS
+      : (maxMs as number);
   if (max === 0) return raw;
   return Math.min(raw, max);
 }

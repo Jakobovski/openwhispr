@@ -74,6 +74,13 @@ const BYOK_API_KEYS = [
     save: "saveCortiKey",
     storeKey: "cortiApiKey",
   },
+  {
+    base: "soniox",
+    env: "SONIOX_API_KEY",
+    get: "getSonioxKey",
+    save: "saveSonioxKey",
+    storeKey: "sonioxApiKey",
+  },
 ];
 
 module.exports = { BYOK_API_KEYS };

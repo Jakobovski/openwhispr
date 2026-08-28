@@ -322,6 +322,19 @@
         }
       ]
     }
+,
+    {
+      "id": "soniox",
+      "name": "Soniox",
+      "baseUrl": "https://api.soniox.com/v1",
+      "models": [
+        {
+          "id": "stt-async-v5",
+          "name": "Soniox Async v5",
+          "description": "Biased by context terms before it listens. Uploads the recording, so it costs four requests rather than one"
+        }
+      ]
+    }
   ],
   "cloudProviders": [
     {

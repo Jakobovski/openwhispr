@@ -87,6 +87,14 @@ import {
   GEMINI_INTERACTIONS_PATH,
   GEMINI_VOCABULARY_LIMIT,
 } from "../utils/geminiTranscribe";
+import {
+  buildAsyncTranscriptionRequest as buildSonioxAsyncRequest,
+  parseAsyncTranscript as parseSonioxAsyncTranscript,
+  asyncJobState as sonioxAsyncJobState,
+  SONIOX_API_BASE,
+  SONIOX_PATHS,
+  SONIOX_TERM_LIMIT,
+} from "../utils/sonioxTranscribe";
 import { getDictionaryHintWords } from "../utils/snippets";
 
 const REASONING_CACHE_TTL = 30000; // 30 seconds
@@ -108,6 +116,13 @@ const SCREEN_CONTEXT_COLLECT_BUDGET_MS = 500;
 // recognition but was invisible to the merge is the sort of inconsistency that makes a
 // disagreement impossible to reason about.
 const DICTATION_VOCABULARY_LIMIT = 200;
+
+// Soniox async is a job queue, so it needs a poll interval and a ceiling. The ceiling is
+// generous relative to the lane budget on purpose: the fan-out will already have dropped
+// this lane long before it expires, so this only exists so a wedged job cannot leave a
+// request in flight forever.
+const SONIOX_ASYNC_POLL_MS = 300;
+const SONIOX_ASYNC_TIMEOUT_MS = 30000;
 
 // Providers whose transcription endpoint is OpenAI's: multipart POST to
 // /audio/transcriptions with `file` and `model`, answering `{ text }`. xAI is absent
@@ -3458,6 +3473,90 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     }
   }
 
+  /**
+   * Soniox async transcription: upload, create, poll, fetch, delete.
+   *
+   * Four requests where every other lane costs one, which is the price of this provider
+   * being a job queue rather than a request/response endpoint. It sits behind the same
+   * lane budget as the others, so a slow job is dropped by the fan-out rather than
+   * holding up the paste.
+   *
+   * The upload is deleted afterwards, always. It is the user's dictation, and leaving it
+   * on a third party's servers after it has been transcribed is not something this app
+   * should do quietly — the deletes are fire-and-forget so a cleanup failure cannot cost
+   * the transcript, but they are not optional.
+   */
+  async transcribeWithSonioxAsync(audioBlob, { apiKey, model, language }) {
+    const call = async (method, path, { json, body } = {}) => {
+      const response = await fetch(`${SONIOX_API_BASE}${path}`, {
+        method,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          ...(json ? { "Content-Type": "application/json" } : {}),
+        },
+        body: json ? JSON.stringify(json) : body,
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(
+          `Soniox ${method} ${path} failed: ${response.status} ${detail.slice(0, 160)}`
+        );
+      }
+      const text = await response.text();
+      return text ? JSON.parse(text) : null;
+    };
+
+    const form = new FormData();
+    const extension = (audioBlob.type || "").includes("wav") ? "wav" : "webm";
+    form.append("file", audioBlob, `audio.${extension}`);
+    const uploaded = await call("POST", SONIOX_PATHS.files, { body: form });
+    const fileId = uploaded?.id;
+
+    let transcriptionId = null;
+    try {
+      const created = await call("POST", SONIOX_PATHS.transcriptions, {
+        json: buildSonioxAsyncRequest({
+          fileId,
+          model,
+          language,
+          vocabulary: await this.getDictationVocabulary(SONIOX_TERM_LIMIT),
+        }),
+      });
+      transcriptionId = created?.id;
+      if (!transcriptionId) throw new Error("Soniox did not return a transcription id");
+
+      // Bounded: the job is queued server-side and could stay pending indefinitely,
+      // and this runs while the user is waiting for text to appear.
+      const deadline = performance.now() + SONIOX_ASYNC_TIMEOUT_MS;
+      let state = "pending";
+      while (state === "pending") {
+        const status = await call("GET", SONIOX_PATHS.transcription(transcriptionId));
+        state = sonioxAsyncJobState(status);
+        if (state === "completed") break;
+        if (state === "error") {
+          throw new Error(`Soniox transcription failed: ${status?.error_message || "unknown"}`);
+        }
+        if (performance.now() > deadline) {
+          throw new Error(`Soniox transcription still pending after ${SONIOX_ASYNC_TIMEOUT_MS}ms`);
+        }
+        await new Promise((resolve) => setTimeout(resolve, SONIOX_ASYNC_POLL_MS));
+      }
+
+      const transcript = await call("GET", SONIOX_PATHS.transcript(transcriptionId));
+      return parseSonioxAsyncTranscript(transcript);
+    } finally {
+      // In `finally` so a failed or timed-out job does not leave the recording behind
+      // either. Swallowed because the transcript is what the caller needs, and a
+      // cleanup error must not turn a successful dictation into a failed one.
+      if (transcriptionId) {
+        call("DELETE", SONIOX_PATHS.transcription(transcriptionId)).catch(() => {});
+      }
+      if (fileId) {
+        call("DELETE", SONIOX_PATHS.file(fileId)).catch(() => {});
+      }
+    }
+  }
+
   // Raw transcription from one provider: no cleanup, no reasoning, no fallback.
   // Dual mode needs two of these to compare, and processWithOpenAIAPI cannot
   // supply them — it applies reasoning inside each provider branch and returns a
@@ -3529,19 +3628,20 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         model,
       });
 
-      const response = await fetch(
-        buildApiUrl(API_ENDPOINTS.GEMINI, GEMINI_INTERACTIONS_PATH),
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
-          body: JSON.stringify(body),
-        }
-      );
+      const response = await fetch(buildApiUrl(API_ENDPOINTS.GEMINI, GEMINI_INTERACTIONS_PATH), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-goog-api-key": apiKey },
+        body: JSON.stringify(body),
+      });
       if (!response.ok) {
         const detail = await response.text().catch(() => "");
         throw new Error(`Gemini transcription failed: ${response.status} ${detail.slice(0, 200)}`);
       }
       text = parseGeminiBatchResponse(await response.json());
+    } else if (provider === "soniox") {
+      const apiKey = settings.sonioxApiKey;
+      if (!apiKey) throw new Error("No soniox API key configured");
+      text = await this.transcribeWithSonioxAsync(audioBlob, { apiKey, model, language });
     } else {
       // Table-driven rather than a chain of ternaries, so adding an OpenAI-compatible
       // transcription provider is one entry rather than an edit in three places.
@@ -3957,7 +4057,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         },
         "transcription"
       );
-      return { ...base, text: fallback.text, reconciled: false, mergedFrom: answered.length, agreed };
+      return {
+        ...base,
+        text: fallback.text,
+        reconciled: false,
+        mergedFrom: answered.length,
+        agreed,
+      };
     }
 
     const winner = reconcileLanes[reconcileWinnerIndex];
@@ -3974,7 +4080,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         { using: fallback.provider, from: `${winner.provider}/${winner.model}` },
         "transcription"
       );
-      return { ...base, text: fallback.text, reconciled: false, mergedFrom: answered.length, agreed };
+      return {
+        ...base,
+        text: fallback.text,
+        reconciled: false,
+        mergedFrom: answered.length,
+        agreed,
+      };
     }
 
     return {

@@ -652,6 +652,7 @@ export interface SettingsState
   setCortiClientSecret: (key: string) => void;
   setCortiApiKey: (key: string) => void;
   setTinfoilApiKey: (key: string) => void;
+  setSonioxApiKey: (key: string) => void;
   setCustomTranscriptionApiKey: (key: string) => void;
   setCleanupCustomApiKey: (key: string) => void;
 
@@ -921,6 +922,7 @@ const SECRET_IPC_SAVERS = {
   cortiClientSecret: "saveCortiClientSecret",
   cortiApiKey: "saveCortiKey",
   tinfoil: "saveTinfoilKey",
+  soniox: "saveSonioxKey",
   customTranscription: "saveCustomTranscriptionKey",
   cleanupCustom: "saveCleanupCustomKey",
   bedrockAccessKeyId: "saveBedrockAccessKeyId",
@@ -1157,6 +1159,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cortiClientSecret: "",
   cortiApiKey: "",
   tinfoilApiKey: "",
+  sonioxApiKey: "",
   customTranscriptionApiKey: "",
   cleanupCustomApiKey: "",
 
@@ -1695,6 +1698,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setDualTranscriptionReconcileTimeoutMs: createNumberSetter("dualTranscriptionReconcileTimeoutMs"),
   setCortiTenant: createStringSetter("cortiTenant"),
   setTinfoilApiKey: createSecretSetter("tinfoilApiKey", "tinfoil", "tinfoil"),
+  setSonioxApiKey: createSecretSetter("sonioxApiKey", "soniox"),
   setCustomTranscriptionApiKey: (key: string) => {
     set({ customTranscriptionApiKey: key });
     debouncedSaveSecret("customTranscription", key);
@@ -2143,6 +2147,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (keys.cortiClientSecret !== undefined) s.setCortiClientSecret(keys.cortiClientSecret);
     if (keys.cortiApiKey !== undefined) s.setCortiApiKey(keys.cortiApiKey);
     if (keys.tinfoilApiKey !== undefined) s.setTinfoilApiKey(keys.tinfoilApiKey);
+    if (keys.sonioxApiKey !== undefined) s.setSonioxApiKey(keys.sonioxApiKey);
     if (keys.customTranscriptionApiKey !== undefined)
       s.setCustomTranscriptionApiKey(keys.customTranscriptionApiKey);
     if (keys.cleanupCustomApiKey !== undefined) s.setCleanupCustomApiKey(keys.cleanupCustomApiKey);

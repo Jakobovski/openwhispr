@@ -1234,6 +1234,8 @@ declare global {
       }) => Promise<{ text: string }>;
       getTinfoilKey?: () => Promise<string | null>;
       saveTinfoilKey?: (key: string) => Promise<void>;
+      getSonioxKey?: () => Promise<string | null>;
+      saveSonioxKey?: (key: string) => Promise<void>;
       getTinfoilChatModels?: () => Promise<TinfoilCatalogModel[]>;
       proxyTinfoilTranscription?: (data: {
         audioBuffer: ArrayBuffer;

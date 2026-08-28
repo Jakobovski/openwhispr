@@ -376,6 +376,7 @@ function TranscriptionSection({
   const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
   const azureSpeechApiKey = useSettingsStore((s) => s.azureSpeechApiKey);
   const geminiApiKey = useSettingsStore((s) => s.geminiApiKey);
+  const sonioxApiKey = useSettingsStore((s) => s.sonioxApiKey);
   const openaiApiKey = useSettingsStore((s) => s.openaiApiKey);
 
   const dualModelA = useSettingsStore((s) => s.dualTranscriptionModelA);
@@ -402,6 +403,7 @@ function TranscriptionSection({
     openrouterApiKey,
     azureSpeechApiKey,
     geminiApiKey,
+    sonioxApiKey,
   };
   // What will actually run, resolved exactly as the fan-out resolves it. Reading the slots
   // directly would show a provider that a duplicate collapse has already dropped — which
