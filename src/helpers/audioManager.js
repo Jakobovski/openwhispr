@@ -5567,7 +5567,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // averaged with batch requests, which measure a different thing.
     this.recordModelLatency(
       "transcriptionStreaming",
-      this.getStreamingProviderName(),
+      // The configured provider, not the internal streaming key, when they differ:
+      // gemini streams through the "gemini-live" entry, so keying stats on that would put
+      // the single-provider route and the multi live lane — the same provider, streaming
+      // the same way — on two separate rows. Falls back to the streaming key for the
+      // routes that have no transcription-provider equivalent, like deepgram.
+      STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER[stSettings.cloudTranscriptionProvider]
+        ? stSettings.cloudTranscriptionProvider
+        : this.getStreamingProviderName(),
       streamingSttModel || null,
       streamingSttProcessingMs,
       finalText && finalText.trim() ? "ok" : "failed"

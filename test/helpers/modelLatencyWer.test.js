@@ -184,3 +184,33 @@ test("two reconcile rows for the same kind stay separate, one per model", () => 
   assert.ok(stats.some((row) => row.provider === "openrouter" && row.median_ms === 300));
   assert.ok(stats.some((row) => row.provider === "xai" && row.median_ms === 700));
 });
+
+test("streaming and batch never share a row, even for the same provider and model", () => {
+  // The same provider can run either way, and the two numbers mean different things: a
+  // batch sample is a whole request made after the recording ended, a streaming sample is
+  // only the tail. Grouping is (kind, provider, model), so the kinds must keep them apart
+  // — otherwise a 60ms streaming run would flatter a 3900ms batch median into nonsense.
+  const db = freshDb();
+  for (const ms of [3800, 3900, 4000]) {
+    db.recordModelLatency({ kind: "transcription", provider: "soniox", model: "stt-v5", ms });
+  }
+  for (const ms of [60, 63, 70]) {
+    db.recordModelLatency({
+      kind: "transcriptionStreaming",
+      provider: "soniox",
+      model: "stt-v5",
+      ms,
+    });
+  }
+
+  const rows = db.getModelLatencyStats().stats.filter((r) => r.provider === "soniox");
+  assert.equal(rows.length, 2, "the same provider/model must yield one row per kind");
+
+  const batch = rows.find((r) => r.kind === "transcription");
+  const streaming = rows.find((r) => r.kind === "transcriptionStreaming");
+  assert.ok(batch && streaming, "both kinds must be present");
+  assert.equal(batch.n, 3);
+  assert.equal(streaming.n, 3);
+  assert.equal(batch.median_ms, 3900, "the batch median must not be pulled down");
+  assert.equal(streaming.median_ms, 63, "and the streaming median must not be pulled up");
+});

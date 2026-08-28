@@ -335,3 +335,24 @@ test("a non-batch (streaming) dictation is recorded too, from the recording's en
   // look like the best provider on the page.
   assert.match(stop, /finalText && finalText\.trim\(\) \? "ok" : "failed"/);
 });
+
+test("a streaming provider is one row, not split by which route ran it", () => {
+  // gemini streams through the "gemini-live" entry, so keying the single-provider route's
+  // stats on the internal streaming key would put it on a different row from the multi
+  // live lane — the same provider, streaming the same way, reported twice.
+  const stop = audioManager.slice(
+    audioManager.indexOf("async stopStreamingRecording()"),
+    audioManager.indexOf("const streamingAudioBytesSent")
+  );
+  assert.match(
+    stop,
+    /STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER\[stSettings\.cloudTranscriptionProvider\]\s*\n?\s*\?\s*stSettings\.cloudTranscriptionProvider/,
+    "the configured provider should win when it maps to a streaming route"
+  );
+  // But routes with no transcription-provider equivalent still get named.
+  assert.match(
+    stop,
+    /: this\.getStreamingProviderName\(\)/,
+    "deepgram and friends need a fallback"
+  );
+});
