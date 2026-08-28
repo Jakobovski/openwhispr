@@ -18,11 +18,17 @@ const { floatToPcm16 } = require("../utils/pcmAudio");
 
 const SAMPLE_RATE = 16000;
 
-// How long a lane gets to hand over its closing transcript. The socket's own ceiling is
-// five seconds, which is right when it is the only transcriber; here the lane has a
-// one-shot fallback, and being late costs it its place in the race. A healthy lane
-// answers in about 60ms.
-const CLOSE_BUDGET_MS = 600;
+// How long a lane gets to hand over its closing transcript.
+//
+// This is a backstop, not the real cutoff — the caller's deadline is what decides whether
+// a lane is used. So it has to be comfortably larger than the slowest supported provider's
+// tail, or it becomes the limiting factor instead: measured after the last frame, Soniox
+// finalises in 63ms and Gemini Live in 527-541ms across runs, and a 600ms budget was
+// cutting Gemini off before it answered even though the deadline had room.
+//
+// Still bounded, because the socket's own ceiling is five seconds and a hung lane must not
+// hold its own result open that long.
+const CLOSE_BUDGET_MS = 1500;
 
 class LiveTranscriptionLanes {
   /**

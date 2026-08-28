@@ -139,6 +139,19 @@ test("closing hands back one promise per provider rather than one combined wait"
   })();
 });
 
+test("the close budget clears the slowest provider's tail", () => {
+  // It is a backstop, not the cutoff — the caller's deadline decides what gets used. Set
+  // below a supported provider's tail it becomes the limiting factor instead: measured
+  // after the last frame, Soniox finalises in 63ms and Gemini Live in 527-541ms, and a
+  // 600ms budget was cutting Gemini off while the deadline still had room.
+  assert.ok(
+    LIVE_LANE_CLOSE_BUDGET_MS > 1000,
+    `${LIVE_LANE_CLOSE_BUDGET_MS}ms is not clear of Gemini Live's ~540ms tail`
+  );
+  // But still well inside the socket's own five-second ceiling.
+  assert.ok(LIVE_LANE_CLOSE_BUDGET_MS < 5000, "a hung lane must not hold its result for 5s");
+});
+
 test("a lane that hangs resolves null within the close budget", async () => {
   const { lanes, warnings } = build({ stopHangs: true });
   await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
