@@ -314,7 +314,7 @@ test("a dropped streaming lane is still filed as streaming", () => {
   // regardless of how it ended.
   assert.match(
     audioManager,
-    /streaming: providerWantsStreaming\(lane\.provider, settings\)/,
+    /const streaming = providerWantsStreaming\(lane\.provider, settings\)/,
     "the streaming flag must come from the lane's configuration"
   );
   assert.doesNotMatch(
@@ -322,4 +322,60 @@ test("a dropped streaming lane is still filed as streaming", () => {
     /streaming: ok \? result\.value\.streaming/,
     "reading it from the result loses every non-ok lane"
   );
+});
+
+test("a streaming lane is filed under the model it actually streamed with", () => {
+  // Soniox streams stt-rt-v5 while its configured batch model is stt-async-v5, and Gemini
+  // streams gemini-3.5-transcribe-live against a batch gemini-3.5-transcribe. Using the
+  // lane's configured model labelled the streaming stats row with a model that lane had
+  // never run — in the table the user picks providers from.
+  assert.match(
+    audioManager,
+    /model: \(streaming && this\.liveLanes\.modelFor\(lane\.provider\)\) \|\| lane\.model/,
+    "the streaming row must use the model the socket reported"
+  );
+});
+
+test("a lane reports the model the provider actually streamed with", () => {
+  // The label a streaming lane must be filed under. The caller only knows the provider's
+  // *batch* model — Soniox's stt-async-v5 — while the socket opens stt-rt-v5, so the
+  // streaming stats row was labelled with a model that lane had never run.
+  return (async () => {
+    const { lanes } = build({ startResult: { success: true, model: "stt-rt-v5" } });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], {
+      termsFor: async () => [],
+    });
+
+    assert.equal(lanes.modelFor("soniox"), "stt-rt-v5", "the model the socket reported");
+    assert.notEqual(lanes.modelFor("soniox"), "stt-async-v5", "not the configured batch model");
+  })();
+});
+
+test("the streamed model outlives the lane, so a dropped lane is still filed correctly", () => {
+  // A dropped or failed lane returns no result at all, which is exactly when the stats
+  // row still has to name the right model.
+  return (async () => {
+    const { lanes } = build({ startResult: { success: true, model: "stt-rt-v5" }, stopHangs: true });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+
+    const closing = lanes.close(performance.now());
+    assert.equal(await closing.get("soniox"), null, "the lane was dropped");
+    assert.equal(lanes.modelFor("soniox"), "stt-rt-v5", "and is still filed under stt-rt-v5");
+  })();
+});
+
+test("a provider that never started reports no model rather than a stale one", () => {
+  return (async () => {
+    const { lanes } = build({ startResult: { success: true, model: "stt-rt-v5" } });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+    assert.equal(lanes.modelFor("soniox"), "stt-rt-v5");
+
+    // A later recording where the lane fails to start must not inherit the last one's model.
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], {
+      termsFor: async () => {
+        throw new Error("no terms");
+      },
+    });
+    assert.equal(lanes.modelFor("soniox"), null);
+  })();
 });

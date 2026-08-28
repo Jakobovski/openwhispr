@@ -8646,7 +8646,10 @@ class IPCHandlers {
 
           dropCounts.sends = 0;
           await socket.connect({ ...options, apiKey });
-          return { success: true };
+          // The model is reported back rather than assumed by the caller: the renderer
+          // knows only the provider's *batch* model, so the streaming stats row was
+          // labelled with a model that lane never ran.
+          return { success: true, model: socket.currentModel };
         } catch (error) {
           debugLogger.error(
             `${spec.label} streaming start error`,

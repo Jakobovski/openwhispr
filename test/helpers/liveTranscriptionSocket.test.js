@@ -14,7 +14,13 @@ Module._load = function patchedLoad(request, parent, isMain) {
   }
   return originalLoad.call(this, request, parent, isMain);
 };
-const { LiveTranscriptionSocket } = require("../../src/helpers/liveTranscriptionSocket");
+const {
+  LiveTranscriptionSocket,
+  FINAL_WAIT_MS,
+} = require("../../src/helpers/liveTranscriptionSocket");
+const {
+  LIVE_LANE_CLOSE_BUDGET_MS,
+} = require("../../src/helpers/liveTranscriptionLanes");
 const {
   geminiLiveDialect,
   sonioxRealtimeDialect,
@@ -202,6 +208,47 @@ test("gemini: a segment ending mid-recording does not end the stream", async (t)
 
   assert.ok(sawAudioAfterFirstSegment, "the socket kept streaming past the segment boundary");
   assert.ok(result.text.includes("Second."), `the later segment was kept, got: ${result.text}`);
+});
+
+test("gemini: a provider that never answers end-of-stream still yields its transcript", async (t) => {
+  // Measured against the live API: when the user's last words were already finalised —
+  // any dictation with a trailing pause — Gemini sends nothing at all in response to
+  // audio_stream_end. Waiting for a closing message meant waiting out the full 5s final
+  // wait and handing back nothing, so the lane dropped a transcript it was already
+  // holding and fell back to batch.
+  const { wss, port } = await startServer((ws) => {
+    ws.on("message", (data, isBinary) => {
+      if (isBinary) return;
+      const text = data.toString();
+      if (text.includes('"setup"')) {
+        ws.send(JSON.stringify({ setupComplete: {} }));
+        ws.send(
+          JSON.stringify({ serverContent: { inputTranscription: { text: "All done already." } } })
+        );
+        ws.send(JSON.stringify({ serverContent: { generationComplete: true } }));
+      }
+      // Deliberately silent on audio_stream_end, exactly as the live API behaves here.
+    });
+  });
+  t.after(() => wss.close());
+
+  const socket = new LiveTranscriptionSocket(local(geminiLiveDialect, port));
+  await socket.connect({ apiKey: "k" });
+  await settle();
+
+  const startedAt = Date.now();
+  const result = await socket.disconnect(true);
+  const waited = Date.now() - startedAt;
+
+  assert.equal(result.text, "All done already.", "the transcript already held must be returned");
+  assert.ok(
+    waited < FINAL_WAIT_MS / 2,
+    `resolved in ${waited}ms rather than waiting out the ${FINAL_WAIT_MS}ms final wait`
+  );
+  assert.ok(
+    waited < LIVE_LANE_CLOSE_BUDGET_MS,
+    `resolved in ${waited}ms, inside the ${LIVE_LANE_CLOSE_BUDGET_MS}ms the lane allows`
+  );
 });
 
 test("soniox: end-of-stream is an empty TEXT frame, not binary", async () => {

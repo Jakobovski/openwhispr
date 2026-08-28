@@ -43,6 +43,11 @@ class LiveTranscriptionLanes {
     this.keyByProvider = keyByProvider;
     this.logger = logger;
     this.lanes = [];
+    // The model each provider actually streamed with, reported by the provider when it
+    // started. Kept separately from `lanes` because it outlives them: a lane that is
+    // closed, dropped, or never answers still has to be filed under the right model, and
+    // the caller only knows the provider's batch model.
+    this.modelByProvider = new Map();
     // Held so close() and discard() can wait for a start that is still connecting. A
     // short dictation can end before the socket is up, and without this its lanes were
     // pushed after close() had already run — leaving a socket open that nobody owned.
@@ -65,6 +70,7 @@ class LiveTranscriptionLanes {
    */
   async start(lanes, { language, termsFor }) {
     this.lanes = [];
+    this.modelByProvider.clear();
     if (!lanes?.length) return;
 
     this.starting = (async () => {
@@ -91,6 +97,7 @@ class LiveTranscriptionLanes {
           const unsubscribe = api.onError?.((error) =>
             this._warn("reported an error", lane.provider, error)
           );
+          this.modelByProvider.set(lane.provider, result?.model ?? null);
           this.lanes.push({ provider: lane.provider, api, unsubscribe });
         } catch (error) {
           this._warn("threw while starting", lane.provider, error?.message);
@@ -103,6 +110,14 @@ class LiveTranscriptionLanes {
     } finally {
       this.starting = null;
     }
+  }
+
+  /**
+   * The model this provider actually streamed with, or null if it never started.
+   * Not the same as the lane's configured model, which is the provider's batch model.
+   */
+  modelFor(provider) {
+    return this.modelByProvider.get(provider) ?? null;
   }
 
   /** One captured block of float samples, to every open lane. */

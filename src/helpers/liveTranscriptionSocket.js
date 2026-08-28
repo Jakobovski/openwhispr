@@ -32,6 +32,19 @@ const CONNECT_TIMEOUT_MS = 10000;
 // within ~1s in practice; this is the ceiling before giving up and returning whatever
 // finals already arrived, which is better than pasting nothing.
 const FINAL_WAIT_MS = 5000;
+
+// How long after end-of-stream the provider may stay silent before we take what we have.
+//
+// Gemini does not always answer end-of-stream. When the user's last words were already
+// finalised — anything with a trailing pause — it has nothing left to say and sends
+// nothing at all, so waiting for a closing message meant waiting out FINAL_WAIT_MS and
+// handing the lane back empty, throwing away a transcript we were already holding.
+//
+// Re-armed on every message, so a provider that is still working is never cut off; this
+// only fires once it has genuinely gone quiet. Comfortably above the 535ms tail measured
+// when speech ran right up to the stop, and comfortably below the lane's close budget, so
+// the transcript arrives while the lane can still use it.
+const POST_STREAM_QUIET_MS = 700;
 // Audio can arrive from the renderer before the socket is open or acknowledged. Buffering
 // rather than dropping is the difference between losing the first word and not.
 const PRE_READY_BUFFER_MAX_BYTES = 3 * 16000 * 2; // 3 seconds
@@ -65,6 +78,7 @@ class LiveTranscriptionSocket {
     this._connectSettled = false;
     this._finalResolve = null;
     this._finalTimer = null;
+    this._quietTimer = null;
     this._sawProviderFinal = false;
     // Set once no further transcript can arrive — the provider errored, said it was
     // finished, or the socket closed. Without it a disconnect that happens *after* one of
@@ -201,7 +215,20 @@ class LiveTranscriptionSocket {
     }
   }
 
+  /**
+   * After end-of-stream, resolve once the provider has gone quiet and we have something.
+   * Re-armed by every message, so this waits out a provider that is still producing.
+   */
+  _armQuietResolve() {
+    if (!this._endOfStreamSent || this._streamEnded) return;
+    clearTimeout(this._quietTimer);
+    this._quietTimer = setTimeout(() => {
+      if (this.finalText) this._resolveFinal();
+    }, POST_STREAM_QUIET_MS);
+  }
+
   _handleEvent(parsed) {
+    this._armQuietResolve();
     switch (parsed.kind) {
       case "setup":
         this._markReady();
@@ -285,8 +312,10 @@ class LiveTranscriptionSocket {
     this._markReady();
     const signal = this.dialect.buildEndOfStream?.();
     if (signal === null || signal === undefined) return false;
-    // From here a provider's segment-complete does mean the stream is complete.
+    // From here a provider's segment-complete does mean the stream is complete, and its
+    // silence means it has nothing more to send.
     this._endOfStreamSent = true;
+    this._armQuietResolve();
     this.ws.send(signal);
     return true;
   }
@@ -298,6 +327,8 @@ class LiveTranscriptionSocket {
     this._finalResolve = null;
     clearTimeout(this._finalTimer);
     this._finalTimer = null;
+    clearTimeout(this._quietTimer);
+    this._quietTimer = null;
     resolve({ text: this.finalText, sawProviderFinal: this._sawProviderFinal });
   }
 

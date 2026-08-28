@@ -4212,19 +4212,24 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           "transcription"
         );
       }
+      // From the lane's configuration, not from its result: a dropped or failed lane
+      // never returns one, so reading it there filed every dropped streaming lane under
+      // the batch row — inflating that row's drop rate while the streaming row never
+      // moved. How the lane was *run* is known either way.
+      const streaming = providerWantsStreaming(lane.provider, settings);
       return {
         slot: lane.slot,
         provider: lane.provider,
-        model: lane.model,
+        // A streaming lane runs a different model from the batch one it is configured
+        // with — Soniox streams stt-rt-v5 where its batch model is stt-async-v5 — so
+        // using the configured model labelled the streaming stats row with a model that
+        // lane had never run. The socket reports what it actually opened.
+        model: (streaming && this.liveLanes.modelFor(lane.provider)) || lane.model,
         label: getMultiTranscriptionProvider(lane.provider)?.label || lane.provider,
         status: statusFor(index),
         text: ok ? result.value.text : null,
         ms: ok ? result.value.ms : null,
-        // From the lane's configuration, not from its result: a dropped or failed lane
-        // never returns one, so reading it there filed every dropped streaming lane under
-        // the batch row — inflating that row's drop rate while the streaming row never
-        // moved. How the lane was *run* is known either way.
-        streaming: providerWantsStreaming(lane.provider, settings),
+        streaming,
       };
     });
 
