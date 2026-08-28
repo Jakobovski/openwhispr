@@ -2852,6 +2852,16 @@ export async function initializeSettings(): Promise<void> {
     }
   }
 
+  // A secret saved in another window. Secrets never reach localStorage, so they cannot
+  // ride the storage event below — without this the window that transcribes keeps an
+  // empty key until the app restarts.
+  window.electronAPI?.onSecretKeyUpdated?.(({ storeKey, key }) => {
+    if (!storeKey) return;
+    const state = useSettingsStore.getState() as unknown as Record<string, unknown>;
+    if (!(storeKey in state)) return;
+    useSettingsStore.setState({ [storeKey]: key ?? "" });
+  });
+
   // Sync Zustand store when another window writes to localStorage
   window.addEventListener("storage", (event) => {
     if (!event.key || event.storageArea !== localStorage || event.newValue === null) return;

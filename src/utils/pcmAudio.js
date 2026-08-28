@@ -49,6 +49,23 @@ function concatFrames(frames) {
  * @param {number} sampleRate
  * @returns {ArrayBuffer}
  */
+/**
+ * Float samples in [-1, 1] to PCM16, which is what every streaming socket here accepts.
+ *
+ * The asymmetric scale is deliberate and not a rounding quirk: PCM16 runs -32768..32767,
+ * so the negative side has one more step than the positive one. Scaling both by 0x7fff
+ * wastes that step; scaling both by 0x8000 clips the loudest positive sample to -32768
+ * and inverts it.
+ */
+function floatToPcm16(samples) {
+  const out = new Int16Array(samples.length);
+  for (let i = 0; i < samples.length; i++) {
+    const clamped = samples[i] > 1 ? 1 : samples[i] < -1 ? -1 : samples[i];
+    out[i] = clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff;
+  }
+  return out;
+}
+
 function encodeWavPcm16Buffer(samples, sampleRate) {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
@@ -92,5 +109,6 @@ module.exports = {
   UPLOAD_SAMPLE_RATE,
   concatFrames,
   encodeWavPcm16Buffer,
+  floatToPcm16,
   samplesToSeconds,
 };

@@ -981,7 +981,22 @@ class IPCHandlers {
 
     for (const k of BYOK_API_KEYS) {
       ipcMain.handle(`get-${k.base}-key`, () => this.environmentManager[k.get]());
-      ipcMain.handle(`save-${k.base}-key`, (event, key) => this.environmentManager[k.save](key));
+      ipcMain.handle(`save-${k.base}-key`, (event, key) => {
+        const result = this.environmentManager[k.save](key);
+        // Every other window is told, because a secret never touches localStorage and so
+        // never fires the storage event the rest of the settings sync on. Without this a
+        // key entered in the control panel is invisible to the dictation window until the
+        // app restarts — which is exactly how "No gemini API key configured" appeared four
+        // minutes after the key was saved.
+        //
+        // The value travels over IPC just as it already does when a window hydrates at
+        // startup, so this adds no exposure the app did not already have.
+        for (const win of BrowserWindow.getAllWindows()) {
+          if (win.isDestroyed() || win.webContents === event.sender) continue;
+          win.webContents.send("secret-key-updated", { storeKey: k.storeKey, key });
+        }
+        return result;
+      });
     }
 
     ipcMain.handle("db-save-transcription", async (event, text, rawText, options) => {

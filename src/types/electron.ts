@@ -1234,6 +1234,9 @@ declare global {
       }) => Promise<{ text: string }>;
       getTinfoilKey?: () => Promise<string | null>;
       saveTinfoilKey?: (key: string) => Promise<void>;
+      onSecretKeyUpdated?: (
+        callback: (payload: { storeKey: string; key: string }) => void
+      ) => () => void;
       getSonioxKey?: () => Promise<string | null>;
       saveSonioxKey?: (key: string) => Promise<void>;
       getTinfoilChatModels?: () => Promise<TinfoilCatalogModel[]>;

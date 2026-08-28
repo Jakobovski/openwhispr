@@ -34,7 +34,7 @@ import { isCleanupPermanentlyUnavailable } from "../utils/cleanupFailure";
 import { transcriptsAgree, chooseFallbackTranscript } from "../utils/transcriptReconcile";
 import { wordErrorRate } from "../utils/wordErrorRate";
 import { PcmBatchRecorder } from "./pcmBatchRecorder";
-import { concatFrames } from "../utils/pcmAudio";
+import { concatFrames, floatToPcm16 } from "../utils/pcmAudio";
 import settingsDefaults from "../config/settingsDefaults.json";
 import { buildReconcileRequest } from "./reconcileRequest";
 import {
@@ -1201,6 +1201,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // the user speaks instead of adding latency at the end.
       this.startScreenContextCapture();
 
+      // Same reasoning, and the socket needs the head start more: connecting takes
+      // ~130ms, and frames captured before it is ready are buffered rather than lost.
+      // Not awaited, so a slow connect cannot delay the mic.
+      void this.startLiveTranscriptionLanes();
+
       const constraints = await this.getAudioConstraints(forceDefaultMic);
       const micStream = await this.acquireHealthyMicStream(
         await navigator.mediaDevices.getUserMedia(constraints),
@@ -1359,8 +1364,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // 16 kHz mono PCM, captured rather than encoded: see pcmBatchRecorder for why Opus is
     // gone. The interface matches what this path expected of MediaRecorder, so rotation,
     // cancel and discard behaviour below are unchanged.
-    const recorder = new PcmBatchRecorder(micStream, () => {
+    const recorder = new PcmBatchRecorder(micStream, (frame) => {
       this._receivedAudioData = true;
+      // The same frames the recording is built from also go to any live lane, so a
+      // streaming provider is working while the user talks instead of after they stop.
+      this._feedLiveTranscriptionLanes(frame);
     });
     this.mediaRecorder = recorder;
     this.audioChunks = [];
@@ -3599,6 +3607,120 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   /**
+   * Sockets that transcribe while the user is still talking.
+   *
+   * A batch lane cannot start until the recording ends, and for a job-queue provider that
+   * is the whole latency: Soniox's async path measured 3859ms for a 19-second recording
+   * against a 2500ms lane budget, so the fan-out dropped it every time. Blasting the
+   * recording at the realtime socket afterwards is worse, not better — it processes at
+   * roughly real time, so the same audio took 15.3s that way.
+   *
+   * Fed live, the same socket finishes about 0.7s after the last frame, because it has
+   * been working the whole time the user was speaking. That is the only arrangement in
+   * which a streaming provider is actually fast, which is why this exists rather than a
+   * larger lane budget.
+   *
+   * Only lanes whose provider is set to streaming take part; everything else still uses
+   * the one-shot path, unchanged.
+   */
+  async startLiveTranscriptionLanes() {
+    this._liveLanes = [];
+    const settings = getSettings();
+    if (settings.multiTranscriptionEnabled !== true) return;
+
+    const lanes = resolveMultiTranscriptionLanes(settings).filter((lane) =>
+      providerWantsStreaming(lane.provider, settings)
+    );
+    if (lanes.length === 0) return;
+
+    const language = getBaseLanguageCode(this.getEffectiveSttLanguage(settings));
+
+    for (const lane of lanes) {
+      const streamingKey = STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER[lane.provider];
+      const api = STREAMING_PROVIDERS[streamingKey];
+      if (!api?.start) continue;
+      try {
+        const result = await api.start({
+          sampleRate: UPLOAD_SAMPLE_RATE,
+          language: language && language !== "auto" ? language : undefined,
+          vocabulary: await this.getProviderTerms(lane.provider),
+          model: lane.model,
+        });
+        if (result?.success === false) {
+          // Not fatal: the lane falls back to its one-shot path, which is slower but
+          // works. Silently dropping the lane instead would be worse.
+          logger.warn(
+            "Live transcription lane failed to start, falling back to batch",
+            { provider: lane.provider, error: result.error },
+            "streaming"
+          );
+          continue;
+        }
+        this._liveLanes.push({ provider: lane.provider, api });
+      } catch (error) {
+        logger.warn(
+          "Live transcription lane threw while starting, falling back to batch",
+          { provider: lane.provider, error: error.message },
+          "streaming"
+        );
+      }
+    }
+  }
+
+  /** One captured block, to every live lane. Called from the recorder's frame callback. */
+  _feedLiveTranscriptionLanes(frame) {
+    if (!this._liveLanes?.length || !frame?.length) return;
+    // Converted once for all lanes rather than per socket.
+    const pcm = floatToPcm16(frame);
+    for (const lane of this._liveLanes) {
+      try {
+        lane.api.send(pcm.buffer);
+      } catch {
+        // A dead socket must not stop the recording; the lane's stop() will report it.
+      }
+    }
+  }
+
+  /**
+   * Close the live lanes and keep their transcripts, keyed by provider.
+   *
+   * Called once at the start of the fan-out so each lane can await its own result, and
+   * so a lane that produced nothing falls through to its one-shot path.
+   */
+  async collectLiveTranscriptionLanes() {
+    const collected = new Map();
+    if (!this._liveLanes?.length) return collected;
+
+    const lanes = this._liveLanes;
+    this._liveLanes = [];
+
+    await Promise.all(
+      lanes.map(async (lane) => {
+        try {
+          lane.api.finalize?.();
+          const result = await lane.api.stop();
+          const text = (result?.text || "").trim();
+          if (text) collected.set(lane.provider, text);
+          else {
+            logger.warn(
+              "Live transcription lane returned nothing, falling back to batch",
+              { provider: lane.provider },
+              "streaming"
+            );
+          }
+        } catch (error) {
+          logger.warn(
+            "Live transcription lane failed on stop, falling back to batch",
+            { provider: lane.provider, error: error.message },
+            "streaming"
+          );
+        }
+      })
+    );
+    return collected;
+  }
+
+  /**
    * One recording, one transcript, for the providers that are neither OpenAI-compatible
    * nor proxied through the main process.
    *
@@ -3747,9 +3869,33 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   // break in a mechanical refactor: Azure's api-key header, Groq's prompt cap,
   // SSE streaming, dictionary-echo detection, the local-whisper fallback.
   // Duplicating the two request shapes dual mode needs is the cheaper risk.
-  async transcribeRawWithProvider(audioBlob, provider, { language, model: requestedModel } = {}) {
+  async transcribeRawWithProvider(
+    audioBlob,
+    provider,
+    { language, model: requestedModel, liveText } = {}
+  ) {
     const settings = getSettings();
     const startedAt = performance.now();
+
+    // A live lane already has its answer, so there is nothing to upload. No latency is
+    // recorded here: processWithMultiTranscription records every lane from multi.sides,
+    // and doing it here too would count this lane twice.
+    if (liveText) {
+      const trimmedLive = liveText.trim();
+      // The same guard the one-shot path applies: a transcript that is just the
+      // vocabulary prompt echoed back means silence, not speech.
+      if (trimmedLive && !this.isDictionaryEcho(trimmedLive)) {
+        return {
+          provider,
+          model: requestedModel?.trim() || MULTI_TRANSCRIPTION_MODELS[provider],
+          text: trimmedLive,
+          // Near zero on purpose, and true: the work happened while the user was
+          // talking, so the stats should show streaming costing almost nothing after
+          // the stop rather than borrowing the batch path's timing.
+          ms: Math.round(performance.now() - startedAt),
+        };
+      }
+    }
     // The caller's per-side choice wins; the provider's default stands in when the
     // user has not picked one.
     const model = requestedModel?.trim() || MULTI_TRANSCRIPTION_MODELS[provider];
@@ -3980,9 +4126,15 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // the same provider twice while evicting another.
     const lanes = resolveMultiTranscriptionLanes(settings);
 
+    // Closed first, and in parallel with the trim below rather than before it: a live
+    // lane has been transcribing throughout the recording, so all that is left is its
+    // closing transcript — about 0.7s, against 3.9s for the same provider's job queue.
+    const liveTextPromise = this.collectLiveTranscriptionLanes();
+
     // Trimmed once, before the fan-out: every provider gets the same shorter audio, and
     // the saving counts once per lane.
     const trimmedBlob = await this.prepareAudioForUpload(audioBlob, this.capturedPcmForUpload());
+    const liveText = await liveTextPromise;
 
     const startedAt = performance.now();
     const settled = lanes.map(() => null);
@@ -4004,6 +4156,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         this.transcribeRawWithProvider(trimmedBlob, lane.provider, {
           language,
           model: lane.model,
+          // Already transcribed while the user was talking. Passed in rather than looked
+          // up inside, so a lane whose socket produced nothing falls through to its
+          // one-shot request instead of returning an empty transcript.
+          liveText: liveText.get(lane.provider),
         }),
         index
       )

@@ -624,6 +624,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     (callback) => (_event, data) => callback(data)
   ),
 
+  // A secret saved in another window. Secrets are deliberately kept out of
+  // localStorage, so they cannot ride the storage event the other settings use.
+  onSecretKeyUpdated: registerListener(
+    "secret-key-updated",
+    (callback) => (_event, payload) => callback(payload)
+  ),
+
   // Gemini Live and Soniox realtime (BYOK). Same channel shape as the streaming
   // providers above; both authenticate in their opening message, so no warmup or token
   // exchange.
