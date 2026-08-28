@@ -1732,6 +1732,57 @@ declare global {
         callback: (data: { audioDuration?: number; text?: string }) => void
       ) => () => void;
 
+      // Gemini Live and Soniox realtime (BYOK). Both take the language and the
+      // vocabulary up front, since both bias recognition before it happens rather than
+      // correcting it after.
+      geminiLiveStreamingStart?: (options?: {
+        language?: string;
+        vocabulary?: string[];
+        model?: string;
+        sampleRate?: number;
+      }) => Promise<{ success: boolean; error?: string }>;
+      geminiLiveStreamingSend?: (audioBuffer: ArrayBuffer) => void;
+      geminiLiveStreamingFinalize?: () => void;
+      geminiLiveStreamingStop?: () => Promise<{
+        success: boolean;
+        text?: string;
+        model?: string | null;
+        audioBytesSent?: number;
+        error?: string;
+      }>;
+      geminiLiveStreamingStatus?: () => Promise<{
+        isConnected: boolean;
+        sessionId: string | null;
+      }>;
+      onGeminiLivePartialTranscript?: (callback: (text: string) => void) => () => void;
+      onGeminiLiveFinalTranscript?: (callback: (text: string) => void) => () => void;
+      onGeminiLiveError?: (callback: (error: string) => void) => () => void;
+      onGeminiLiveSessionEnd?: (callback: (data: unknown) => void) => () => void;
+
+      sonioxStreamingStart?: (options?: {
+        language?: string;
+        vocabulary?: string[];
+        model?: string;
+        sampleRate?: number;
+      }) => Promise<{ success: boolean; error?: string }>;
+      sonioxStreamingSend?: (audioBuffer: ArrayBuffer) => void;
+      sonioxStreamingFinalize?: () => void;
+      sonioxStreamingStop?: () => Promise<{
+        success: boolean;
+        text?: string;
+        model?: string | null;
+        audioBytesSent?: number;
+        error?: string;
+      }>;
+      sonioxStreamingStatus?: () => Promise<{
+        isConnected: boolean;
+        sessionId: string | null;
+      }>;
+      onSonioxPartialTranscript?: (callback: (text: string) => void) => () => void;
+      onSonioxFinalTranscript?: (callback: (text: string) => void) => () => void;
+      onSonioxError?: (callback: (error: string) => void) => () => void;
+      onSonioxSessionEnd?: (callback: (data: unknown) => void) => () => void;
+
       // Corti streaming (BYOK)
       cortiStreamingWarmup?: (options?: {
         environment?: string;

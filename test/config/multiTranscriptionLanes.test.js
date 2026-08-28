@@ -7,38 +7,52 @@ const load = () => import("../../src/config/multiTranscription.ts");
 const providers = (lanes) => lanes.map((lane) => lane.provider);
 
 test("empty settings run the three slot defaults, in order", async () => {
-  const { resolveMultiTranscriptionLanes } = await load();
+  const {
+    resolveMultiTranscriptionLanes,
+    DEFAULT_MULTI_PROVIDER_A,
+    DEFAULT_MULTI_PROVIDER_B,
+    DEFAULT_MULTI_PROVIDER_C,
+  } = await load();
+  // Derived from the exported defaults rather than spelled out: what this asserts is
+  // that a fresh install runs all three slots in slot order, which is the merge's
+  // tie-break. Hardcoding the provider ids made this test fail every time the defaults
+  // were retuned, which is a decision made elsewhere and not what this covers.
   assert.deepEqual(providers(resolveMultiTranscriptionLanes({})), [
-    "xai",
-    "openai",
-    "azure-speech",
+    DEFAULT_MULTI_PROVIDER_A,
+    DEFAULT_MULTI_PROVIDER_B,
+    DEFAULT_MULTI_PROVIDER_C,
   ]);
 });
 
 test("a stored slot combined with a colliding default does not duplicate a provider", async () => {
-  const { resolveMultiTranscriptionLanes } = await load();
+  const { resolveMultiTranscriptionLanes, DEFAULT_MULTI_PROVIDER_B } = await load();
   // The real failure: slot A was stored as openai from the settings UI, slot B had no
   // stored value and its default had just been changed to openai. Every dictation went to
   // OpenAI twice and xAI never ran — visible only as "openai:ok, openai:ok, groq:ok" in a
   // log line.
-  const lanes = resolveMultiTranscriptionLanes({ dualTranscriptionProviderA: "openai" });
+  // Stores slot A as whatever slot B defaults to, so the collision is guaranteed
+  // regardless of how the defaults are currently tuned.
+  const collidingProvider = DEFAULT_MULTI_PROVIDER_B;
+  const lanes = resolveMultiTranscriptionLanes({
+    dualTranscriptionProviderA: collidingProvider,
+  });
 
-  assert.deepEqual(providers(lanes), ["openai", "xai", "azure-speech"]);
+  assert.equal(providers(lanes)[0], collidingProvider, "the stored choice keeps slot A");
+  assert.equal(providers(lanes).length, 3, "all three slots still run");
   assert.equal(new Set(providers(lanes)).size, 3, "no provider runs twice");
 });
 
 test("an explicitly chosen duplicate runs once rather than overriding the choice", async () => {
-  const { resolveMultiTranscriptionLanes } = await load();
+  const { resolveMultiTranscriptionLanes, DEFAULT_MULTI_PROVIDER_C } = await load();
   // Both A and B stored as groq by hand: honour the choice and drop the redundant call,
   // rather than substituting a provider the user did not ask for. Slot C is still on its
-  // default, so it is free to be filled with something unused — Azure Speech, since
-  // slot C's default is no longer groq.
+  // default, so it fills with whatever that is.
   const lanes = resolveMultiTranscriptionLanes({
     dualTranscriptionProviderA: "groq",
     dualTranscriptionProviderB: "groq",
   });
 
-  assert.deepEqual(providers(lanes), ["groq", "azure-speech"]);
+  assert.deepEqual(providers(lanes), ["groq", DEFAULT_MULTI_PROVIDER_C]);
 });
 
 test("a slot set to none runs nothing for that slot", async () => {
@@ -105,18 +119,22 @@ test("slot order is preserved, because it is the merge tie-break", async () => {
   );
 });
 
-test("a fresh install runs the three chosen provider/model pairs", async () => {
-  const { resolveMultiTranscriptionLanes } = await load();
-  // The configuration asked for by ID: xAI Grok STT, OpenAI GPT Transcribe, Groq
-  // Whisper Large v3 (not the turbo variant). Slot order is also the merge tie-break.
-  assert.deepEqual(
-    resolveMultiTranscriptionLanes({}).map((lane) => [lane.provider, lane.model]),
-    [
-      ["xai", "grok-stt"],
-      ["openai", "gpt-transcribe"],
-      ["azure-speech", "mai-transcribe-1.5"],
-    ]
-  );
+test("a fresh install pairs each default slot with that provider's own model", async () => {
+  // What matters is that no slot runs a model belonging to a different provider — the
+  // failure that sent "whisper-large-v3-turbo" to xAI's endpoint. The specific default
+  // providers are chosen elsewhere and asserted from the exported constants above, so
+  // this derives the expected model from the provider table instead of restating it.
+  const { resolveMultiTranscriptionLanes, MULTI_TRANSCRIPTION_MODELS } = await load();
+  const lanes = resolveMultiTranscriptionLanes({});
+
+  assert.equal(lanes.length, 3, "a fresh install runs all three slots");
+  for (const lane of lanes) {
+    assert.equal(
+      lane.model,
+      MULTI_TRANSCRIPTION_MODELS[lane.provider],
+      `${lane.provider} was paired with ${lane.model}, which is not its own model`
+    );
+  }
 });
 
 test("every default lane model is a real id in the registry", async () => {

@@ -55,10 +55,21 @@ test("one builder feeds every consumer", () => {
   const assemblies = audioManager.match(/for \(const term of \[\.\.\.dictionary,/g) ?? [];
   assert.equal(assemblies.length, 1, "the vocabulary must be assembled in exactly one place");
 
+  // Consumers now reach it through getProviderTerms, which applies the provider's own
+  // ceiling — one generator, one shaper, rather than each lane naming a limit. The merge
+  // still calls the generator directly because it wants no provider's shape.
   const consumers = audioManager.match(/this\.getDictationVocabulary\(/g) ?? [];
-  assert.ok(consumers.length >= 3, `expected every consumer to call it, saw ${consumers.length}`);
-
-  assert.match(audioManager, /phrases: await this\.getDictationVocabulary\(\)/, "Azure uses it");
+  assert.ok(consumers.length >= 2, `expected the shaper and the merge, saw ${consumers.length}`);
+  assert.match(
+    audioManager,
+    /const terms = await this\.getDictationVocabulary\(shape\.limit\)/,
+    "the shaper must build from the one generator"
+  );
+  assert.match(
+    audioManager,
+    /phrases: await this\.getProviderTerms\("azure-speech"\)/,
+    "Azure gets its terms from the shaper"
+  );
   assert.match(
     audioManager,
     /DICTATION_VOCABULARY_LIMIT = 200/,

@@ -624,6 +624,55 @@ contextBridge.exposeInMainWorld("electronAPI", {
     (callback) => (_event, data) => callback(data)
   ),
 
+  // Gemini Live and Soniox realtime (BYOK). Same channel shape as the streaming
+  // providers above; both authenticate in their opening message, so no warmup or token
+  // exchange.
+  geminiLiveStreamingStart: (options) => ipcRenderer.invoke("gemini-live-streaming-start", options),
+  geminiLiveStreamingSend: (audioBuffer) =>
+    ipcRenderer.send("gemini-live-streaming-send", audioBuffer),
+  geminiLiveStreamingFinalize: () => ipcRenderer.send("gemini-live-streaming-finalize"),
+  geminiLiveStreamingStop: () => ipcRenderer.invoke("gemini-live-streaming-stop"),
+  geminiLiveStreamingStatus: () => ipcRenderer.invoke("gemini-live-streaming-status"),
+  onGeminiLivePartialTranscript: registerListener(
+    "gemini-live-partial-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onGeminiLiveFinalTranscript: registerListener(
+    "gemini-live-final-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onGeminiLiveError: registerListener(
+    "gemini-live-error",
+    (callback) => (_event, error) => callback(error)
+  ),
+  onGeminiLiveSessionEnd: registerListener(
+    "gemini-live-session-end",
+    (callback) => (_event, data) => callback(data)
+  ),
+
+  sonioxStreamingStart: (options) => ipcRenderer.invoke("soniox-realtime-streaming-start", options),
+  sonioxStreamingSend: (audioBuffer) =>
+    ipcRenderer.send("soniox-realtime-streaming-send", audioBuffer),
+  sonioxStreamingFinalize: () => ipcRenderer.send("soniox-realtime-streaming-finalize"),
+  sonioxStreamingStop: () => ipcRenderer.invoke("soniox-realtime-streaming-stop"),
+  sonioxStreamingStatus: () => ipcRenderer.invoke("soniox-realtime-streaming-status"),
+  onSonioxPartialTranscript: registerListener(
+    "soniox-realtime-partial-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onSonioxFinalTranscript: registerListener(
+    "soniox-realtime-final-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onSonioxError: registerListener(
+    "soniox-realtime-error",
+    (callback) => (_event, error) => callback(error)
+  ),
+  onSonioxSessionEnd: registerListener(
+    "soniox-realtime-session-end",
+    (callback) => (_event, data) => callback(data)
+  ),
+
   // Corti streaming (BYOK)
   cortiStreamingWarmup: (options) => ipcRenderer.invoke("corti-streaming-warmup", options),
   cortiStreamingStart: (options) => ipcRenderer.invoke("corti-streaming-start", options),

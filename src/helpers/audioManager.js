@@ -81,6 +81,7 @@ import { isEmptyRecording } from "./recordingGuard";
 import { matchesDictionaryPrompt } from "../utils/dictionaryEchoFilter.js";
 import { planSilenceTrim, applySilenceTrim, resolveSilenceTrimOptions } from "../utils/silenceTrim";
 import { planAutoGain } from "../utils/autoGain";
+import { normalizeDictationTerms } from "../utils/dictationTerms";
 import {
   buildBatchRequest as buildGeminiBatchRequest,
   parseBatchResponse as parseGeminiBatchResponse,
@@ -121,6 +122,19 @@ const DICTATION_VOCABULARY_LIMIT = 200;
 // generous relative to the lane budget on purpose: the fan-out will already have dropped
 // this lane long before it expires, so this only exists so a wedged job cannot leave a
 // request in flight forever.
+// Each provider's ceilings, in one table. xAI caps a term at 50 characters and the list
+// at 100; Groq rejects a prompt over 896 characters; Gemini and Soniox take 1000 terms.
+const PROVIDER_TERM_SHAPES = {
+  xai: { limit: 100, maxTermLength: 50 },
+  gemini: { limit: 1000 },
+  soniox: { limit: 1000 },
+  "azure-speech": { limit: 200 },
+  groq: { limit: 1000, maxPromptChars: 890 },
+  default: { limit: 200, maxPromptChars: 900 },
+};
+
+const XAI_KEYTERM_LIMIT = 100;
+const XAI_KEYTERM_MAX_LENGTH = 50;
 const SONIOX_ASYNC_POLL_MS = 300;
 const SONIOX_ASYNC_TIMEOUT_MS = 30000;
 
@@ -458,6 +472,30 @@ const STREAMING_PROVIDERS = {
     onError: (cb) => window.electronAPI.onDictationRealtimeError(cb),
     onSessionEnd: (cb) => window.electronAPI.onDictationRealtimeSessionEnd(cb),
   },
+  // No warmup for either: both authenticate in their opening message, so there is no
+  // token to pre-fetch and no idle connection worth holding open.
+  "gemini-live": {
+    start: (opts) => window.electronAPI.geminiLiveStreamingStart(opts),
+    send: (buf) => window.electronAPI.geminiLiveStreamingSend(buf),
+    finalize: () => window.electronAPI.geminiLiveStreamingFinalize(),
+    stop: () => window.electronAPI.geminiLiveStreamingStop(),
+    status: () => window.electronAPI.geminiLiveStreamingStatus(),
+    onPartial: (cb) => window.electronAPI.onGeminiLivePartialTranscript(cb),
+    onFinal: (cb) => window.electronAPI.onGeminiLiveFinalTranscript(cb),
+    onError: (cb) => window.electronAPI.onGeminiLiveError(cb),
+    onSessionEnd: (cb) => window.electronAPI.onGeminiLiveSessionEnd(cb),
+  },
+  soniox: {
+    start: (opts) => window.electronAPI.sonioxStreamingStart(opts),
+    send: (buf) => window.electronAPI.sonioxStreamingSend(buf),
+    finalize: () => window.electronAPI.sonioxStreamingFinalize(),
+    stop: () => window.electronAPI.sonioxStreamingStop(),
+    status: () => window.electronAPI.sonioxStreamingStatus(),
+    onPartial: (cb) => window.electronAPI.onSonioxPartialTranscript(cb),
+    onFinal: (cb) => window.electronAPI.onSonioxFinalTranscript(cb),
+    onError: (cb) => window.electronAPI.onSonioxError(cb),
+    onSessionEnd: (cb) => window.electronAPI.onSonioxSessionEnd(cb),
+  },
   corti: {
     warmup: (opts) => window.electronAPI.cortiStreamingWarmup(opts),
     start: (opts) => window.electronAPI.cortiStreamingStart(opts),
@@ -791,7 +829,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   }
 
   isDictionaryEcho(text) {
-    return matchesDictionaryPrompt(text, this.getCustomDictionaryPrompt());
+    // Against the prompt actually sent, when there was one: the prompt now carries the
+    // on-screen terms too, and rebuilding a dictionary-only string here would compare the
+    // transcript against something the provider never saw.
+    return matchesDictionaryPrompt(
+      text,
+      this._lastDictationPrompt ?? this.getCustomDictionaryPrompt()
+    );
   }
 
   setCallbacks({
@@ -922,6 +966,14 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       s.xaiTranscriptionMode !== "batch"
     ) {
       return "xai";
+    }
+    // Both stream natively and bias on the vocabulary passed at start, so streaming is
+    // the better path for them whenever they are the selected provider.
+    if (s.cloudTranscriptionProvider === "gemini" && s.cloudTranscriptionMode === "byok") {
+      return "gemini-live";
+    }
+    if (s.cloudTranscriptionProvider === "soniox" && s.cloudTranscriptionMode === "byok") {
+      return "soniox";
     }
     if (REALTIME_MODELS.has(s.cloudTranscriptionModel)) {
       return "openai-realtime";
@@ -3000,8 +3052,46 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     return getSettings().customPrompts.cleanup || undefined;
   }
 
-  getKeyterms() {
-    return this.getCustomDictionaryArray();
+  /**
+   * The speaker's terms, shaped for one provider.
+   *
+   * Every provider that biases on a term list goes through here, so there is one place
+   * that builds the list and one place that knows each provider's ceiling. Before this,
+   * four call sites assembled it themselves and they had already diverged: xAI and the
+   * whisper-style providers were getting the custom dictionary only, while Azure, Gemini
+   * and Soniox also got the terms read off screen — so the same dictation was biased
+   * differently depending on which lane happened to run it.
+   *
+   * The generator is getDictationVocabulary, which is the single source and is cached per
+   * dictation, so asking for several providers' shapes costs one capture.
+   */
+  async getProviderTerms(provider) {
+    const shape = PROVIDER_TERM_SHAPES[provider] ?? PROVIDER_TERM_SHAPES.default;
+    const terms = await this.getDictationVocabulary(shape.limit);
+    return normalizeDictationTerms(terms, {
+      limit: shape.limit,
+      maxTermLength: shape.maxTermLength ?? Infinity,
+    });
+  }
+
+  /**
+   * The same terms as a comma-separated prompt, for the whisper-style providers that take
+   * one instead of a list.
+   *
+   * The exact string sent is remembered, because isDictionaryEcho compares a transcript
+   * against it to detect a recogniser echoing its own prompt back — and comparing against
+   * a differently-built string would either miss an echo or reject real speech.
+   */
+  async getDictationPrompt(provider) {
+    const shape = PROVIDER_TERM_SHAPES[provider] ?? PROVIDER_TERM_SHAPES.default;
+    const terms = await this.getProviderTerms(provider);
+    if (terms.length === 0) {
+      this._lastDictationPrompt = null;
+      return null;
+    }
+    const prompt = terms.join(", ").slice(0, shape.maxPromptChars ?? MAX_PROMPT_CHARS);
+    this._lastDictationPrompt = prompt;
+    return prompt;
   }
 
   async processWithOpenAIAPI(audioBlob, metadata = {}) {
@@ -3191,10 +3281,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           language: language !== "auto" ? language : undefined,
         };
 
-        const keyterms = this.getKeyterms()
-          .map((t) => t.trim().slice(0, 50))
-          .filter(Boolean)
-          .slice(0, 100);
+        const keyterms = await this.getProviderTerms("xai");
         if (keyterms.length > 0) {
           proxyData.keyterms = keyterms;
         }
@@ -3519,7 +3606,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           fileId,
           model,
           language,
-          vocabulary: await this.getDictationVocabulary(SONIOX_TERM_LIMIT),
+          vocabulary: await this.getProviderTerms("soniox"),
         }),
       });
       transcriptionId = created?.id;
@@ -3585,10 +3672,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       }
       // The xAI proxy takes no model: grok-stt is the only speech model xAI serves,
       // so the picker offers exactly one option and there is nothing to pass on.
-      const keyterms = this.getKeyterms()
-        .map((term) => term.trim().slice(0, 50))
-        .filter(Boolean)
-        .slice(0, 100);
+      const keyterms = await this.getProviderTerms("xai");
       const result = await window.electronAPI.proxyXaiTranscription({
         audioBuffer: await audioBlob.arrayBuffer(),
         mimeType: audioBlob.type || undefined,
@@ -3608,7 +3692,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         // Azure rejects a bare "en"; an absent locale means the model's multilingual
         // mode, which is the right default when the user has not chosen a language.
         locale: language && language !== "auto" ? toAzureLocale(language) : undefined,
-        phrases: await this.getDictationVocabulary(),
+        phrases: await this.getProviderTerms("azure-speech"),
         model,
       });
       text = result?.text;
@@ -3624,7 +3708,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         // Bare codes are accepted, so no locale mapping; "auto" omits the hint and
         // leaves the model's own detection in charge.
         language: language && language !== "auto" ? language : undefined,
-        vocabulary: await this.getDictationVocabulary(GEMINI_VOCABULARY_LIMIT),
+        vocabulary: await this.getProviderTerms("gemini"),
         model,
       });
 
@@ -3662,10 +3746,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       formData.append("file", audioBlob, `audio.${extension}`);
       formData.append("model", model);
       if (language && language !== "auto") formData.append("language", language);
-      // Same cap as the single-provider path: Groq rejects prompts over 896 chars.
-      const dictionaryPrompt = this.getCustomDictionaryPrompt();
+      // Through the shared builder, so this lane is biased on the same terms as every
+      // other — including the ones read off screen, which it used to miss. The per-
+      // provider character cap lives in PROVIDER_TERM_SHAPES (Groq rejects over 896).
+      const dictionaryPrompt = await this.getDictationPrompt(provider);
       if (dictionaryPrompt) {
-        formData.append("prompt", dictionaryPrompt.slice(0, provider === "groq" ? 890 : 900));
+        formData.append("prompt", dictionaryPrompt);
       }
 
       const response = await fetch(endpoint, {
@@ -4614,7 +4700,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           const res = await provider.warmup({
             sampleRate: 16000,
             language: warmupLang && warmupLang !== "auto" ? warmupLang : undefined,
-            keyterms: this.getKeyterms(),
+            keyterms: await this.getProviderTerms("xai"),
             model: cloudTranscriptionModel,
             mode: cloudTranscriptionMode === "byok" ? "byok" : "openwhispr",
             environment: cortiEnvironment,
@@ -4906,10 +4992,16 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           useLocalWhisper,
         } = streamingSettings;
         const sttLanguage = this.getEffectiveSttLanguage(streamingSettings);
+
+        // Fetched unconditionally: the OCR capture is already in flight and resolves in
+        // one or two milliseconds, so there is nothing to save by asking only for the
+        // providers that bias on it. Each provider trims to its own ceiling.
+
         const res = await provider.start({
           sampleRate: 16000,
           language: sttLanguage && sttLanguage !== "auto" ? sttLanguage : undefined,
-          keyterms: this.getKeyterms(),
+          keyterms: await this.getProviderTerms("xai"),
+          vocabulary: await this.getProviderTerms(streamingSettings.cloudTranscriptionProvider),
           model: cloudTranscriptionModel,
           mode: cloudTranscriptionMode === "byok" ? "byok" : "openwhispr",
           environment: cortiEnvironment,

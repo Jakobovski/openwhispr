@@ -15,6 +15,8 @@ const AssemblyAiStreaming = require("./assemblyAiStreaming");
 const { i18nMain, changeLanguage } = require("./i18nMain");
 const DeepgramStreaming = require("./deepgramStreaming");
 const CortiStreaming = require("./cortiStreaming");
+const { LiveTranscriptionSocket } = require("./liveTranscriptionSocket");
+const { geminiLiveDialect, sonioxRealtimeDialect } = require("./liveTranscriptionDialects");
 const XaiStreaming = require("./xaiStreaming");
 const OpenAIRealtimeStreaming = require("./openaiRealtimeStreaming");
 const { getCortiToken } = require("./cortiAuth");
@@ -8579,6 +8581,121 @@ class IPCHandlers {
       }
       return this.cortiStreaming.getStatus();
     });
+
+    // Gemini Live and Soniox realtime share one socket implementation, so they share
+    // one registration too: six channels each, generated rather than written twice.
+    // Both authenticate in their opening message, so neither needs the token plumbing
+    // the Deepgram handlers above carry.
+    const LIVE_STREAMING = {
+      "gemini-live": {
+        dialect: geminiLiveDialect,
+        getKey: () => this.environmentManager.getGeminiKey(),
+        label: "Gemini Live",
+      },
+      "soniox-realtime": {
+        dialect: sonioxRealtimeDialect,
+        getKey: () => this.environmentManager.getSonioxKey(),
+        label: "Soniox realtime",
+      },
+    };
+
+    this.liveStreamingSockets = this.liveStreamingSockets || {};
+
+    for (const [name, spec] of Object.entries(LIVE_STREAMING)) {
+      const dropCounts = { sends: 0 };
+
+      ipcMain.handle(`${name}-streaming-start`, async (event, options = {}) => {
+        try {
+          const apiKey = spec.getKey();
+          if (!apiKey) {
+            return { success: false, error: `No ${spec.label} API key configured` };
+          }
+
+          let socket = this.liveStreamingSockets[name];
+          if (socket) {
+            // A previous dictation's socket must not receive this one's audio.
+            await socket.disconnect(false).catch(() => {});
+          } else {
+            socket = new LiveTranscriptionSocket(spec.dialect);
+            this.liveStreamingSockets[name] = socket;
+          }
+
+          const win = BrowserWindow.fromWebContents(event.sender);
+          const send = (channel, payload) => {
+            if (win && !win.isDestroyed()) win.webContents.send(channel, payload);
+          };
+          socket.onPartialTranscript = (text) => send(`${name}-partial-transcript`, text);
+          socket.onFinalTranscript = (text) => send(`${name}-final-transcript`, text);
+          socket.onError = (error) => send(`${name}-error`, error.message);
+          socket.onSessionEnd = (data) => send(`${name}-session-end`, data);
+
+          dropCounts.sends = 0;
+          await socket.connect({ ...options, apiKey });
+          return { success: true };
+        } catch (error) {
+          debugLogger.error(
+            `${spec.label} streaming start error`,
+            { error: error.message },
+            "streaming"
+          );
+          return { success: false, error: error.message };
+        }
+      });
+
+      ipcMain.on(`${name}-streaming-send`, (_event, audioBuffer) => {
+        try {
+          const socket = this.liveStreamingSockets[name];
+          if (!socket) return;
+          const sent = socket.sendAudio(Buffer.from(audioBuffer));
+          if (!sent) {
+            dropCounts.sends++;
+            // Logged sparsely: a drop storm would otherwise fill the log with one line
+            // per 100ms frame, and the first few are what diagnose it.
+            if (dropCounts.sends <= 3 || dropCounts.sends % 50 === 0) {
+              debugLogger.warn(
+                `${spec.label} audio send dropped`,
+                { dropCount: dropCounts.sends, ...socket.getStatus() },
+                "streaming"
+              );
+            }
+          }
+        } catch (error) {
+          debugLogger.error(
+            `${spec.label} streaming send error`,
+            { error: error.message },
+            "streaming"
+          );
+        }
+      });
+
+      ipcMain.on(`${name}-streaming-finalize`, () => {
+        this.liveStreamingSockets[name]?.finalize();
+      });
+
+      ipcMain.handle(`${name}-streaming-stop`, async () => {
+        try {
+          const socket = this.liveStreamingSockets[name];
+          if (!socket) return { success: true, text: "" };
+          const model = socket.currentModel;
+          const audioBytesSent = socket.audioBytesSent;
+          const result = await socket.disconnect(true);
+          return { success: true, text: result?.text || "", model, audioBytesSent };
+        } catch (error) {
+          debugLogger.error(
+            `${spec.label} streaming stop error`,
+            { error: error.message },
+            "streaming"
+          );
+          return { success: false, error: error.message };
+        }
+      });
+
+      ipcMain.handle(`${name}-streaming-status`, async () => {
+        const socket = this.liveStreamingSockets[name];
+        if (!socket) return { isConnected: false, sessionId: null };
+        return socket.getStatus();
+      });
+    }
 
     const requireXaiStreamingKey = () => {
       const apiKey = this.environmentManager.getXaiKey();

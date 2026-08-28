@@ -185,8 +185,8 @@ test("the soniox lane sends dictionary plus screen terms", () => {
   const method = audioManager.slice(start, start + 3200);
   assert.match(
     method,
-    /getDictationVocabulary\(SONIOX_TERM_LIMIT\)/,
-    "must use the shared dictionary+screen builder at soniox's cap"
+    /getProviderTerms\("soniox"\)/,
+    "must get its terms from the shared shaper, which applies soniox's cap"
   );
   assert.match(method, /buildSonioxAsyncRequest\(/, "must build the request with the shared module");
   assert.match(method, /parseSonioxAsyncTranscript\(/, "must parse with the shared module");

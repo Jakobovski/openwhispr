@@ -112,13 +112,18 @@ export const MULTI_TRANSCRIPTION_API_KEY_FIELDS: Record<string, string> = Object
   MULTI_TRANSCRIPTION_PROVIDERS.map((provider) => [provider.id, provider.apiKeyField])
 );
 
-export const DEFAULT_MULTI_PROVIDER_A = "xai";
-export const DEFAULT_MULTI_PROVIDER_B = "openai";
-// Slot C is Azure's MAI-Transcribe. Same model as the OpenRouter lane, reached
-// directly — which is the only route that accepts a phrase list, so this lane is the
-// one that gets the speaker's own vocabulary before it listens. OpenRouter and Groq
-// stay selectable.
-export const DEFAULT_MULTI_PROVIDER_C = "azure-speech";
+// Soniox leads. It is biased on the speaker's own vocabulary before it listens, and it
+// is the most faithful to it of the biasable lanes: given audio containing "OpenWhispr",
+// "Sinead" and "zohar-mac-mini" it returned all three exactly, where Gemini's final pass
+// gave "open whisper" and "Shinade" from the same recording. Slot order is also a real
+// tie-break for the merge — asked to choose between readings it cannot separate on the
+// merits, the model favoured the first slot in an A/B with the labels swapped — so the
+// lane most likely to be right belongs first.
+//
+// It replaces Azure's MAI-Transcribe in the defaults, which stays selectable.
+export const DEFAULT_MULTI_PROVIDER_A = "soniox";
+export const DEFAULT_MULTI_PROVIDER_B = "xai";
+export const DEFAULT_MULTI_PROVIDER_C = "openai";
 
 /**
  * Slot defaults, keyed the way the fan-out reads them.

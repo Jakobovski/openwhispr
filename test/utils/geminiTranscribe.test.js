@@ -196,8 +196,8 @@ test("the gemini lane sends dictionary plus screen terms at the full 1000", () =
 
   assert.match(
     branch,
-    /getDictationVocabulary\(GEMINI_VOCABULARY_LIMIT\)/,
-    "must use the shared dictionary+screen builder at gemini's own cap"
+    /getProviderTerms\("gemini"\)/,
+    "must get its terms from the shared shaper, which applies gemini's 1000-term cap"
   );
   assert.match(branch, /buildGeminiBatchRequest\(/, "must build the request with the shared module");
   assert.match(

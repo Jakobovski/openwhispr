@@ -27,6 +27,8 @@
 //     is that feature: it strips fillers, self-corrections and false starts, and
 //     formats lists and dates. The alternative is `"verbatim"`.
 
+const { normalizeDictationTerms } = require("./dictationTerms");
+
 const GEMINI_TRANSCRIBE_BATCH_MODEL = "gemini-3.5-transcribe";
 const GEMINI_TRANSCRIBE_LIVE_MODEL = "gemini-3.5-transcribe-live";
 
@@ -76,25 +78,11 @@ function buildTranscriptionConfig({ language, vocabulary, mode = DEFAULT_TRANSCR
 /**
  * Clean a vocabulary list into something the API will accept.
  *
- * Deduplicated case-insensitively but preserving the first spelling seen: the casing is
- * the point for a term like "OpenWhispr", and the list is assembled from two sources
- * that routinely supply the same word.
+ * Shared with every other provider that takes a term list — see dictationTerms.js for
+ * the rules and why they are stated in one place.
  */
 function normalizeVocabulary(vocabulary) {
-  if (!Array.isArray(vocabulary)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const raw of vocabulary) {
-    if (typeof raw !== "string") continue;
-    const term = raw.trim();
-    if (!term) continue;
-    const key = term.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(term);
-    if (out.length >= GEMINI_VOCABULARY_LIMIT) break;
-  }
-  return out;
+  return normalizeDictationTerms(vocabulary, { limit: GEMINI_VOCABULARY_LIMIT });
 }
 
 /**

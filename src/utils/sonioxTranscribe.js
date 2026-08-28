@@ -17,6 +17,8 @@
 // both returned all three exactly, where another provider's final pass gave
 // "open whisper" and "Shinade" from the same recording.
 
+const { normalizeDictationTerms } = require("./dictationTerms");
+
 const SONIOX_REALTIME_MODEL = "stt-rt-v5";
 const SONIOX_ASYNC_MODEL = "stt-async-v5";
 
@@ -41,25 +43,10 @@ const SONIOX_MARKER_TOKENS = new Set(["<end>", "<fin>"]);
 /**
  * Terms cleaned for the `context` object.
  *
- * Deduplicated case-insensitively but keeping the first spelling: the casing is the
- * point for a term like "OpenWhispr", and the list arrives from two sources that
- * routinely supply the same word.
+ * Shared with every other provider that takes a term list — see dictationTerms.js.
  */
 function normalizeTerms(terms) {
-  if (!Array.isArray(terms)) return [];
-  const seen = new Set();
-  const out = [];
-  for (const raw of terms) {
-    if (typeof raw !== "string") continue;
-    const term = raw.trim();
-    if (!term) continue;
-    const key = term.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(term);
-    if (out.length >= SONIOX_TERM_LIMIT) break;
-  }
-  return out;
+  return normalizeDictationTerms(terms, { limit: SONIOX_TERM_LIMIT });
 }
 
 /** `context` is omitted entirely when empty — an empty terms array is not a hint. */
