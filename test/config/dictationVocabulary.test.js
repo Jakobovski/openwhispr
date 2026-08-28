@@ -62,8 +62,17 @@ test("one builder feeds every consumer", () => {
   assert.ok(consumers.length >= 2, `expected the shaper and the merge, saw ${consumers.length}`);
   assert.match(
     audioManager,
-    /const terms = await this\.getDictationVocabulary\(shape\.limit\)/,
+    /await this\.getDictationVocabulary\(shape\.limit\)/,
     "the shaper must build from the one generator"
+  );
+  // The one caller allowed to skip the screen terms is the streaming socket, which opens
+  // before the capture could exist. It takes the dictionary directly rather than through
+  // the generator, because collecting is destructive and would take the screen terms away
+  // from every later consumer in the same dictation.
+  assert.match(
+    audioManager,
+    /includeScreenTerms\s*\?\s*await this\.getDictationVocabulary/,
+    "skipping screen terms must be an explicit opt-out, not the default"
   );
   assert.match(
     audioManager,

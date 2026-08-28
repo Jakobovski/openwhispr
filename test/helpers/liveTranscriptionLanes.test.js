@@ -52,7 +52,7 @@ test("only providers set to streaming get a live lane", () => {
   assert.match(method, /multiTranscriptionEnabled !== true/, "only in multi mode");
   // The vocabulary has to be supplied at start: these providers bias before they listen,
   // so passing it afterwards would be too late to matter.
-  assert.match(method, /getProviderTerms\(lane\.provider\)/);
+  assert.match(method, /getProviderTerms\(lane\.provider, \{/);
 });
 
 test("the recorder's own frames feed the sockets", () => {
@@ -97,7 +97,11 @@ test("a lane that fails to start or returns nothing falls back to its one-shot p
   // Only a non-empty transcript is recorded, so a socket that connected but produced
   // nothing leaves the lane to its one-shot request rather than returning empty text.
   assert.match(collect, /if \(text\) \{/, "an empty transcript must not be collected");
-  assert.match(collect, /collected\.set\(lane\.provider, \{/, "the transcript is keyed by provider");
+  assert.match(
+    collect,
+    /collected\.set\(lane\.provider, \{/,
+    "the transcript is keyed by provider"
+  );
 
   // And the fan-out must treat an absent live transcript as "do the request".
   assert.match(
@@ -225,5 +229,35 @@ test("the drop deadline is anchored to the recording's end", () => {
     audioManager,
     /\{ deadlineAt: \(this\._recordingStoppedAt \?\? performance\.now\(\)\) \+ budgetMs \}/,
     "the fan-out must pass a deadline measured from the end of the recording"
+  );
+});
+
+test("the live socket does not consume the screen capture at recording start", () => {
+  // A regression this had: the socket opens about a millisecond after the OCR sidecar
+  // starts, so asking for the capture there cannot succeed — and collecting is
+  // destructive and caches its result, so a timed-out collection cached null and took the
+  // screen terms away from the batch lanes and the correction matcher for the whole
+  // dictation. The streaming lane still gets those corrections, applied to its transcript
+  // afterwards instead of as a bias beforehand.
+  const method = audioManager.slice(
+    audioManager.indexOf("async startLiveTranscriptionLanes()"),
+    audioManager.indexOf("  _feedLiveTranscriptionLanes(frame) {")
+  );
+  assert.match(
+    method,
+    /includeScreenTerms: false/,
+    "the socket must not collect the screen capture"
+  );
+});
+
+test("a failed screen capture is not cached over the whole dictation", () => {
+  const ensure = audioManager.slice(
+    audioManager.indexOf("async ensureScreenContext()"),
+    audioManager.indexOf("async getProviderTerms(")
+  );
+  assert.match(
+    ensure,
+    /if \(capture\) this\._screenContext = capture;/,
+    "only a real answer may be remembered, or one slow attempt decides the dictation"
   );
 });

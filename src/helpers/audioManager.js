@@ -2396,8 +2396,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       this._screenContext = null;
       return null;
     }
-    this._screenContext = await this.collectScreenContext();
-    return this._screenContext;
+    const capture = await this.collectScreenContext();
+    // A failed collection is not cached. Caching it would make one early or slow attempt
+    // decide the whole dictation: every later caller — the phrase lists, the merge, the
+    // correction matcher — would read the cached null and silently get no screen terms.
+    // Only a real answer is remembered.
+    if (capture) this._screenContext = capture;
+    return capture;
   }
 
   /**
@@ -3087,10 +3092,20 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    *
    * The generator is getDictationVocabulary, which is the single source and is cached per
    * dictation, so asking for several providers' shapes costs one capture.
+   *
+   * includeScreenTerms is for callers that run *before* the screen capture could possibly
+   * have finished — a streaming socket opens at the start of the recording, when the OCR
+   * has been running for about a millisecond. Asking for the capture there is worse than
+   * useless: collecting is destructive and caches its result, so a collection that timed
+   * out would cache null and take the screen terms away from the batch lanes and from the
+   * post-transcription matcher too. The streaming lane still gets those corrections, just
+   * applied to its transcript afterwards rather than as a bias beforehand.
    */
-  async getProviderTerms(provider) {
+  async getProviderTerms(provider, { includeScreenTerms = true } = {}) {
     const shape = PROVIDER_TERM_SHAPES[provider] ?? PROVIDER_TERM_SHAPES.default;
-    const terms = await this.getDictationVocabulary(shape.limit);
+    const terms = includeScreenTerms
+      ? await this.getDictationVocabulary(shape.limit)
+      : (this.getCustomDictionaryArray() ?? []);
     return normalizeDictationTerms(terms, {
       limit: shape.limit,
       maxTermLength: shape.maxTermLength ?? Infinity,
@@ -3647,7 +3662,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         const result = await api.start({
           sampleRate: UPLOAD_SAMPLE_RATE,
           language: language && language !== "auto" ? language : undefined,
-          vocabulary: await this.getProviderTerms(lane.provider),
+          vocabulary: await this.getProviderTerms(lane.provider, {
+            includeScreenTerms: false,
+          }),
           model: lane.model,
         });
         if (result?.success === false) {
@@ -3674,6 +3691,21 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   /** One captured block, to every live lane. Called from the recorder's frame callback. */
   _feedLiveTranscriptionLanes(frame) {
     if (!this._liveLanes?.length || !frame?.length) return;
+
+    // These frames are raw, and deliberately differ from what the batch lanes upload:
+    //
+    //   Silence trim does not apply, and should not. It exists to avoid paying a provider
+    //   for pauses in an upload; a socket is already being paid for wall-clock time, and
+    //   splicing a live stream would break the timing the recogniser relies on.
+    //
+    //   Auto gain does not apply, and arguably should. It exists because a quiet mic
+    //   transcribes badly, and that is just as true here — but it needs a level
+    //   measurement over the whole recording, which does not exist yet while the frames
+    //   are still arriving. A rolling estimate is possible and is real DSP work: get it
+    //   wrong and it pumps, which would cost the accuracy the gain was meant to buy. Left
+    //   undone on purpose rather than approximated, and written down here so nobody
+    //   assumes a streaming lane is getting the same audio as a batch one.
+    //
     // Converted once for all lanes rather than per socket.
     const pcm = floatToPcm16(frame);
     for (const lane of this._liveLanes) {
