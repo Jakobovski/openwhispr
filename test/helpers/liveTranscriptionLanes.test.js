@@ -281,10 +281,19 @@ test("audioManager only owns the policy, not the lifecycle", () => {
 test("a streaming lane races on the same deadline as a batch lane", () => {
   // Not awaited as a group before the fan-out: that is what stalled the dictation and
   // starved the batch lanes of the shared budget.
+  // Each lane is tracked on its own: a lane with no live socket starts its request
+  // immediately, and a lane with one waits for its own socket and nobody else's. Matched
+  // as two separate statements rather than one line, because the live branch now also
+  // records whether it fell back to batch.
   assert.match(
     audioManager,
-    /return track\(closing \? closing\.then\(request\) : request\(undefined\), index\);/,
-    "each lane must wait only for itself"
+    /if \(!closing\) return track\(request\(undefined\), index\);/,
+    "a lane without a live socket must not wait for anything"
+  );
+  assert.match(
+    audioManager,
+    /return track\(\s*closing\.then\(\(live\) => \{/,
+    "a lane with one must wait only for its own socket"
   );
   assert.doesNotMatch(
     audioManager,
@@ -409,3 +418,35 @@ test("a complete transcript is still used, so the check is not simply dropping l
     assert.equal(result.text, "the whole dictation");
   })();
 });
+
+test("a lane that fell back to batch is filed as batch, not streaming", () => {
+  // The streaming/batch split exists so a tail-after-the-last-frame measurement is never
+  // averaged with a whole-request one. A streaming lane whose socket gave nothing runs an
+  // ordinary batch request from there, and filing that under the streaming model mixes
+  // exactly the two numbers the split keeps apart. Now that a mid-recording close sends a
+  // lane down this path, it stopped being a rare case.
+  assert.match(
+    audioManager,
+    /if \(!live\) fellBackToBatch\[index\] = true;/,
+    "the fallback must be recorded when it starts"
+  );
+  assert.match(
+    audioManager,
+    /const streaming = providerWantsStreaming\(lane\.provider, settings\) && !fellBackToBatch\[index\];/,
+    "and must exclude that lane from the streaming row"
+  );
+});
+
+test("a lane still waiting on its socket is not mistaken for a batch fallback", () => {
+  // The flag is set only when the live result is known to be empty. A lane dropped by the
+  // deadline while its socket is still closing was streaming and must stay in that row —
+  // otherwise this reintroduces the bug where dropped streaming lanes inflated the batch
+  // row's drop rate.
+  assert.match(audioManager, /const fellBackToBatch = lanes\.map\(\(\) => false\);/);
+  assert.doesNotMatch(
+    audioManager,
+    /fellBackToBatch\[index\] = true;\s*\n\s*return track/,
+    "the flag must not be set before the live result is known"
+  );
+});
+

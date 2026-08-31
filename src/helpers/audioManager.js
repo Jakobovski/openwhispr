@@ -4130,6 +4130,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
           return index;
         }
       );
+    // Per lane: did its live socket come up empty, sending it down the batch path?
+    const fellBackToBatch = lanes.map(() => false);
+
     const tracked = lanes.map((lane, index) => {
       const request = (liveText) =>
         this.transcribeRawWithProvider(trimmedBlob, lane.provider, {
@@ -4144,7 +4147,20 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       const closing = closingLiveLanes.get(lane.provider);
       // A streaming lane waits only for its own socket; a batch lane starts immediately.
       // Neither waits for the other, which is the point.
-      return track(closing ? closing.then(request) : request(undefined), index);
+      if (!closing) return track(request(undefined), index);
+      return track(
+        closing.then((live) => {
+          // Recorded at the one moment it is known: the socket gave us nothing usable, so
+          // what runs from here is an ordinary batch request and its timing belongs in the
+          // batch row. Left as the lane's configuration it filed a whole-recording request
+          // under the streaming model, mixing the two measurements the split exists to
+          // keep apart. Set only when the fallback actually starts — a lane still waiting
+          // on its socket when the deadline passes was streaming, and stays streaming.
+          if (!live) fellBackToBatch[index] = true;
+          return request(live);
+        }),
+        index
+      );
     });
 
     // The wait policy lives in multiTranscriptionRace, where it can be tested: the
@@ -4216,7 +4232,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // never returns one, so reading it there filed every dropped streaming lane under
       // the batch row — inflating that row's drop rate while the streaming row never
       // moved. How the lane was *run* is known either way.
-      const streaming = providerWantsStreaming(lane.provider, settings);
+      const streaming = providerWantsStreaming(lane.provider, settings) && !fellBackToBatch[index];
       return {
         slot: lane.slot,
         provider: lane.provider,
