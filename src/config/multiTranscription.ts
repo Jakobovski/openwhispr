@@ -234,7 +234,26 @@ export const DEFAULT_RECONCILE_MODEL_B = "openai/gpt-oss-120b";
 // (correct spelling, plausibility in context) and a majority — two recognisers
 // agreeing on a word outrank one recogniser's track record, so this only settles a
 // straight 1-1 split or a three-way disagreement.
-export const TRANSCRIPTION_QUALITY_ORDER = ["azure-speech", "xai", "openai", "groq"];
+// Last-resort tie-break for the merge, mirrored in every locale's reconcile prompt: who
+// to believe when the versions disagree, nobody has a majority, and neither reading is
+// better on the merits.
+//
+// Ordered by how much of the speaker's vocabulary each one was given before it listened,
+// which is what decides whether a name or technical term comes back intact: Soniox and
+// Gemini take the full list, Azure 200 terms, xAI 100. See PROVIDER_TERM_SHAPES.
+//
+// Soniox and Gemini were missing here entirely while being slots 1 and 3 of the default
+// configuration, so a three-way split told the merge to prefer xAI over both of them.
+// That is how "spiky intelligences" became "specific intelligences": Soniox heard it
+// correctly, xAI returned the fragment "speci", and the tie-break handed it to xAI.
+export const TRANSCRIPTION_QUALITY_ORDER = [
+  "soniox",
+  "gemini",
+  "azure-speech",
+  "xai",
+  "openai",
+  "groq",
+];
 
 // Providers offered for reconciliation. Limited to the ones whose model list the
 // static registry knows, so the model picker beside it can be a closed choice

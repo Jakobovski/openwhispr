@@ -31,6 +31,8 @@ const languages = fs
 // The name each provider is called in the prompt, which is also the label
 // wrapReconcileVersions tags its version block with.
 const PROVIDER_NAMES = {
+  soniox: "Soniox",
+  gemini: "Google Gemini",
   "azure-speech": "Azure Speech",
   xai: "xAI",
   openai: "OpenAI",

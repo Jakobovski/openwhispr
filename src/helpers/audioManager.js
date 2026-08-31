@@ -4369,6 +4369,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         ...base,
         text: fallback.text,
         reconciled: false,
+        // Reported, not left undefined. The history row reads three states off these two
+        // flags and nothing ever set this one, so a merge that timed out or failed
+        // displayed as "nothing to merge" — which reads as "the recognisers agreed", the
+        // opposite of what happened. That hid a timed-out merge pasting one lane's raw
+        // text straight through, with a disagreement in it that a merge would have settled.
+        reconcileDropped: true,
         mergedFrom: answered.length,
         agreed,
       };
@@ -4392,6 +4398,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         ...base,
         text: fallback.text,
         reconciled: false,
+        reconcileDropped: true,
         mergedFrom: answered.length,
         agreed,
       };

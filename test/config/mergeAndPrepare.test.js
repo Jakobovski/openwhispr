@@ -151,3 +151,28 @@ test("every locale carries the frequency-bias rule, above the majority rule", ()
     );
   }
 });
+
+test("a merge that produces no text is reported as dropped, not as nothing to merge", () => {
+  // The history row derives three states from `reconciled` and `reconcileDropped`, and
+  // nothing ever assigned the second one — so a merge that timed out or failed showed as
+  // "nothing to merge", which reads as "the recognisers agreed". It hid a real case: a
+  // 750ms budget expired, the fan-out pasted slot A's raw text, and that text said
+  // "Who's a good chance" where the other two lanes both said "There's".
+  //
+  // Every path that returns without merged text must say so. Counted rather than
+  // pattern-matched across the whole file, so a third such path added later fails here
+  // instead of quietly inheriting the old label.
+  const noMergePaths = audioManager.match(/reconciled: false,\n\s+(\/\/[^\n]*\n\s+)*reconcileDropped: true,/g);
+  assert.equal(
+    (noMergePaths || []).length,
+    2,
+    "both the timed-out/failed path and the empty-winner path must set reconcileDropped"
+  );
+
+  // And the successful path must not claim to be dropped.
+  assert.doesNotMatch(
+    audioManager,
+    /reconciled: true,\n\s+reconcileDropped: true/,
+    "a merge that produced text is not dropped"
+  );
+});
