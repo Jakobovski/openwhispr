@@ -397,6 +397,67 @@ test("a close before the final still returns the finals already received", async
   wss.close();
 });
 
+test("a socket that closes mid-recording says its transcript is incomplete", async (t) => {
+  // How an intermittent Gemini failure passed as a success. The socket went down while
+  // the user was still talking, _resolveFinal handed back the finals that had arrived,
+  // and the fan-out filed a transcript of the first second of a dictation as "ok".
+  const { wss, port } = await startServer((ws) => {
+    ws.on("message", (data, isBinary) => {
+      if (isBinary || !data.toString().includes('"setup"')) return;
+      ws.send(JSON.stringify({ setupComplete: {} }));
+      ws.send(JSON.stringify({ serverContent: { inputTranscription: { text: "Only the start" } } }));
+      // Dropped mid-recording, before anything asked it to stop. terminate() rather than
+      // close(): a real connection death is abrupt, with no closing handshake, which is
+      // the case that was going unnoticed.
+      setTimeout(() => ws.terminate(), 40);
+    });
+  });
+  t.after(() => wss.close());
+
+  const socket = new LiveTranscriptionSocket(local(geminiLiveDialect, port));
+  await socket.connect({ apiKey: "k" });
+  await settle();
+
+  // Audio still arriving after the close must be refused, not absorbed. isReady is false
+  // for a dead socket exactly as it is for one still starting, so this used to buffer
+  // three seconds of the dictation and report every frame accepted.
+  assert.equal(socket.sendAudio(pcm()), false, "a dead socket must refuse audio");
+  assert.equal(socket.preReadyBufferBytes, 0, "and must not buffer it either");
+
+  const result = await socket.disconnect(true);
+  assert.equal(result.incomplete, true, "the caller must be able to tell this is partial");
+  assert.equal(result.text, "Only the start", "the partial text is still returned");
+});
+
+test("a close after end-of-stream is a normal finish, not an incomplete one", async (t) => {
+  // The distinction the flag rests on. Closing is how a session is supposed to end once
+  // we have asked for the final, and that must not be reported as a failure.
+  const { wss, port } = await startServer((ws) => {
+    ws.on("message", (data, isBinary) => {
+      if (isBinary) return;
+      const text = data.toString();
+      if (text.includes('"setup"')) {
+        ws.send(JSON.stringify({ setupComplete: {} }));
+        ws.send(JSON.stringify({ serverContent: { inputTranscription: { text: "All of it." } } }));
+        return;
+      }
+      if (text.includes("audio_stream_end")) {
+        ws.send(JSON.stringify({ serverContent: { generationComplete: true } }));
+        setTimeout(() => ws.close(1000), 20);
+      }
+    });
+  });
+  t.after(() => wss.close());
+
+  const socket = new LiveTranscriptionSocket(local(geminiLiveDialect, port));
+  await socket.connect({ apiKey: "k" });
+  await settle();
+  const result = await socket.disconnect(true);
+
+  assert.equal(result.text, "All of it.");
+  assert.ok(!result.incomplete, "a close we asked for is not an incomplete transcript");
+});
+
 test("audio beyond the pre-ready buffer is refused rather than silently grown", async () => {
   // Reported as a drop so unexplained silence in a transcript has a trail. Unbounded
   // buffering would instead hold minutes of audio for a socket that never came up.

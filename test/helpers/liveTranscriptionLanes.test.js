@@ -379,3 +379,33 @@ test("a provider that never started reports no model rather than a stale one", (
     assert.equal(lanes.modelFor("soniox"), null);
   })();
 });
+
+test("a lane whose socket died mid-recording defers to batch", () => {
+  // The lane has a transcript, and it is worse than useless: it covers however much audio
+  // reached the provider before the socket dropped, with nothing marking where it stops.
+  // The batch lane heard the whole recording.
+  return (async () => {
+    const { lanes, warnings } = build({
+      stopResult: { text: "Only the first second", incomplete: true },
+    });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+
+    const closing = lanes.close(performance.now());
+
+    assert.equal(await closing.get("soniox"), null, "a partial transcript must not be used");
+    assert.ok(
+      warnings.some((w) => /closed mid-recording/.test(w.message)),
+      `the fallback must be logged, got: ${JSON.stringify(warnings)}`
+    );
+  })();
+});
+
+test("a complete transcript is still used, so the check is not simply dropping lanes", () => {
+  return (async () => {
+    const { lanes } = build({ stopResult: { text: "the whole dictation", incomplete: false } });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+
+    const result = await lanes.close(performance.now()).get("soniox");
+    assert.equal(result.text, "the whole dictation");
+  })();
+});

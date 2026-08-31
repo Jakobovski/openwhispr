@@ -201,6 +201,15 @@ class LiveTranscriptionLanes {
         this._warn("returned nothing, falling back to batch", lane.provider);
         return null;
       }
+      // A socket that went down mid-recording leaves a transcript of however much audio
+      // got through, and nothing marks where it stops. Used as-is it reads as a complete
+      // dictation that is quietly missing its end — measured at 16% of Gemini takes on one
+      // machine, filed as successes. The batch lane heard the whole recording, so this
+      // defers to it rather than pasting a fragment.
+      if (result?.incomplete) {
+        this._warn("closed mid-recording, falling back to batch", lane.provider);
+        return null;
+      }
       return { text, ms: Math.max(0, Math.round(performance.now() - anchorAt)) };
     } catch (error) {
       this._warn("failed on stop, falling back to batch", lane.provider, error?.message);

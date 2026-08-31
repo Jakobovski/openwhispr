@@ -79,6 +79,7 @@ class LiveTranscriptionSocket {
     this._finalResolve = null;
     this._finalTimer = null;
     this._quietTimer = null;
+    this._closedEarly = false;
     this._sawProviderFinal = false;
     // Set once no further transcript can arrive — the provider errored, said it was
     // finished, or the socket closed. Without it a disconnect that happens *after* one of
@@ -114,6 +115,10 @@ class LiveTranscriptionSocket {
     this._sawProviderFinal = false;
     this._streamEnded = false;
     this._endOfStreamSent = false;
+    // Set when the socket goes down before we asked it to. The transcript it leaves
+    // behind covers only the audio that got through, so it is a failure dressed as a
+    // result — the caller has to be able to tell the difference.
+    this._closedEarly = false;
     this.sessionId = `${this.dialect.name}-${options.sessionSeed ?? ""}${Date.now()}`;
     this.sessionStartedAt = Date.now();
     this.currentModel = options.model ?? this.dialect.defaultModel ?? null;
@@ -170,6 +175,27 @@ class LiveTranscriptionSocket {
         const wasConnected = this.isConnected;
         this.isConnected = false;
         this.isReady = false;
+        // Closed while the user was still talking. Everything after this point never
+        // reached the provider, so whatever finals arrived describe part of the dictation
+        // and nothing says which part is missing.
+        //
+        // Logged here because nothing else does: the lanes listen for onError, and a
+        // close is not an error, so this failed in complete silence — an intermittent
+        // truncated Gemini transcript filed as a success, with no line in the log.
+        if (wasConnected && !this._endOfStreamSent) {
+          this._closedEarly = true;
+          debugLogger.warn(
+            `${this.dialect.name} socket closed mid-recording, transcript is incomplete`,
+            {
+              code,
+              reason: reason?.toString?.() ?? "",
+              audioBytesSent: this.audioBytesSent,
+              haveText: !!this.finalText,
+              sessionId: this.sessionId,
+            },
+            "streaming"
+          );
+        }
         // Resolve any waiter: a close before the final transcript still has to hand back
         // whatever finals arrived, or the dictation silently produces nothing.
         this._resolveFinal();
@@ -296,6 +322,12 @@ class LiveTranscriptionSocket {
   sendAudio(buffer) {
     if (!buffer?.length) return false;
 
+    // A finished socket is not a socket that has yet to start. Both have isReady false,
+    // so audio arriving after a mid-recording close was buffered as though setup were
+    // still pending — three seconds of the dictation absorbed and thrown away, and the
+    // caller told every frame had been accepted.
+    if (this._streamEnded) return false;
+
     if (!this.isReady) {
       if (this.preReadyBufferBytes + buffer.length > PRE_READY_BUFFER_MAX_BYTES) return false;
       this.preReadyBuffer.push(buffer);
@@ -329,7 +361,11 @@ class LiveTranscriptionSocket {
     this._finalTimer = null;
     clearTimeout(this._quietTimer);
     this._quietTimer = null;
-    resolve({ text: this.finalText, sawProviderFinal: this._sawProviderFinal });
+    resolve({
+      text: this.finalText,
+      sawProviderFinal: this._sawProviderFinal,
+      incomplete: this._closedEarly,
+    });
   }
 
   /**
@@ -338,7 +374,12 @@ class LiveTranscriptionSocket {
    */
   async disconnect(waitForFinal = true) {
     const ws = this.ws;
-    if (!ws) return { text: this.finalText, sawProviderFinal: this._sawProviderFinal };
+    if (!ws)
+      return {
+        text: this.finalText,
+        sawProviderFinal: this._sawProviderFinal,
+        incomplete: this._closedEarly,
+      };
 
     if (!waitForFinal) {
       this.ws = null;
@@ -347,7 +388,11 @@ class LiveTranscriptionSocket {
       try {
         ws.close();
       } catch {}
-      return { text: this.finalText, sawProviderFinal: this._sawProviderFinal };
+      return {
+        text: this.finalText,
+        sawProviderFinal: this._sawProviderFinal,
+        incomplete: this._closedEarly,
+      };
     }
 
     // Already over: the provider errored, finished, or the socket closed. Waiting would
@@ -359,7 +404,11 @@ class LiveTranscriptionSocket {
       try {
         ws.close();
       } catch {}
-      return { text: this.finalText, sawProviderFinal: this._sawProviderFinal };
+      return {
+        text: this.finalText,
+        sawProviderFinal: this._sawProviderFinal,
+        incomplete: this._closedEarly,
+      };
     }
 
     const settled = new Promise((resolve) => {
