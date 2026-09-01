@@ -92,3 +92,90 @@ test("a genuine correction still survives the retention guard", () => {
   );
   assert.ok(result.includes("Sinead"), `expected Sinead, got ${JSON.stringify(result)}`);
 });
+
+// --- what is worth learning at all ---
+//
+// Every term in the dictionary is sent to every provider on every dictation as a
+// recognition hint, so a word of ordinary English is not free to add: it is noise in the
+// bias list forever. These are the actual entries auto-learn put in a real dictionary
+// before this filter existed.
+
+test("a contraction the user typed is not vocabulary", () => {
+  // The lexicon holds "there" and not "there's", so every contraction came back unknown
+  // and was learned. Real entries: there's, it's, I'm, that's, don't, didn't, doesn't,
+  // shouldn't, repository's.
+  const learned = extractCorrections(
+    "I think theres a problem here today",
+    "I think there's a problem here today",
+    []
+  );
+  assert.deepEqual(learned, [], `learned a contraction: ${JSON.stringify(learned)}`);
+});
+
+test("a possessive of an ordinary word is not vocabulary", () => {
+  const learned = extractCorrections(
+    "Check the repositorys history for that change",
+    "Check the repository's history for that change",
+    []
+  );
+  assert.deepEqual(learned, []);
+});
+
+test("correcting one real word to another is a wording fix, not a term", () => {
+  const learned = extractCorrections(
+    "We used web scrapping for this data",
+    "We used web scraping for this data",
+    []
+  );
+  assert.deepEqual(learned, [], `learned a common word: ${JSON.stringify(learned)}`);
+});
+
+test("two words glued across a missing space are never learned", () => {
+  // "those.Not" was a real entry: the tokenizer splits on whitespace, so a missing space
+  // after a full stop leaves both words in one token.
+  const learned = extractCorrections(
+    "I checked those.Not all of them are ready",
+    "I checked those.Note all of them are ready",
+    []
+  );
+  assert.ok(
+    !learned.some((w) => /[.,;:!?]/.test(w)),
+    `learned a glued token: ${JSON.stringify(learned)}`
+  );
+});
+
+test("a bare number is not vocabulary", () => {
+  // "100" was a real entry.
+  const learned = extractCorrections(
+    "We need 1000 of them by friday",
+    "We need 100 of them by friday",
+    []
+  );
+  assert.deepEqual(learned, []);
+});
+
+test("a name the recogniser mangled is still learned, or the feature does nothing", () => {
+  // The case the filter must not break: neither spelling is a word of the language, and
+  // this is exactly what the dictionary is for.
+  assert.deepEqual(
+    extractCorrections("Call Shunade about the meeting today", "Call Sinead about the meeting today", []),
+    ["Sinead"]
+  );
+});
+
+test("a contraction whose base is too short for the lexicon is still rejected", () => {
+  // The bug in the first version of this filter. It stripped the tail and asked the
+  // lexicon about the base, but the lexicon holds nothing under four letters — so "do",
+  // "it", "did" and "the" all read as unknown words and don't, it's, I'm and didn't were
+  // learned anyway. Every one of those was a real entry.
+  const cases = [
+    ["I dont think so at all today", "I don't think so at all today"],
+    ["I think its ready for review now", "I think it's ready for review now"],
+    ["I didnt see the message you sent", "I didn't see the message you sent"],
+  ];
+  for (const [before, after] of cases) {
+    const learned = extractCorrections(before, after, []);
+    assert.deepEqual(learned, [], `learned ${JSON.stringify(learned)} from ${JSON.stringify(after)}`);
+  }
+});
+

@@ -8,6 +8,45 @@
 // as a correction rather than a different context entirely.
 const MIN_RETAINED_WORD_RATIO = 0.5;
 
+// Main-process only, like this module's one caller in ipcHandlers. Reads the system word
+// list, and reports every word as unknown if it cannot — so a machine without
+// /usr/share/dict/words learns what it always did rather than learning nothing.
+const { isEnglishWord } = require("../helpers/englishLexicon");
+
+// Contraction and possessive tails, straight and curly. An inflection is never the term
+// worth learning, and the lexicon cannot help here anyway: it holds nothing under four
+// letters, so the base of don't, it's, I'm and didn't reads as an unknown word. Real
+// entries this produced: there's, it's, I'm, that's, don't, didn't, doesn't, shouldn't,
+// repository's.
+const CONTRACTION_TAIL = /(?:n['\u2019]t|['\u2019](?:s|re|ve|ll|d|m))$/i;
+
+// Sentence punctuation inside a token means the tokenizer glued two words together across
+// a missing space — "those.Not" is in a real dictionary from this. A single vocabulary
+// term never contains it, and anything genuinely punctuated can be added by hand.
+const SENTENCE_PUNCTUATION = /[.,;:!?]/;
+
+/**
+ * Is this correction a word of the language rather than vocabulary worth biasing for?
+ *
+ * The dictionary exists for terms a recogniser mishears — names, jargon, product names.
+ * A correction from one real word to another is the user fixing wording or grammar, and
+ * feeding it back as a recognition hint is noise at best: every term here is sent to every
+ * provider on every dictation.
+ */
+function isNotWorthLearning(word) {
+  if (!/\p{L}/u.test(word)) return true; // "100"
+  if (SENTENCE_PUNCTUATION.test(word)) return true; // "those.Not"
+  if (isEnglishWord(word)) return true; // "scraping", "Whey"
+  // Any contraction or possessive, without consulting the lexicon about the base.
+  //
+  // Not "reject it if the base is an English word": the lexicon holds nothing shorter
+  // than four letters, so "do", "it", "did" and "the" all read as unknown and don't,
+  // it's, I'm and didn't survived that version of this check. And the base being a real
+  // term does not make the inflected form worth having — "Zohar's" is not the entry, and
+  // if "Zohar" is worth learning it will be learned from a correction of the name itself.
+  return CONTRACTION_TAIL.test(word);
+}
+
 function editDistance(a, b) {
   const m = a.length;
   const n = b.length;
@@ -175,6 +214,7 @@ function extractCorrections(originalText, fieldValue, existingDictionary) {
     if (seenCorrections.has(normalizedCorrected)) continue;
     if (origWord.toLowerCase() === normalizedCorrected) continue;
     if (correctedWord.length < 3) continue;
+    if (isNotWorthLearning(correctedWord)) continue;
 
     // 0.65 threshold allows phonetic corrections like "Shunade" → "Sinead" (dist 4/7 = 0.57)
     // while filtering out unrelated word replacements.
