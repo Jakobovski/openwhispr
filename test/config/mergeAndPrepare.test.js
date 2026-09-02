@@ -196,3 +196,31 @@ test("the stored dictation record carries whether the merge was dropped", () => 
   );
 });
 
+test("sense outranks the rarity preference, and is stated before it", () => {
+  // The rarity rule tells the model to prefer the rarer, more specific reading, and on its
+  // own that pushes toward a word that is merely unusual. "Discontinue when the previous
+  // agent left off" is rarer and more specific than "Please continue where the previous
+  // agent left off", and it is not a sentence anyone says. The gate has to come first, or
+  // the model reads the rarity rule and applies it before checking that the result means
+  // anything.
+  const prompt = JSON.parse(
+    read("src", "locales", "en", "prompts.json")
+  ).reconcilePrompt;
+
+  const sense = prompt.indexOf("Sense comes first");
+  const rarity = prompt.indexOf("biased toward frequent words");
+  const majority = prompt.indexOf("go with the majority");
+
+  assert.ok(sense !== -1, "the prompt must state the sense rule");
+  assert.ok(rarity !== -1 && majority !== -1, "the rarity and majority rules must still be there");
+  assert.ok(
+    sense < rarity && rarity < majority,
+    `order must be sense, then rarity, then majority — got ${sense}, ${rarity}, ${majority}`
+  );
+  assert.match(
+    prompt,
+    /never outranks sense/,
+    "the rarity rule must say outright that it does not outrank sense"
+  );
+});
+
