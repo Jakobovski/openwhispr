@@ -4071,6 +4071,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         text: side.text ?? null,
       })),
       reconciled: !!multi.reconciled,
+      // Whether the merge was abandoned rather than never needed. The history row derives
+      // three states from this pair, and this half was missing from the stored record even
+      // after the fan-out started reporting it — so a merge that timed out was written to
+      // the database indistinguishable from one that had nothing to do, and the row read
+      // "nothing to merge", which says the recognisers agreed. Measured on one day: 22 of
+      // 329 dictations, every one of them labelled as agreement.
+      reconcileDropped: !!multi.reconcileDropped,
       // How many answers the merge combined, and whether they already said the same
       // thing. Both used to be inferable from `reconciled` — it was false exactly when
       // the merge was skipped — and are not any more, now that it always runs.

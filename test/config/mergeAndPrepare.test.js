@@ -176,3 +176,23 @@ test("a merge that produces no text is reported as dropped, not as nothing to me
     "a merge that produced text is not dropped"
   );
 });
+
+test("the stored dictation record carries whether the merge was dropped", () => {
+  // The history row derives three states from `reconciled` and `reconcileDropped`, and it
+  // renders from the *stored* record, not from the fan-out's return value. The fan-out
+  // reported the flag and the row declared it, but the record written to the database left
+  // it out — so every abandoned merge was persisted as indistinguishable from one that had
+  // nothing to do, and the row said "nothing to merge", which reads as agreement. One day
+  // of real use: 22 of 329 dictations, all mislabelled.
+  const record = audioManager.slice(
+    audioManager.indexOf("      reconciled: !!multi.reconciled,"),
+    audioManager.indexOf("      mergedText: multi.text ?? null,")
+  );
+  assert.ok(record.length > 0, "could not locate the stored dual record");
+  assert.match(
+    record,
+    /reconcileDropped: !!multi\.reconcileDropped,/,
+    "the stored record must include reconcileDropped, or the row cannot tell the states apart"
+  );
+});
+
