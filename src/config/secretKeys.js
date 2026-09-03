@@ -81,6 +81,13 @@ const BYOK_API_KEYS = [
     save: "saveSonioxKey",
     storeKey: "sonioxApiKey",
   },
+  {
+    base: "meta",
+    env: "META_API_KEY",
+    get: "getMetaKey",
+    save: "saveMetaKey",
+    storeKey: "metaApiKey",
+  },
 ];
 
 module.exports = { BYOK_API_KEYS };

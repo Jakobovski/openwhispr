@@ -91,6 +91,11 @@ import {
   GEMINI_VOCABULARY_LIMIT,
 } from "../utils/geminiTranscribe";
 import {
+  buildBatchRequest as buildMetaBatchRequest,
+  buildBatchUrl as buildMetaBatchUrl,
+  parseBatchResponse as parseMetaBatchResponse,
+} from "../utils/metaTranscribe";
+import {
   buildAsyncTranscriptionRequest as buildSonioxAsyncRequest,
   parseAsyncTranscript as parseSonioxAsyncTranscript,
   asyncJobState as sonioxAsyncJobState,
@@ -130,6 +135,7 @@ const PROVIDER_TERM_SHAPES = {
   xai: { limit: 100, maxTermLength: 50 },
   gemini: { limit: 1000 },
   soniox: { limit: 1000 },
+  meta: { limit: 1000 },
   "azure-speech": { limit: 200 },
   groq: { limit: 1000, maxPromptChars: 890 },
   default: { limit: 200, maxPromptChars: 900 },
@@ -447,6 +453,7 @@ const STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER = {
   xai: "xai",
   soniox: "soniox",
   gemini: "gemini-live",
+  meta: "meta-realtime",
 };
 
 const STREAMING_PROVIDERS = {
@@ -507,6 +514,17 @@ const STREAMING_PROVIDERS = {
     onFinal: (cb) => window.electronAPI.onSonioxFinalTranscript(cb),
     onError: (cb) => window.electronAPI.onSonioxError(cb),
     onSessionEnd: (cb) => window.electronAPI.onSonioxSessionEnd(cb),
+  },
+  "meta-realtime": {
+    start: (opts) => window.electronAPI.metaStreamingStart(opts),
+    send: (buf) => window.electronAPI.metaStreamingSend(buf),
+    finalize: () => window.electronAPI.metaStreamingFinalize(),
+    stop: () => window.electronAPI.metaStreamingStop(),
+    status: () => window.electronAPI.metaStreamingStatus(),
+    onPartial: (cb) => window.electronAPI.onMetaPartialTranscript(cb),
+    onFinal: (cb) => window.electronAPI.onMetaFinalTranscript(cb),
+    onError: (cb) => window.electronAPI.onMetaError(cb),
+    onSessionEnd: (cb) => window.electronAPI.onMetaSessionEnd(cb),
   },
   corti: {
     warmup: (opts) => window.electronAPI.cortiStreamingWarmup(opts),
@@ -3368,7 +3386,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // single-provider path needs them explicitly. Both reuse the exact request the
       // multi-transcription lanes make — transcribeOneShotWithProvider is the same code
       // both paths call, so a fix to either applies to both.
-      if (provider === "gemini" || provider === "soniox") {
+      if (provider === "gemini" || provider === "soniox" || provider === "meta") {
         const oneShotText = await this.transcribeOneShotWithProvider(optimizedAudio, provider, {
           language,
           model,
@@ -3736,6 +3754,44 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       });
     }
 
+    if (provider === "meta") {
+      const apiKey = settings.metaApiKey;
+      if (!apiKey) throw new Error("No meta API key configured");
+
+      // One request, but not an OpenAI-shaped one: the audio part is named `audio`
+      // rather than `file`, the options travel as a JSON `request` part rather than flat
+      // form fields, and the session id is a query parameter. So it cannot ride the
+      // shared multipart helper the OpenAI-compatible providers use.
+      const form = new FormData();
+      form.append(
+        "request",
+        new Blob(
+          [
+            JSON.stringify(
+              buildMetaBatchRequest({
+                vocabulary: await this.getProviderTerms("meta"),
+                language,
+                languageName: getLanguageLabel(language),
+              })
+            ),
+          ],
+          { type: "application/json" }
+        )
+      );
+      form.append("audio", audioBlob, "audio.wav");
+
+      const response = await fetch(buildMetaBatchUrl(crypto.randomUUID()), {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(`Meta transcription failed: ${response.status} ${detail.slice(0, 200)}`);
+      }
+      return parseMetaBatchResponse(await response.json());
+    }
+
     throw new Error(`Provider ${provider} has no one-shot transcription request`);
   }
 
@@ -3911,7 +3967,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         model,
       });
       text = result?.text;
-    } else if (provider === "gemini" || provider === "soniox") {
+    } else if (provider === "gemini" || provider === "soniox" || provider === "meta") {
       text = await this.transcribeOneShotWithProvider(audioBlob, provider, { language, model });
     } else {
       // Table-driven rather than a chain of ternaries, so adding an OpenAI-compatible

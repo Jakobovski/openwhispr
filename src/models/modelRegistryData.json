@@ -293,7 +293,7 @@
       "models": [
         {
           "id": "microsoft/mai-transcribe-2",
-          "name": "MAI-Transcribe 2",
+          "name": "MAI-Transcribe-2",
           "description": "Microsoft multilingual speech-to-text via OpenRouter"
         }
       ]
@@ -304,8 +304,8 @@
       "baseUrl": "https://YOUR-RESOURCE.cognitiveservices.azure.com",
       "models": [
         {
-          "id": "mai-transcribe-2",
-          "name": "MAI-Transcribe 2",
+          "id": "MAI-Transcribe-2",
+          "name": "MAI-Transcribe-2",
           "description": "Microsoft speech-to-text with phrase-list biasing"
         }
       ]
@@ -321,8 +321,7 @@
           "description": "Smart mode: removes fillers and self-corrections, formats the result. Takes 1000 custom vocabulary terms"
         }
       ]
-    }
-,
+    },
     {
       "id": "soniox",
       "name": "Soniox",
@@ -332,6 +331,18 @@
           "id": "stt-async-v5",
           "name": "Soniox Async v5",
           "description": "Biased by context terms before it listens. Uploads the recording, so it costs four requests rather than one"
+        }
+      ]
+    },
+    {
+      "id": "meta",
+      "name": "Meta Muse",
+      "baseUrl": "https://api.meta.ai/v1",
+      "models": [
+        {
+          "id": "muse-voice-transcribe-1.0",
+          "name": "Muse Voice Transcribe 1.0",
+          "description": "Biased by keywords before it listens. Streams with the lowest tail latency of any lane"
         }
       ]
     }

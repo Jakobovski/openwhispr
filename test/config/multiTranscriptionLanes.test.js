@@ -67,17 +67,34 @@ test("a slot set to none runs nothing for that slot", async () => {
 });
 
 test("a substituted slot does not inherit the replaced provider's model", async () => {
-  const { resolveMultiTranscriptionLanes } = await load();
-  // Slot B holds a Groq model id but ends up running xAI, because slot A was stored as
-  // openai and the collision pushed the default along. Carrying that id over would send
-  // "whisper-large-v3-turbo" to xAI's endpoint, which fails every time.
+  const {
+    resolveMultiTranscriptionLanes,
+    DEFAULT_MULTI_PROVIDER_B,
+    MULTI_TRANSCRIPTION_MODELS,
+  } = await load();
+
+  // Storing slot A as slot B's default provider collides, so slot B is pushed along to
+  // some other provider while still holding the model id it was saved with. Carrying
+  // that id over sends one provider's model to another's endpoint, which fails every
+  // time — a Groq model id reaching xAI was the real case.
+  //
+  // Derived from the exported defaults rather than naming providers: which provider sits
+  // in which slot is retuned regularly, and this covers the substitution rule, not the
+  // roster.
   const lanes = resolveMultiTranscriptionLanes({
-    dualTranscriptionProviderA: "openai",
+    dualTranscriptionProviderA: DEFAULT_MULTI_PROVIDER_B,
     dualTranscriptionModelB: "whisper-large-v3-turbo",
   });
 
-  const substituted = lanes.find((lane) => lane.provider === "xai");
-  assert.equal(substituted.model, "grok-stt");
+  const substituted = lanes[1];
+  assert.ok(substituted, "slot B must still produce a lane");
+  assert.notEqual(substituted.provider, DEFAULT_MULTI_PROVIDER_B, "slot B was pushed along");
+  assert.equal(
+    substituted.model,
+    MULTI_TRANSCRIPTION_MODELS[substituted.provider],
+    `slot B must run ${substituted.provider}'s own model, not the stored one`
+  );
+  assert.notEqual(substituted.model, "whisper-large-v3-turbo");
 });
 
 test("a stale model left by an earlier provider choice is healed", async () => {

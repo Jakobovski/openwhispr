@@ -233,16 +233,30 @@ test("polling is bounded, so a stuck job cannot wait forever", () => {
   assert.match(method, /SONIOX_ASYNC_POLL_MS/, "and an interval between attempts");
 });
 
-test("gemini and soniox work as the single provider, not just as lanes", () => {
-  // The bug this covers: both were added to the multi-transcription fan-out only, so
-  // choosing either as the *only* provider fell through to the OpenAI-compatible table,
-  // which has no entry for them, and failed with "no transcription endpoint configured"
+test("every provider with its own request works as the single provider, not just as a lane", () => {
+  // The bug this covers: a provider added to the multi-transcription fan-out only, so
+  // choosing it as the *only* provider fell through to the OpenAI-compatible table,
+  // which has no entry for it, and failed with "no transcription endpoint configured"
   // — while the same provider transcribed fine as a lane.
-  assert.match(
-    audioManager,
-    /if \(provider === "gemini" \|\| provider === "soniox"\) \{\s*\n\s*const oneShotText = await this\.transcribeOneShotWithProvider\(/,
-    "the single-provider path must handle them"
+  //
+  // Checked per provider rather than as one fixed expression: this held "gemini || soniox"
+  // literally, so adding a third provider with its own request shape did not fail here —
+  // it just silently did not reach the single-provider path.
+  const oneShot = ["gemini", "soniox", "meta"];
+  const branch = audioManager.slice(
+    audioManager.indexOf('if (provider === "gemini"'),
+    audioManager.indexOf("const oneShotText = await this.transcribeOneShotWithProvider(")
   );
+  for (const provider of oneShot) {
+    assert.ok(
+      branch.includes(`provider === "${provider}"`),
+      `${provider} must reach the single-provider path, not the OpenAI-compatible table`
+    );
+    assert.ok(
+      audioManager.includes(`if (provider === "${provider}") {`),
+      `${provider} needs its own request in transcribeOneShotWithProvider`
+    );
+  }
 
   // And both paths must call the same request builder, or they can diverge again.
   const calls = audioManager.match(/this\.transcribeOneShotWithProvider\(/g) ?? [];

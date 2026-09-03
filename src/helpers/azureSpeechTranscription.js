@@ -38,9 +38,17 @@ const MAX_PHRASE_LENGTH = 100;
  * Exported for tests: this is the part with all the rules in it, and it is far easier
  * to get wrong than the transport around it.
  */
-function buildDefinition({ locale, phrases = [], model = "mai-transcribe-2" } = {}) {
+function buildDefinition({ locale, phrases = [], model = "MAI-Transcribe-2" } = {}) {
   const definition = {
-    enhancedMode: { enabled: true, model },
+    enhancedMode: {
+      enabled: true,
+      model,
+      // v2 flipped this default. MAI-Transcribe-1.5 returned a readability-optimised
+      // transcript unless asked for verbatim; v2 returns verbatim unless asked for clean,
+      // so leaving it unset would have quietly started pasting "um" and "uh" into
+      // dictations that never had them. Set explicitly to keep what the lane always gave.
+      modelOptions: { transcribeStyle: "clean" },
+    },
   };
 
   // "en" is rejected; Azure wants a full locale. An absent or "auto" language means

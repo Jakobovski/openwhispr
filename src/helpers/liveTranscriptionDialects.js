@@ -11,9 +11,14 @@
 //   Soniox accepts audio immediately after its config message and takes raw binary
 //   frames. Its end-of-stream is an empty *text* frame — an empty binary frame is
 //   ignored and the server eventually closes with error_code 408 and no transcript.
+//
+//   Meta authenticates in its opening frame like Soniox, but carries the session id in
+//   the URL and ends the stream with a JSON `{"type":"endStream"}` text frame. Its
+//   partials are cumulative, so each one replaces the last rather than extending it.
 
 const gemini = require("../utils/geminiTranscribe");
 const soniox = require("../utils/sonioxTranscribe");
+const meta = require("../utils/metaTranscribe");
 
 /**
  * @param {object} options
@@ -116,4 +121,48 @@ const sonioxRealtimeDialect = {
   },
 };
 
-module.exports = { geminiLiveDialect, sonioxRealtimeDialect };
+const metaRealtimeDialect = {
+  name: "meta-realtime",
+  defaultModel: meta.META_MODEL,
+
+  // The session id belongs in the URL rather than the opening frame, and the server does
+  // not mind it being ours: it echoes back its own in the handshake acknowledgement.
+  buildUrl: () => meta.buildRealtimeUrl(crypto.randomUUID()),
+
+  // No acknowledgement needed — verified against the live socket, which accepted audio
+  // sent immediately after the handshake and only acknowledged it 667ms later. Waiting
+  // for that would have buffered most of a short dictation for nothing.
+  needsSetupAck: false,
+
+  buildSetup: (options) =>
+    meta.buildRealtimeHandshake({
+      apiKey: options.apiKey,
+      language: options.language,
+      languageName: options.languageName,
+      vocabulary: options.vocabulary,
+    }),
+
+  // Raw binary PCM16, no envelope.
+  encodeAudio: (buffer) => buffer,
+
+  buildEndOfStream: () => JSON.stringify(meta.buildEndOfStream()),
+
+  parseMessage: (message) => {
+    const parsed = meta.parseRealtimeMessage(message);
+    switch (parsed.kind) {
+      case "setup":
+        return { kind: "setup" };
+      case "partial":
+        return { kind: "partial", text: parsed.text };
+      case "final":
+        // In PUSH_TO_TALK there is exactly one of these and it arrives after
+        // end-of-stream, carrying the whole utterance — so it both sets the text and ends
+        // the stream. Measured at 61ms after endStream on a six second dictation.
+        return { kind: "finished", text: parsed.text, replaces: true };
+      default:
+        return null;
+    }
+  },
+};
+
+module.exports = { geminiLiveDialect, sonioxRealtimeDialect, metaRealtimeDialect };

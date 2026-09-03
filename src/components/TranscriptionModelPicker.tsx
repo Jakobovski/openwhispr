@@ -240,7 +240,9 @@ interface ProviderCredentialField {
     | "geminiApiKey"
     | "openrouterApiKey"
     | "sonioxTranscriptionMode"
-    | "geminiTranscriptionMode";
+    | "geminiTranscriptionMode"
+    | "metaApiKey"
+    | "metaTranscriptionMode";
   input: "secret" | "text" | "select";
   labelKey?: string;
   placeholder?: string;
@@ -312,6 +314,23 @@ const PROVIDER_CREDENTIALS: Record<
         // Same choice xAI offers, for the same reason: Soniox serves a realtime socket
         // and an async job API, and which one runs is not something to infer.
         key: "sonioxTranscriptionMode",
+        input: "select",
+        labelKey: "transcription.mode",
+        options: [
+          { value: "batch", label: "Batch" },
+          { value: "streaming", label: "Streaming" },
+        ],
+      },
+    ],
+  },
+  meta: {
+    consoleUrl: "https://developer.meta.com/ai/",
+    fields: [
+      { key: "metaApiKey", input: "secret" },
+      {
+        // Same choice as Soniox and Gemini: one model behind both a socket and a
+        // one-shot endpoint, and which one runs is not something to infer.
+        key: "metaTranscriptionMode",
         input: "select",
         labelKey: "transcription.mode",
         options: [
@@ -429,6 +448,10 @@ export default function TranscriptionModelPicker({
   const setTinfoilApiKey = useSettingsStore((s) => s.setTinfoilApiKey);
   const sonioxApiKey = useSettingsStore((s) => s.sonioxApiKey);
   const setSonioxApiKey = useSettingsStore((s) => s.setSonioxApiKey);
+  const metaApiKey = useSettingsStore((s) => s.metaApiKey);
+  const setMetaApiKey = useSettingsStore((s) => s.setMetaApiKey);
+  const metaTranscriptionMode = useSettingsStore((s) => s.metaTranscriptionMode);
+  const setMetaTranscriptionMode = useSettingsStore((s) => s.setMetaTranscriptionMode);
   const geminiApiKey = useSettingsStore((s) => s.geminiApiKey);
   const setGeminiApiKey = useSettingsStore((s) => s.setGeminiApiKey);
   const openrouterApiKey = useSettingsStore((s) => s.openrouterApiKey);
@@ -831,6 +854,8 @@ export default function TranscriptionModelPicker({
     openrouterApiKey,
     sonioxTranscriptionMode,
     geminiTranscriptionMode,
+    metaApiKey,
+    metaTranscriptionMode,
   };
   const credentialSetters: Record<ProviderCredentialField["key"], (value: string) => void> = {
     openaiApiKey: setOpenaiApiKey,
@@ -848,6 +873,8 @@ export default function TranscriptionModelPicker({
     openrouterApiKey: setOpenrouterApiKey,
     sonioxTranscriptionMode: setSonioxTranscriptionMode,
     geminiTranscriptionMode: setGeminiTranscriptionMode,
+    metaApiKey: setMetaApiKey,
+    metaTranscriptionMode: setMetaTranscriptionMode,
   };
 
   const cloudModelOptions = useMemo(() => {

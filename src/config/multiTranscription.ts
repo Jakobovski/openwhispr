@@ -24,7 +24,8 @@ export interface MultiTranscriptionProvider {
     | "openrouterApiKey"
     | "azureSpeechApiKey"
     | "geminiApiKey"
-    | "sonioxApiKey";
+    | "sonioxApiKey"
+    | "metaApiKey";
 }
 
 // Order is the dropdown order and the slot defaults below, best first.
@@ -56,7 +57,7 @@ export const MULTI_TRANSCRIPTION_PROVIDERS: MultiTranscriptionProvider[] = [
   {
     id: "azure-speech",
     label: "Azure Speech",
-    model: "mai-transcribe-2",
+    model: "MAI-Transcribe-2",
     apiKeyField: "azureSpeechApiKey",
   },
   // The second lane that can be biased before it listens rather than corrected after,
@@ -84,6 +85,20 @@ export const MULTI_TRANSCRIPTION_PROVIDERS: MultiTranscriptionProvider[] = [
     label: "Soniox",
     model: "stt-async-v5",
     apiKeyField: "sonioxApiKey",
+  },
+
+  // Meta's Muse Voice Transcribe. Biased before it listens like the three above, via
+  // `keywords`, and the fastest of them on the streaming path: measured through this
+  // app's own socket, its final transcript arrived 37-81ms after the last audio frame,
+  // against Soniox's ~60ms and Gemini Live's ~300-700ms.
+  //
+  // The batch model id is the same string as the streaming one — there is one model
+  // behind both paths, unlike Soniox's async/realtime split.
+  {
+    id: "meta",
+    label: "Meta Muse",
+    model: "muse-voice-transcribe-1.0",
+    apiKeyField: "metaApiKey",
   },
 ];
 
@@ -146,6 +161,7 @@ export const STREAMING_CAPABLE_PROVIDERS = [
   { id: "xai", modeKey: "xaiTranscriptionMode" },
   { id: "soniox", modeKey: "sonioxTranscriptionMode" },
   { id: "gemini", modeKey: "geminiTranscriptionMode" },
+  { id: "meta", modeKey: "metaTranscriptionMode" },
 ] as const;
 
 export const TRANSCRIPTION_MODE_BATCH = "batch";
@@ -167,12 +183,17 @@ export function providerWantsStreaming(
   return mode === TRANSCRIPTION_MODE_STREAMING;
 }
 
-export const DEFAULT_MULTI_PROVIDER_A = "soniox";
-export const DEFAULT_MULTI_PROVIDER_B = "xai";
-// Azure rather than the OpenRouter route to the same model: only the direct one accepts
-// a phrase list, so it is the lane that can be biased with the speaker's vocabulary
-// before it listens rather than corrected afterwards.
-export const DEFAULT_MULTI_PROVIDER_C = "azure-speech";
+// All three take the speaker's vocabulary before they listen rather than correcting
+// afterwards — Meta via keywords, Azure via its phrase list, Soniox via context terms —
+// which is the property that fixes names the recogniser has never heard.
+//
+// Slot A is also the transcript that stands when the merge produces nothing, so it is the
+// most trusted lane rather than merely the first. Azure is the direct route to
+// MAI-Transcribe-2, not the OpenRouter one, because only the direct route accepts a
+// phrase list at all.
+export const DEFAULT_MULTI_PROVIDER_A = "meta";
+export const DEFAULT_MULTI_PROVIDER_B = "azure-speech";
+export const DEFAULT_MULTI_PROVIDER_C = "soniox";
 
 /**
  * Slot defaults, keyed the way the fan-out reads them.

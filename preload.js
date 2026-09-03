@@ -16,6 +16,7 @@ const BYOK_KEY_BRIDGES = [
   { base: "tinfoil", get: "getTinfoilKey", save: "saveTinfoilKey" },
   { base: "corti", get: "getCortiKey", save: "saveCortiKey" },
   { base: "soniox", get: "getSonioxKey", save: "saveSonioxKey" },
+  { base: "meta", get: "getMetaKey", save: "saveMetaKey" },
 ];
 const secretKeyApi = {};
 for (const k of BYOK_KEY_BRIDGES) {
@@ -677,6 +678,28 @@ contextBridge.exposeInMainWorld("electronAPI", {
   ),
   onSonioxSessionEnd: registerListener(
     "soniox-realtime-session-end",
+    (callback) => (_event, data) => callback(data)
+  ),
+
+  metaStreamingStart: (options) => ipcRenderer.invoke("meta-realtime-streaming-start", options),
+  metaStreamingSend: (audioBuffer) => ipcRenderer.send("meta-realtime-streaming-send", audioBuffer),
+  metaStreamingFinalize: () => ipcRenderer.send("meta-realtime-streaming-finalize"),
+  metaStreamingStop: () => ipcRenderer.invoke("meta-realtime-streaming-stop"),
+  metaStreamingStatus: () => ipcRenderer.invoke("meta-realtime-streaming-status"),
+  onMetaPartialTranscript: registerListener(
+    "meta-realtime-partial-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onMetaFinalTranscript: registerListener(
+    "meta-realtime-final-transcript",
+    (callback) => (_event, text) => callback(text)
+  ),
+  onMetaError: registerListener(
+    "meta-realtime-error",
+    (callback) => (_event, error) => callback(error)
+  ),
+  onMetaSessionEnd: registerListener(
+    "meta-realtime-session-end",
     (callback) => (_event, data) => callback(data)
   ),
 

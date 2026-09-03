@@ -16,7 +16,11 @@ const { i18nMain, changeLanguage } = require("./i18nMain");
 const DeepgramStreaming = require("./deepgramStreaming");
 const CortiStreaming = require("./cortiStreaming");
 const { LiveTranscriptionSocket } = require("./liveTranscriptionSocket");
-const { geminiLiveDialect, sonioxRealtimeDialect } = require("./liveTranscriptionDialects");
+const {
+  geminiLiveDialect,
+  sonioxRealtimeDialect,
+  metaRealtimeDialect,
+} = require("./liveTranscriptionDialects");
 const XaiStreaming = require("./xaiStreaming");
 const OpenAIRealtimeStreaming = require("./openaiRealtimeStreaming");
 const { getCortiToken } = require("./cortiAuth");
@@ -8611,6 +8615,11 @@ class IPCHandlers {
         dialect: sonioxRealtimeDialect,
         getKey: () => this.environmentManager.getSonioxKey(),
         label: "Soniox realtime",
+      },
+      "meta-realtime": {
+        dialect: metaRealtimeDialect,
+        getKey: () => this.environmentManager.getMetaKey(),
+        label: "Meta Muse realtime",
       },
     };
 

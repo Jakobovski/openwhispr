@@ -77,6 +77,7 @@ export interface ApiKeySettings {
   cortiApiKey: string;
   tinfoilApiKey: string;
   sonioxApiKey: string;
+  metaApiKey: string;
   customTranscriptionApiKey: string;
   cleanupCustomApiKey: string;
 }

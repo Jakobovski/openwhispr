@@ -1239,6 +1239,8 @@ declare global {
       ) => () => void;
       getSonioxKey?: () => Promise<string | null>;
       saveSonioxKey?: (key: string) => Promise<void>;
+      getMetaKey?: () => Promise<string | null>;
+      saveMetaKey?: (key: string) => Promise<void>;
       getTinfoilChatModels?: () => Promise<TinfoilCatalogModel[]>;
       proxyTinfoilTranscription?: (data: {
         audioBuffer: ArrayBuffer;

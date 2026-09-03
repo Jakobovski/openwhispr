@@ -656,6 +656,7 @@ export interface SettingsState
   setCortiApiKey: (key: string) => void;
   setTinfoilApiKey: (key: string) => void;
   setSonioxApiKey: (key: string) => void;
+  setMetaApiKey: (key: string) => void;
   setCustomTranscriptionApiKey: (key: string) => void;
   setCleanupCustomApiKey: (key: string) => void;
 
@@ -670,6 +671,7 @@ export interface SettingsState
   xaiTranscriptionMode: string;
   sonioxTranscriptionMode: string;
   geminiTranscriptionMode: string;
+  metaTranscriptionMode: string;
   // Silence trimming before upload, and how much to cut.
   silenceTrimEnabled: boolean;
   autoGainEnabled: boolean;
@@ -677,6 +679,7 @@ export interface SettingsState
   setXaiTranscriptionMode: (value: string) => void;
   setSonioxTranscriptionMode: (value: string) => void;
   setGeminiTranscriptionMode: (value: string) => void;
+  setMetaTranscriptionMode: (value: string) => void;
   setSilenceTrimEnabled: (value: boolean) => void;
   setAutoGainEnabled: (value: boolean) => void;
   setSilenceTrimStrength: (value: string) => void;
@@ -932,6 +935,7 @@ const SECRET_IPC_SAVERS = {
   cortiApiKey: "saveCortiKey",
   tinfoil: "saveTinfoilKey",
   soniox: "saveSonioxKey",
+  meta: "saveMetaKey",
   customTranscription: "saveCustomTranscriptionKey",
   cleanupCustom: "saveCleanupCustomKey",
   bedrockAccessKeyId: "saveBedrockAccessKeyId",
@@ -1088,6 +1092,10 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     "geminiTranscriptionMode",
     DEFAULT_PROVIDER_TRANSCRIPTION_MODE
   ),
+  metaTranscriptionMode: readString(
+    "metaTranscriptionMode",
+    DEFAULT_PROVIDER_TRANSCRIPTION_MODE
+  ),
   // Off by default. It cut little in practice, and what it did cut was suspected of
   // costing accuracy: the pauses it removes are partly what a recogniser uses to place
   // sentence boundaries, and an onset clipped at the front of a quiet consonant is a
@@ -1178,6 +1186,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   cortiApiKey: "",
   tinfoilApiKey: "",
   sonioxApiKey: "",
+  metaApiKey: "",
   customTranscriptionApiKey: "",
   cleanupCustomApiKey: "",
 
@@ -1692,6 +1701,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setXaiTranscriptionMode: createStringSetter("xaiTranscriptionMode"),
   setSonioxTranscriptionMode: createStringSetter("sonioxTranscriptionMode"),
   setGeminiTranscriptionMode: createStringSetter("geminiTranscriptionMode"),
+  setMetaTranscriptionMode: createStringSetter("metaTranscriptionMode"),
   setSilenceTrimEnabled: createBooleanSetter("silenceTrimEnabled"),
   setAutoGainEnabled: createBooleanSetter("autoGainEnabled"),
   setScreenContextEnabled: createBooleanSetter("screenContextEnabled"),
@@ -1716,6 +1726,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   setCortiTenant: createStringSetter("cortiTenant"),
   setTinfoilApiKey: createSecretSetter("tinfoilApiKey", "tinfoil", "tinfoil"),
   setSonioxApiKey: createSecretSetter("sonioxApiKey", "soniox"),
+  setMetaApiKey: createSecretSetter("metaApiKey", "meta"),
   setCustomTranscriptionApiKey: (key: string) => {
     set({ customTranscriptionApiKey: key });
     debouncedSaveSecret("customTranscription", key);
@@ -2165,6 +2176,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     if (keys.cortiApiKey !== undefined) s.setCortiApiKey(keys.cortiApiKey);
     if (keys.tinfoilApiKey !== undefined) s.setTinfoilApiKey(keys.tinfoilApiKey);
     if (keys.sonioxApiKey !== undefined) s.setSonioxApiKey(keys.sonioxApiKey);
+    if (keys.metaApiKey !== undefined) s.setMetaApiKey(keys.metaApiKey);
     if (keys.customTranscriptionApiKey !== undefined)
       s.setCustomTranscriptionApiKey(keys.customTranscriptionApiKey);
     if (keys.cleanupCustomApiKey !== undefined) s.setCleanupCustomApiKey(keys.cleanupCustomApiKey);

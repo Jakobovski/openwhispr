@@ -40,7 +40,15 @@ test("the url carries the api version the endpoint requires", () => {
 
 test("enhanced mode is always requested, since that is what selects the model", () => {
   const d = buildDefinition({});
-  assert.deepEqual(d.enhancedMode, { enabled: true, model: "mai-transcribe-2" });
+  assert.deepEqual(d.enhancedMode, {
+    enabled: true,
+    model: "MAI-Transcribe-2",
+    // Explicit, because v2 flipped the default. v1.5 returned a readability-optimised
+    // transcript unless asked for verbatim; v2 returns verbatim unless asked for clean,
+    // so leaving this unset would quietly start pasting "um" and "uh" into dictations
+    // that never had them.
+    modelOptions: { transcribeStyle: "clean" },
+  });
 });
 
 test("an absent locale means multilingual rather than a guess", () => {
@@ -118,6 +126,6 @@ test("the MAI model is v2 everywhere, with no v1.5 left behind", () => {
 
   const lanes = fs.readFileSync(path.join(root, "src", "config", "multiTranscription.ts"), "utf8");
   assert.match(lanes, /model: "microsoft\/mai-transcribe-2"/, "the OpenRouter lane must be v2");
-  assert.match(lanes, /model: "mai-transcribe-2"/, "the Azure lane must be v2");
+  assert.match(lanes, /model: "MAI-Transcribe-2"/, "the Azure lane must be v2");
 });
 
