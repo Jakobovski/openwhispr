@@ -145,7 +145,7 @@ const SONIOX_ASYNC_TIMEOUT_MS = 30000;
 // on purpose — it goes through a main-process proxy and takes no model.
 //
 // OpenRouter is a router rather than a model host, so its `model` is a fully qualified
-// slug like "microsoft/mai-transcribe-1.5". Its endpoint is documented as accepting
+// slug like "microsoft/mai-transcribe-2". Its endpoint is documented as accepting
 // OpenAI-style multipart, and does: verified against the live API.
 // Azure wants a full locale ("en-US"), and rejects the bare language code every other
 // provider here takes. Mapped rather than passed through, because "The specified locale

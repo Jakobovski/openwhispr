@@ -47,7 +47,7 @@ export const MULTI_TRANSCRIPTION_PROVIDERS: MultiTranscriptionProvider[] = [
   {
     id: "openrouter",
     label: "OpenRouter",
-    model: "microsoft/mai-transcribe-1.5",
+    model: "microsoft/mai-transcribe-2",
     apiKeyField: "openrouterApiKey",
   },
   // The same model as the OpenRouter lane above, reached directly. Worth being a
@@ -56,7 +56,7 @@ export const MULTI_TRANSCRIPTION_PROVIDERS: MultiTranscriptionProvider[] = [
   {
     id: "azure-speech",
     label: "Azure Speech",
-    model: "mai-transcribe-1.5",
+    model: "mai-transcribe-2",
     apiKeyField: "azureSpeechApiKey",
   },
   // The second lane that can be biased before it listens rather than corrected after,
@@ -169,7 +169,10 @@ export function providerWantsStreaming(
 
 export const DEFAULT_MULTI_PROVIDER_A = "soniox";
 export const DEFAULT_MULTI_PROVIDER_B = "xai";
-export const DEFAULT_MULTI_PROVIDER_C = "openai";
+// Azure rather than the OpenRouter route to the same model: only the direct one accepts
+// a phrase list, so it is the lane that can be biased with the speaker's vocabulary
+// before it listens rather than corrected afterwards.
+export const DEFAULT_MULTI_PROVIDER_C = "azure-speech";
 
 /**
  * Slot defaults, keyed the way the fan-out reads them.

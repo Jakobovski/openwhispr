@@ -12,7 +12,7 @@ const debugLogger = require("./debugLogger");
 // fetch is subject to CORS, and this endpoint is not documented as sending the headers
 // that would satisfy it.
 //
-// Why bother, when OpenRouter also serves mai-transcribe-1.5: the phrase list. Going
+// Why bother, when OpenRouter also serves mai-transcribe-2: the phrase list. Going
 // direct is the only way to bias recognition, and OpenRouter silently drops the
 // parameter (verified — identical transcripts with and without). Biasing fixes a class
 // of error nothing downstream can: "openwhispr" comes back as "a pen whisper", three
@@ -38,7 +38,7 @@ const MAX_PHRASE_LENGTH = 100;
  * Exported for tests: this is the part with all the rules in it, and it is far easier
  * to get wrong than the transport around it.
  */
-function buildDefinition({ locale, phrases = [], model = "mai-transcribe-1.5" } = {}) {
+function buildDefinition({ locale, phrases = [], model = "mai-transcribe-2" } = {}) {
   const definition = {
     enhancedMode: { enabled: true, model },
   };

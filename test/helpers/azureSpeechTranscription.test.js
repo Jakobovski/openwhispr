@@ -40,7 +40,7 @@ test("the url carries the api version the endpoint requires", () => {
 
 test("enhanced mode is always requested, since that is what selects the model", () => {
   const d = buildDefinition({});
-  assert.deepEqual(d.enhancedMode, { enabled: true, model: "mai-transcribe-1.5" });
+  assert.deepEqual(d.enhancedMode, { enabled: true, model: "mai-transcribe-2" });
 });
 
 test("an absent locale means multilingual rather than a guess", () => {
@@ -88,3 +88,36 @@ test("an over-long phrase is trimmed rather than dropped", () => {
   assert.equal(kept[0].length, MAX_PHRASE_LENGTH);
   assert.ok(long.startsWith(kept[0]));
 });
+
+test("the MAI model is v2 everywhere, with no v1.5 left behind", () => {
+  // The id is validated by both routes, so a wrong one is not a silent downgrade — Azure
+  // answers 400 "Requested MAI transcription model ... is not supported" and OpenRouter
+  // answers "Model ... does not exist". Both were checked against the live APIs when this
+  // moved to v2: mai-transcribe-2 and microsoft/mai-transcribe-2 transcribe, while
+  // mai-transcribe-v2 and mai-transcribe-2.0 are rejected.
+  //
+  // Scanned across the source rather than asserted at one call site, because the id
+  // appears in the lane table, the model registry and this client's default, and a
+  // half-finished rename leaves two lanes on different models.
+  const fs = require("fs");
+  const path = require("path");
+  const root = path.join(__dirname, "..", "..");
+  const files = [
+    ["src", "config", "multiTranscription.ts"],
+    ["src", "models", "modelRegistryData.json"],
+    ["src", "helpers", "azureSpeechTranscription.js"],
+    ["src", "helpers", "audioManager.js"],
+  ];
+
+  const stale = [];
+  for (const parts of files) {
+    const text = fs.readFileSync(path.join(root, ...parts), "utf8");
+    if (/mai-transcribe-1\.5|MAI-Transcribe 1\.5/.test(text)) stale.push(parts.join("/"));
+  }
+  assert.deepEqual(stale, [], "v1.5 is no longer supported and must not be referenced");
+
+  const lanes = fs.readFileSync(path.join(root, "src", "config", "multiTranscription.ts"), "utf8");
+  assert.match(lanes, /model: "microsoft\/mai-transcribe-2"/, "the OpenRouter lane must be v2");
+  assert.match(lanes, /model: "mai-transcribe-2"/, "the Azure lane must be v2");
+});
+
