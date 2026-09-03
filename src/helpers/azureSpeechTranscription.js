@@ -20,12 +20,16 @@ const debugLogger = require("./debugLogger");
 
 const API_VERSION = "2025-10-15";
 
-// Microsoft documents no limit on the phrase list, so this is a self-imposed bound
-// rather than a documented one. 200, matching the cap on the merge prompt: the two
-// receive the same frequency-ordered vocabulary, and keeping them equal means a term
-// that biased the recogniser is also a term the merge saw. The cap exists at all
-// because an unbounded list would grow with whatever happens to be on screen.
-const MAX_PHRASES = 200;
+// MAI-Transcribe-2's own limit, and it is enforced: 50 phrases is accepted, 51 answers
+// 400 "Context list cannot have more than 50 items" and the lane returns nothing.
+//
+// This was 200 — a self-imposed bound from v1.5, which documented no limit — and moving
+// to v2 turned it into a hard failure on every dictation with more than 50 terms. Since
+// the screen capture alone routinely yields 30 or more on top of the custom dictionary,
+// that was every dictation: four for four in the logs, all "provider failed".
+//
+// Terms arrive frequency-ordered, so truncating keeps the most useful ones.
+const MAX_PHRASES = 50;
 
 // Phrases are matched as whole entries, so a very long one is not a phrase — it is a
 // sentence that will never match. Trimmed rather than dropped, in case it starts with

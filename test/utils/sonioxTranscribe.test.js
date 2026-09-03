@@ -268,40 +268,52 @@ test("every provider with its own request works as the single provider, not just
   assert.equal(definitions.length, 1, "there must be exactly one such builder");
 });
 
-test("both providers have somewhere to enter their key", () => {
+test("every configured lane has somewhere to enter its key", () => {
   // Without a provider tab and a credential field there is no way to enter the key at
-  // all: the lane reports it missing and the settings page offers no input. OpenRouter
-  // had the same gap and only worked because a key happened to be in the bundled env.
+  // all: the lane reports it missing and the settings page offers no input.
+  //
+  // Derived from the lane table rather than a list of provider names. This test existed
+  // and named soniox, gemini and openrouter — so azure-speech and meta both shipped as
+  // *default* lanes with no tab, no key field and no streaming control, and the picker's
+  // fallback rendered OpenAI's key input under their tabs. Naming the providers is what
+  // let it happen twice.
+  const root = path.join(__dirname, "..", "..");
   const picker = fs.readFileSync(
-    path.join(__dirname, "..", "..", "src", "components", "TranscriptionModelPicker.tsx"),
+    path.join(root, "src", "components", "TranscriptionModelPicker.tsx"),
     "utf8"
   );
-  for (const [tab, field] of [
-    ["soniox", "sonioxApiKey"],
-    ["gemini", "geminiApiKey"],
-    ["openrouter", "openrouterApiKey"],
-  ]) {
-    assert.match(
-      picker,
-      new RegExp(`id: "${tab}"`),
-      `${tab} needs a provider tab or its credential field is unreachable`
-    );
-    assert.match(
-      picker,
-      new RegExp(`key: "${field}", input: "secret"`),
-      `${tab} needs a secret credential field`
-    );
-    // A field with no value/setter wiring renders empty and silently discards input.
-    assert.match(picker, new RegExp(`${field},`), `${field} must be in the values map`);
-    assert.match(
-      picker,
-      new RegExp(`${field}: set[A-Za-z]+,`),
-      `${field} must be in the setters map`
+  const lanes = fs.readFileSync(path.join(root, "src", "config", "multiTranscription.ts"), "utf8");
+
+  // id/apiKeyField pairs straight out of the lane table.
+  const configured = [...lanes.matchAll(/id: "([a-z-]+)",\s*\n\s*label: "[^"]*",\s*\n\s*model: "[^"]*",\s*\n\s*apiKeyField: "([a-zA-Z]+)",/g)]
+    .map((m) => [m[1], m[2]]);
+  const inline = [...lanes.matchAll(/\{ id: "([a-z-]+)", label: "[^"]*", model: "[^"]*", apiKeyField: "([a-zA-Z]+)" \}/g)]
+    .map((m) => [m[1], m[2]]);
+  const all = [...configured, ...inline];
+  assert.ok(all.length >= 5, `expected to find the lane table, parsed ${all.length} lanes`);
+
+  for (const [id, field] of all) {
+    assert.match(picker, new RegExp(`id: "${id}"`), `${id} needs a provider tab`);
+    assert.match(picker, new RegExp(`"?${field}"?`), `${id} needs a ${field} credential field`);
+    assert.ok(
+      new RegExp(`"?${id}"?: \\{`).test(picker),
+      `${id} needs a PROVIDER_CREDENTIALS entry, or its tab shows another provider's fields`
     );
   }
 });
 
-test("every streaming-capable provider gets a mode control, defaulting to batch", () => {
+test("the credential panel never falls back to another provider's fields", () => {
+  // Rendering OpenAI's key input under a different provider's tab is worse than showing
+  // nothing: it looks editable and writes to the wrong key, which is exactly what hid the
+  // two missing lanes above.
+  const picker = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "components", "TranscriptionModelPicker.tsx"),
+    "utf8"
+  );
+  assert.doesNotMatch(picker, /PROVIDER_CREDENTIALS\[selectedCloudProvider\] \?\? PROVIDER_CREDENTIALS\./);
+});
+
+test("every streaming-capable provider gets a mode control, seeded from one default", () => {
   // Soniox as a *batch* lane was measured at 3859ms for a 19-second recording against a
   // 2500ms lane budget, so the fan-out dropped it every time. Streaming is the fix, and
   // which path runs has to be selectable rather than inferred — for every provider that
@@ -331,10 +343,18 @@ test("every streaming-capable provider gets a mode control, defaulting to batch"
   assert.ok(entries.length >= 3, `expected the streaming-capable providers, saw ${entries.length}`);
 
   for (const [, id, modeKey] of entries) {
+    // Seeded from a named constant, not a bare string. Batch is the shared default;
+    // a provider whose streaming path is decisively better may name the streaming
+    // constant instead — Meta's socket answers 37-81ms after the last frame against a
+    // whole round trip for its batch endpoint, and it holds slot A. What must not happen
+    // is a second literal default drifting from the store's, which is the rule
+    // settingsDefaults.test.js enforces everywhere else.
     assert.match(
       store,
-      new RegExp(`"${modeKey}",\\s*\\n?\\s*DEFAULT_PROVIDER_TRANSCRIPTION_MODE`),
-      `${id}: the store must seed ${modeKey} from the shared default`
+      new RegExp(
+        `"${modeKey}",?\\s*\\n?\\s*(DEFAULT_PROVIDER_TRANSCRIPTION_MODE|TRANSCRIPTION_MODE_STREAMING|TRANSCRIPTION_MODE_BATCH)`
+      ),
+      `${id}: the store must seed ${modeKey} from a mode constant, not a literal`
     );
     assert.match(picker, new RegExp(`key: "${modeKey}"`), `${id} needs a mode control`);
     assert.match(

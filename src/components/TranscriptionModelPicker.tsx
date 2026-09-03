@@ -221,6 +221,12 @@ const CLOUD_PROVIDER_TABS = [
   { id: "soniox", name: "Soniox" },
   { id: "gemini", name: "Google Gemini" },
   { id: "openrouter", name: "OpenRouter" },
+  // Added for the same reason, after the same thing happened again: both shipped as
+  // default lanes with no tab, so there was no way to enter a key or choose streaming,
+  // and the credential fallback below quietly rendered OpenAI's fields instead. There is
+  // now a test over every configured lane rather than a list of provider names.
+  { id: "azure-speech", name: "Microsoft" },
+  { id: "meta", name: "Meta Muse" },
   { id: "custom", name: "Custom" },
 ];
 
@@ -242,7 +248,8 @@ interface ProviderCredentialField {
     | "sonioxTranscriptionMode"
     | "geminiTranscriptionMode"
     | "metaApiKey"
-    | "metaTranscriptionMode";
+    | "metaTranscriptionMode"
+    | "azureSpeechApiKey";
   input: "secret" | "text" | "select";
   labelKey?: string;
   placeholder?: string;
@@ -322,6 +329,10 @@ const PROVIDER_CREDENTIALS: Record<
         ],
       },
     ],
+  },
+  "azure-speech": {
+    consoleUrl: "https://portal.azure.com",
+    fields: [{ key: "azureSpeechApiKey", input: "secret" }],
   },
   meta: {
     consoleUrl: "https://developer.meta.com/ai/",
@@ -448,6 +459,8 @@ export default function TranscriptionModelPicker({
   const setTinfoilApiKey = useSettingsStore((s) => s.setTinfoilApiKey);
   const sonioxApiKey = useSettingsStore((s) => s.sonioxApiKey);
   const setSonioxApiKey = useSettingsStore((s) => s.setSonioxApiKey);
+  const azureSpeechApiKey = useSettingsStore((s) => s.azureSpeechApiKey);
+  const setAzureSpeechApiKey = useSettingsStore((s) => s.setAzureSpeechApiKey);
   const metaApiKey = useSettingsStore((s) => s.metaApiKey);
   const setMetaApiKey = useSettingsStore((s) => s.setMetaApiKey);
   const metaTranscriptionMode = useSettingsStore((s) => s.metaTranscriptionMode);
@@ -836,8 +849,11 @@ export default function TranscriptionModelPicker({
     [cloudProviders, selectedCloudProvider]
   );
 
-  const providerCredentials =
-    PROVIDER_CREDENTIALS[selectedCloudProvider] ?? PROVIDER_CREDENTIALS.openai;
+  // No fallback to another provider's fields. This used to read
+  // `?? PROVIDER_CREDENTIALS.openai`, so a provider without an entry rendered OpenAI's
+  // key input under its own tab — the field looked editable and wrote to the wrong key,
+  // which is how two default lanes shipped with no reachable key at all.
+  const providerCredentials = PROVIDER_CREDENTIALS[selectedCloudProvider];
   const credentialValues: Record<ProviderCredentialField["key"], string> = {
     openaiApiKey,
     groqApiKey,
@@ -856,6 +872,7 @@ export default function TranscriptionModelPicker({
     geminiTranscriptionMode,
     metaApiKey,
     metaTranscriptionMode,
+    azureSpeechApiKey,
   };
   const credentialSetters: Record<ProviderCredentialField["key"], (value: string) => void> = {
     openaiApiKey: setOpenaiApiKey,
@@ -875,6 +892,7 @@ export default function TranscriptionModelPicker({
     geminiTranscriptionMode: setGeminiTranscriptionMode,
     metaApiKey: setMetaApiKey,
     metaTranscriptionMode: setMetaTranscriptionMode,
+    azureSpeechApiKey: setAzureSpeechApiKey,
   };
 
   const cloudModelOptions = useMemo(() => {
@@ -1117,7 +1135,7 @@ export default function TranscriptionModelPicker({
               </div>
             ) : (
               <div className="space-y-2">
-                {providerCredentials.fields.map((field, index) => (
+                {(providerCredentials?.fields ?? []).map((field, index) => (
                   <div key={field.key} className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-medium text-foreground">
@@ -1125,7 +1143,7 @@ export default function TranscriptionModelPicker({
                       </label>
                       {index === 0 && (
                         <GetApiKeyLink
-                          url={providerCredentials.consoleUrl}
+                          url={providerCredentials?.consoleUrl}
                           labelKey="transcription.getKey"
                           className="text-xs text-primary/70 hover:text-primary transition-colors cursor-pointer"
                         />

@@ -34,6 +34,7 @@ import {
   DEFAULT_RECONCILE_PROVIDER_B,
   DEFAULT_RECONCILE_MODEL_B,
   DEFAULT_PROVIDER_TRANSCRIPTION_MODE,
+  TRANSCRIPTION_MODE_STREAMING,
 } from "../config/multiTranscription";
 import {
   INFERENCE_SCOPES,
@@ -1092,10 +1093,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
     "geminiTranscriptionMode",
     DEFAULT_PROVIDER_TRANSCRIPTION_MODE
   ),
-  metaTranscriptionMode: readString(
-    "metaTranscriptionMode",
-    DEFAULT_PROVIDER_TRANSCRIPTION_MODE
-  ),
+  // Streaming rather than the shared batch default. This lane transcribes while the user
+  // talks and its final transcript lands 37-81ms after the last audio frame, against a
+  // whole round trip after the recording ends — and it is slot A, so its answer is also
+  // the one that stands when the merge produces nothing.
+  metaTranscriptionMode: readString("metaTranscriptionMode", TRANSCRIPTION_MODE_STREAMING),
   // Off by default. It cut little in practice, and what it did cut was suspected of
   // costing accuracy: the pauses it removes are partly what a recogniser uses to place
   // sentence boundaries, and an onset clipped at the front of a quiet consonant is a
