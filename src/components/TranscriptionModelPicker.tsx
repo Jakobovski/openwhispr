@@ -31,6 +31,11 @@ import { API_ENDPOINTS, normalizeBaseUrl } from "../config/constants";
 import { GetApiKeyLink } from "./ui/GetApiKeyLink";
 import { getCachedPlatform } from "../utils/platform";
 import logger from "../utils/logger";
+import {
+  STREAMING_CAPABLE_PROVIDERS,
+  TRANSCRIPTION_MODE_BATCH,
+  TRANSCRIPTION_MODE_STREAMING,
+} from "../config/multiTranscription";
 
 interface LocalModel {
   model: string;
@@ -272,15 +277,6 @@ const PROVIDER_CREDENTIALS: Record<
     consoleUrl: "https://console.x.ai",
     fields: [
       { key: "xaiApiKey", input: "secret" },
-      {
-        key: "xaiTranscriptionMode",
-        input: "select",
-        labelKey: "transcription.mode",
-        options: [
-          { value: "batch", label: "Batch" },
-          { value: "streaming", label: "Streaming" },
-        ],
-      },
     ],
   },
   mistral: {
@@ -317,17 +313,6 @@ const PROVIDER_CREDENTIALS: Record<
     consoleUrl: "https://console.soniox.com",
     fields: [
       { key: "sonioxApiKey", input: "secret" },
-      {
-        // Same choice xAI offers, for the same reason: Soniox serves a realtime socket
-        // and an async job API, and which one runs is not something to infer.
-        key: "sonioxTranscriptionMode",
-        input: "select",
-        labelKey: "transcription.mode",
-        options: [
-          { value: "batch", label: "Batch" },
-          { value: "streaming", label: "Streaming" },
-        ],
-      },
     ],
   },
   "azure-speech": {
@@ -338,32 +323,12 @@ const PROVIDER_CREDENTIALS: Record<
     consoleUrl: "https://developer.meta.com/ai/",
     fields: [
       { key: "metaApiKey", input: "secret" },
-      {
-        // Same choice as Soniox and Gemini: one model behind both a socket and a
-        // one-shot endpoint, and which one runs is not something to infer.
-        key: "metaTranscriptionMode",
-        input: "select",
-        labelKey: "transcription.mode",
-        options: [
-          { value: "batch", label: "Batch" },
-          { value: "streaming", label: "Streaming" },
-        ],
-      },
     ],
   },
   gemini: {
     consoleUrl: "https://aistudio.google.com/apikey",
     fields: [
       { key: "geminiApiKey", input: "secret" },
-      {
-        key: "geminiTranscriptionMode",
-        input: "select",
-        labelKey: "transcription.mode",
-        options: [
-          { value: "batch", label: "Batch" },
-          { value: "streaming", label: "Streaming" },
-        ],
-      },
     ],
   },
   openrouter: {
@@ -371,6 +336,31 @@ const PROVIDER_CREDENTIALS: Record<
     fields: [{ key: "openrouterApiKey", input: "secret" }],
   },
 };
+
+// The Batch/Streaming control, generated from STREAMING_CAPABLE_PROVIDERS rather than
+// written out per provider.
+//
+// These were two unconnected lists: that table decides which providers stream at runtime,
+// while each provider's own `fields` array decided whether anyone could choose. So a
+// provider could be streaming-capable with no control in the UI, or carry a dropdown that
+// changed nothing, and neither showed up as an error. Derived, they cannot disagree —
+// adding a provider to the table is what puts the control on screen.
+for (const { id, modeKey } of STREAMING_CAPABLE_PROVIDERS) {
+  const entry = PROVIDER_CREDENTIALS[id];
+  if (!entry) continue;
+  entry.fields = [
+    ...entry.fields.filter((field) => field.key !== modeKey),
+    {
+      key: modeKey as ProviderCredentialField["key"],
+      input: "select",
+      labelKey: "transcription.mode",
+      options: [
+        { value: TRANSCRIPTION_MODE_BATCH, label: "Batch" },
+        { value: TRANSCRIPTION_MODE_STREAMING, label: "Streaming" },
+      ],
+    },
+  ];
+}
 
 const VALID_CLOUD_PROVIDER_IDS = CLOUD_PROVIDER_TABS.map((p) => p.id);
 

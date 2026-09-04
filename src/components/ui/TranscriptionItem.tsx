@@ -35,6 +35,13 @@ interface DualSide {
   text?: string | null;
   status?: string | null;
   ms?: number | null;
+  /**
+   * Whether this lane transcribed while the user talked or after they stopped.
+   *
+   * Not inferable from the model id: Meta serves one model on both paths, so its rows
+   * were indistinguishable here. Absent on rows recorded before this was stored.
+   */
+  streaming?: boolean | null;
 }
 
 interface DualDetail {
@@ -66,6 +73,7 @@ function parseDual(raw?: string | null): DualDetail | null {
             text: side.text,
             status: side.status,
             ms: side.ms,
+            streaming: side.streaming,
           }))
       : [
           { provider: d.providerA, model: d.modelA, text: d.textA, status: d.statusA, ms: d.msA },
@@ -603,6 +611,14 @@ export default function TranscriptionItem({
                           {side.model ? (
                             <span className="ml-1 normal-case text-muted-foreground/50">
                               {side.model}
+                            </span>
+                          ) : null}
+                          {side.streaming ? (
+                            <span
+                              className="ml-1.5 normal-case text-primary/60"
+                              title={t("controlPanel.history.laneStreamingHint")}
+                            >
+                              {t("controlPanel.history.laneStreaming")}
                             </span>
                           ) : null}
                         </span>

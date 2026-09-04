@@ -420,7 +420,9 @@
       "screenContextTerms": "Terms read from screen ({{words}})",
       "screenContextUsedLegend": "used to fix the transcript",
       "dualMergeDroppedShort": "merge timed out",
-      "dualMergeDropped": "Result (merge timed out)"
+      "dualMergeDropped": "Result (merge timed out)",
+      "laneStreaming": "streaming",
+      "laneStreamingHint": "Transcribed while you spoke; the time is the tail after your last word."
     },
     "cloudMigration": {
       "title": "Welcome to OpenWhispr Cloud",

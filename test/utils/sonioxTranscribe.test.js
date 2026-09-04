@@ -356,7 +356,15 @@ test("every streaming-capable provider gets a mode control, seeded from one defa
       ),
       `${id}: the store must seed ${modeKey} from a mode constant, not a literal`
     );
-    assert.match(picker, new RegExp(`key: "${modeKey}"`), `${id} needs a mode control`);
+    // The control itself is generated from this same table, so what has to be true per
+    // provider is that it has a credential entry to attach to and a wired setter. This
+    // used to look for a hand-written `key: "<modeKey>"`, which is exactly the duplication
+    // that let a streaming-capable provider ship with no control at all.
+    assert.match(
+      picker,
+      new RegExp(`"?${id}"?: \\{\\s*\\n\\s*consoleUrl`),
+      `${id} needs a PROVIDER_CREDENTIALS entry, or the generated mode control has nowhere to go`
+    );
     assert.match(
       picker,
       new RegExp(`${modeKey}: set[A-Za-z]+,`),
@@ -378,3 +386,57 @@ test("the streaming route is table-driven, not a branch per provider", () => {
     "the per-provider branch should be gone"
   );
 });
+
+test("the mode control is generated from the streaming table, not written per provider", () => {
+  // The design fault this closes: STREAMING_CAPABLE_PROVIDERS decided which providers
+  // stream at runtime, and a separate hand-written `fields` array decided whether the UI
+  // offered the choice. Nothing tied them together, so Meta shipped streaming-capable
+  // with no dropdown — and the failure mode is silent in both directions.
+  const picker = fs.readFileSync(
+    path.join(__dirname, "..", "..", "src", "components", "TranscriptionModelPicker.tsx"),
+    "utf8"
+  );
+  assert.match(
+    picker,
+    /for \(const \{ id, modeKey \} of STREAMING_CAPABLE_PROVIDERS\)/,
+    "the control must be derived from the same table the runtime routes on"
+  );
+  assert.equal(
+    (picker.match(/key: "[a-z]+TranscriptionMode"/g) || []).length,
+    0,
+    "no provider should hand-write its own mode field any more"
+  );
+});
+
+test("a provider with a live socket is declared streaming-capable", () => {
+  // The invariant that spans the two files, and the one that actually catches a missing
+  // entry. audioManager maps a provider to its streaming API
+  // (STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER) — having one is what it means to be
+  // able to stream. STREAMING_CAPABLE_PROVIDERS is what gives it a mode setting and,
+  // now, a control in the UI.
+  //
+  // A provider in the first and not the second can stream but can never be told to: it
+  // is routed to batch forever with no way to change it, which is how Meta shipped.
+  const root = path.join(__dirname, "..", "..");
+  const manager = fs.readFileSync(path.join(root, "src", "helpers", "audioManager.js"), "utf8");
+  const config = fs.readFileSync(path.join(root, "src", "config", "multiTranscription.ts"), "utf8");
+
+  const mapBody = manager.slice(
+    manager.indexOf("const STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER = {"),
+    manager.indexOf("};", manager.indexOf("const STREAMING_PROVIDER_BY_TRANSCRIPTION_PROVIDER = {"))
+  );
+  const wired = [...mapBody.matchAll(/^\s*([a-z-]+):\s*"/gm)].map((m) => m[1]);
+  assert.ok(wired.length >= 3, `expected the socket map, parsed ${wired.length}`);
+
+  const capable = [...config.matchAll(/\{ id: "([a-z-]+)", modeKey: "[A-Za-z]+" \}/g)].map(
+    (m) => m[1]
+  );
+
+  const missing = wired.filter((id) => !capable.includes(id));
+  assert.deepEqual(
+    missing,
+    [],
+    `${missing.join(", ")} can stream but is absent from STREAMING_CAPABLE_PROVIDERS, so it has no mode setting and no control`
+  );
+});
+

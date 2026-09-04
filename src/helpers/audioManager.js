@@ -188,6 +188,33 @@ const OPENAI_COMPATIBLE_TRANSCRIPTION = {
   openrouter: { apiKeyField: "openrouterApiKey", base: API_ENDPOINTS.OPENROUTER_BASE },
 };
 
+/**
+ * The per-lane record history and the timings payload both store.
+ *
+ * One function rather than an object literal at each call site: the lane object grows —
+ * it has gained `streaming` and a socket-reported `model` — and every field added to it
+ * was silently absent from the stored record until someone noticed. `streaming` is the
+ * case that got through: the stats table had it and the history row did not, so a
+ * provider whose batch and streaming paths share one model id, as Meta's do, was
+ * indistinguishable between them in history.
+ *
+ * @param {object} side
+ * @param {boolean} [withText] History keeps each provider's transcript; timings do not.
+ */
+function toStoredSide(side, withText = false) {
+  const stored = {
+    provider: side.provider,
+    model: side.model,
+    status: side.status,
+    ms: side.ms,
+    // What the lane actually ran, not what it was configured to run: a streaming lane
+    // that fell back to batch is recorded as batch.
+    streaming: !!side.streaming,
+  };
+  if (withText) stored.text = side.text ?? null;
+  return stored;
+}
+
 function dictationAgentReachable(settings) {
   return resolveDictationAgentInference(settings, { isCloudAgent: isCloudDictationAgentMode() })
     .reachable;
@@ -4045,12 +4072,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     timings.transcriptionProcessingDurationMs = multi.transcribeMs;
     if (multi.reconcileMs != null) timings.reconcileDurationMs = multi.reconcileMs;
     timings.multi = {
-      sides: multi.sides.map((side) => ({
-        provider: side.provider,
-        model: side.model,
-        status: side.status,
-        ms: side.ms,
-      })),
+      sides: multi.sides.map((side) => toStoredSide(side)),
       reconciled: multi.reconciled,
       reconcileMs: multi.reconcileMs ?? null,
       // A merge that ran out of time is not the same as one that was never needed, and
@@ -4119,13 +4141,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // Kept alongside the transcript so history can show what each provider actually
     // heard, which is the only place the disagreement the merge resolved is visible.
     const multiDetail = {
-      sides: multi.sides.map((side) => ({
-        provider: side.provider,
-        model: side.model,
-        status: side.status,
-        ms: side.ms,
-        text: side.text ?? null,
-      })),
+      sides: multi.sides.map((side) => toStoredSide(side, true)),
       reconciled: !!multi.reconciled,
       // Whether the merge was abandoned rather than never needed. The history row derives
       // three states from this pair, and this half was missing from the stored record even
