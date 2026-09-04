@@ -39,12 +39,11 @@ import settingsDefaults from "../config/settingsDefaults.json";
 import { buildReconcileRequest } from "./reconcileRequest";
 import {
   MULTI_TRANSCRIPTION_MODELS,
-  MULTI_TRANSCRIPTION_API_KEY_FIELDS,
   getMultiTranscriptionProvider,
   DEFAULT_MULTI_PROVIDER_A,
   DEFAULT_MULTI_PROVIDER_B,
   DEFAULT_MULTI_PROVIDER_C,
-  resolveMultiTranscriptionLanes,
+  resolveRunnableMultiTranscriptionLanes,
   resolveMultiSecondWaitMs,
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_PROVIDER_B,
@@ -379,12 +378,8 @@ function isMultiTranscriptionEnabled(settings) {
   if (settings.cloudTranscriptionMode !== "byok") return false;
   // At least two lanes that actually have a key. One lane is the single-provider path with
   // extra machinery, and a lane without a key is a guaranteed failure rather than a second
-  // opinion. Lanes come from the shared resolver, so duplicates are already collapsed.
-  const withKeys = resolveMultiTranscriptionLanes(settings).filter((lane) => {
-    const keyField = MULTI_TRANSCRIPTION_API_KEY_FIELDS[lane.provider];
-    return keyField && settings[keyField];
-  });
-  return withKeys.length >= 2;
+  // opinion. The shared runtime resolver also collapses duplicates.
+  return resolveRunnableMultiTranscriptionLanes(settings).length >= 2;
 }
 
 // Minimal 16-bit PCM WAV writer. The trimmed audio only exists as samples, and
@@ -3745,10 +3740,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       return;
     }
 
-    const lanes = resolveMultiTranscriptionLanes(settings).filter((lane) => {
-      const keyField = MULTI_TRANSCRIPTION_API_KEY_FIELDS[lane.provider];
-      return providerWantsStreaming(lane.provider, settings) && keyField && settings[keyField];
-    });
+    const lanes = resolveRunnableMultiTranscriptionLanes(settings).filter((lane) =>
+      providerWantsStreaming(lane.provider, settings)
+    );
     if (lanes.length === 0) {
       this.liveLanes.discard();
       return;
@@ -4213,7 +4207,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     // Resolved centrally so the fan-out, the settings UI and the gate all agree on which
     // providers actually run — and so a stored slot plus a colliding default cannot send
     // the same provider twice while evicting another.
-    const lanes = resolveMultiTranscriptionLanes(settings);
+    const lanes = resolveRunnableMultiTranscriptionLanes(settings);
 
     // Started, not awaited. Each live lane's close becomes that lane's own promise below,
     // so it races on the same tail-anchored deadline as every batch lane. Awaiting here is

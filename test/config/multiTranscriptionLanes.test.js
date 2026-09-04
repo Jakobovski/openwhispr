@@ -24,6 +24,25 @@ test("empty settings run the three slot defaults, in order", async () => {
   ]);
 });
 
+test("runnable lanes exclude selected providers without credentials", async () => {
+  const { resolveRunnableMultiTranscriptionLanes, MULTI_TRANSCRIPTION_API_KEY_FIELDS } =
+    await load();
+  const configured = {
+    dualTranscriptionProviderA: "gemini",
+    dualTranscriptionProviderB: "azure-speech",
+    dualTranscriptionProviderC: "soniox",
+    geminiApiKey: "gemini-key",
+    azureSpeechApiKey: "",
+    sonioxApiKey: "soniox-key",
+  };
+
+  assert.deepEqual(providers(resolveRunnableMultiTranscriptionLanes(configured)), [
+    "gemini",
+    "soniox",
+  ]);
+  assert.equal(MULTI_TRANSCRIPTION_API_KEY_FIELDS["azure-speech"], "azureSpeechApiKey");
+});
+
 test("a stored slot combined with a colliding default does not duplicate a provider", async () => {
   const { resolveMultiTranscriptionLanes, DEFAULT_MULTI_PROVIDER_B } = await load();
   // The real failure: slot A was stored as openai from the settings UI, slot B had no
@@ -67,11 +86,8 @@ test("a slot set to none runs nothing for that slot", async () => {
 });
 
 test("a substituted slot does not inherit the replaced provider's model", async () => {
-  const {
-    resolveMultiTranscriptionLanes,
-    DEFAULT_MULTI_PROVIDER_B,
-    MULTI_TRANSCRIPTION_MODELS,
-  } = await load();
+  const { resolveMultiTranscriptionLanes, DEFAULT_MULTI_PROVIDER_B, MULTI_TRANSCRIPTION_MODELS } =
+    await load();
 
   // Storing slot A as slot B's default provider collides, so slot B is pushed along to
   // some other provider while still holding the model id it was saved with. Carrying

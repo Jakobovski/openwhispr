@@ -480,6 +480,24 @@ export function resolveMultiTranscriptionLanes(
   return lanes;
 }
 
+/**
+ * Configured lanes that can actually authenticate.
+ *
+ * Keep this separate from resolveMultiTranscriptionLanes: settings screens still need
+ * to show a selected provider whose key has not been entered yet. Runtime callers must
+ * use this resolver, though. Previously the enablement gate and streaming setup filtered
+ * missing keys independently while the batch fan-out did not filter at all, so a missing
+ * Azure key generated a failed request and a warning on every dictation.
+ */
+export function resolveRunnableMultiTranscriptionLanes(
+  settings: Record<string, unknown>
+): Array<{ slot: string; provider: string; model: string }> {
+  return resolveMultiTranscriptionLanes(settings).filter((lane) => {
+    const keyField = MULTI_TRANSCRIPTION_API_KEY_FIELDS[lane.provider];
+    return Boolean(keyField && settings[keyField]);
+  });
+}
+
 /** provider id -> the transcription model ids that provider actually serves. */
 const SERVED_TRANSCRIPTION_MODELS: Record<string, Set<string>> = Object.fromEntries(
   (
