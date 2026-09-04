@@ -11,6 +11,7 @@ import settingsDefaults from "../config/settingsDefaults.json";
 import { BYOK_API_KEYS } from "../config/secretKeys";
 import { deriveTranscriptionMode, hasNoStoredProviderSettings } from "../config/inferenceModes";
 import modelRegistryData from "../models/modelRegistryData.json";
+import { normalizeRetentionDays } from "../helpers/retentionSettings";
 import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
 import type { GoogleCalendarAccount } from "../types/calendar";
 import { PROMPT_KIND_LIST, type PromptKind } from "../config/prompts/registry";
@@ -76,6 +77,11 @@ function readNumber(key: string, fallback: number): number {
   if (!isBrowser) return fallback;
   const parsed = parseInt(localStorage.getItem(key) ?? "", 10);
   return isNaN(parsed) ? fallback : parsed;
+}
+
+function readRetentionDays(key: string, fallback: number): number {
+  if (!isBrowser) return fallback;
+  return normalizeRetentionDays(localStorage.getItem(key), fallback);
 }
 
 function readStringArray(key: string, fallback: string[]): string[] {
@@ -854,6 +860,15 @@ function createNumberSetter(key: string) {
   };
 }
 
+function createRetentionDaysSetter(key: "audioRetentionDays" | "transcriptRetentionDays") {
+  return (value: number) => {
+    const fallback = key === "audioRetentionDays" ? 30 : 0;
+    const days = normalizeRetentionDays(value, fallback);
+    if (isBrowser) localStorage.setItem(key, String(days));
+    useSettingsStore.setState({ [key]: days });
+  };
+}
+
 // Setter for hotkeys that must be registered with the main process before
 // being persisted. Rolls back to the previous key if registration fails.
 // Resolves to false on failure so optimistic UIs (HotkeyListInput) can revert.
@@ -1232,8 +1247,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   })(),
   cloudBackupEnabled: readBoolean("cloudBackupEnabled", false),
   telemetryEnabled: readBoolean("telemetryEnabled", false),
-  audioRetentionDays: readNumber("audioRetentionDays", 30),
-  transcriptRetentionDays: readNumber("transcriptRetentionDays", 0),
+  audioRetentionDays: readRetentionDays("audioRetentionDays", 30),
+  transcriptRetentionDays: readRetentionDays("transcriptRetentionDays", 0),
   dataRetentionEnabled: readBoolean("dataRetentionEnabled", true),
   saveDiscardedTranscriptions: readBoolean("saveDiscardedTranscriptions", false),
   audioCuesEnabled: readBoolean("audioCuesEnabled", true),
@@ -1876,8 +1891,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
 
   setCloudBackupEnabled: createBooleanSetter("cloudBackupEnabled"),
   setTelemetryEnabled: createBooleanSetter("telemetryEnabled"),
-  setAudioRetentionDays: createNumberSetter("audioRetentionDays"),
-  setTranscriptRetentionDays: createNumberSetter("transcriptRetentionDays"),
+  setAudioRetentionDays: createRetentionDaysSetter("audioRetentionDays"),
+  setTranscriptRetentionDays: createRetentionDaysSetter("transcriptRetentionDays"),
   setDataRetentionEnabled: (value: boolean) => {
     if (isBrowser) localStorage.setItem("dataRetentionEnabled", String(value));
     set({ dataRetentionEnabled: value });
@@ -2907,7 +2922,12 @@ export async function initializeSettings(): Promise<void> {
       }
     } else if (NUMERIC_SETTINGS.has(key)) {
       const parsed = Number(newValue);
-      if (Number.isNaN(parsed)) {
+      if (key === "audioRetentionDays" || key === "transcriptRetentionDays") {
+        value = normalizeRetentionDays(
+          newValue,
+          key === "audioRetentionDays" ? 30 : state.transcriptRetentionDays
+        );
+      } else if (Number.isNaN(parsed)) {
         value =
           key === "audioRetentionDays" ? 30 : (state as unknown as Record<string, unknown>)[key];
       } else {

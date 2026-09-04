@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 
 const {
   DEFAULT_RETENTION_SETTINGS,
+  normalizeRetentionDays,
   applyRetentionSettings,
 } = require("../../src/helpers/retentionSettings");
 
@@ -17,6 +18,14 @@ test("reports a change when a retention period is shortened", () => {
       settings: { audioRetentionDays: 1, transcriptRetentionDays: 1 },
     }
   );
+});
+
+test("never treats missing, fractional, or negative values as a request to disable retention", () => {
+  for (const value of [null, "", "1.5", 1.5, -1, "-1"]) {
+    assert.equal(normalizeRetentionDays(value, 30), 30);
+  }
+  assert.equal(normalizeRetentionDays("7", 30), 7);
+  assert.equal(normalizeRetentionDays(0, 30), 0);
 });
 
 test("is idempotent when both values are unchanged — dual-window mount sync", () => {

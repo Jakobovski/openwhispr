@@ -120,6 +120,7 @@ const CLOUD_CHUNK_SEGMENT_SECONDS = 240;
 
 const { createAbortError } = require("./abortError");
 const { applyOpenWhisprOriginHeader } = require("./sessionHeaders");
+const { buildMultipartBody } = require("./multipartForm");
 const {
   CLOUD_UPLOAD_TIMEOUT_MS,
   CLOUD_CHUNK_MAX_ATTEMPTS,
@@ -205,34 +206,6 @@ function resolveAllowedAudioPath(filePath) {
     return real;
   }
   return null;
-}
-
-function buildMultipartBody(fileBuffer, fileName, contentType, fields = {}) {
-  const boundary = `----OpenWhispr${Date.now()}`;
-  const parts = [];
-
-  parts.push(
-    `--${boundary}\r\n` +
-      `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
-      `Content-Type: ${contentType}\r\n\r\n`
-  );
-  parts.push(fileBuffer);
-  parts.push("\r\n");
-
-  for (const [name, value] of Object.entries(fields)) {
-    if (value != null) {
-      parts.push(
-        `--${boundary}\r\n` +
-          `Content-Disposition: form-data; name="${name}"\r\n\r\n` +
-          `${value}\r\n`
-      );
-    }
-  }
-
-  parts.push(`--${boundary}--\r\n`);
-
-  const bodyParts = parts.map((p) => (typeof p === "string" ? Buffer.from(p) : p));
-  return { body: Buffer.concat(bodyParts), boundary };
 }
 
 async function postMultipart(

@@ -6,15 +6,27 @@ const DEFAULT_RETENTION_SETTINGS = {
   transcriptRetentionDays: 0, // 0 = keep transcripts forever
 };
 
-function toDays(value, fallback) {
-  const days = Math.trunc(Number(value));
-  return Number.isFinite(days) && days >= 0 ? days : fallback;
+// IPC payloads and localStorage are both untrusted inputs. In particular,
+// Number(null) and Number("") are 0, which would silently disable retention
+// when a missing value reaches the main process. Keep the allowed shape in one
+// place so renderer state cannot disagree with the cleanup process.
+function normalizeRetentionDays(value, fallback) {
+  const numeric =
+    typeof value === "number"
+      ? value
+      : typeof value === "string" && value.trim() !== ""
+        ? Number(value)
+        : NaN;
+  return Number.isFinite(numeric) && Number.isInteger(numeric) && numeric >= 0 ? numeric : fallback;
 }
 
 function applyRetentionSettings(current, incoming) {
   const settings = {
-    audioRetentionDays: toDays(incoming?.audioRetentionDays, current.audioRetentionDays),
-    transcriptRetentionDays: toDays(
+    audioRetentionDays: normalizeRetentionDays(
+      incoming?.audioRetentionDays,
+      current.audioRetentionDays
+    ),
+    transcriptRetentionDays: normalizeRetentionDays(
       incoming?.transcriptRetentionDays,
       current.transcriptRetentionDays
     ),
@@ -25,4 +37,4 @@ function applyRetentionSettings(current, incoming) {
   return { changed, settings };
 }
 
-module.exports = { DEFAULT_RETENTION_SETTINGS, applyRetentionSettings };
+module.exports = { DEFAULT_RETENTION_SETTINGS, normalizeRetentionDays, applyRetentionSettings };
