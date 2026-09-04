@@ -65,8 +65,8 @@ typings/
 .env.test
 .env.local
 .env.production
-# Optionally packaged inside app.asar by electron-builder, so anything in it ships with
-# the build. Never commit it. The ordinary development .env is deliberately not packaged.
+# Optionally packaged inside app.asar by electron-builder, so anything in either local
+# environment file ships with development builds. Never commit either file.
 .env.bundled
 .env.bundled.*
 
