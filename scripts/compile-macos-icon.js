@@ -37,25 +37,34 @@ if (actoolLookup.status !== 0) {
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ow-icon-"));
 try {
-  execFileSync(
-    "xcrun",
-    [
-      "actool",
-      ICON_BUNDLE,
-      "--compile",
-      tmpDir,
-      "--platform",
-      "macosx",
-      "--minimum-deployment-target",
-      "12.0",
-      "--app-icon",
-      APP_ICON_NAME,
-      "--output-partial-info-plist",
-      path.join(tmpDir, "plist.plist"),
-      "--include-all-app-icons",
-    ],
-    { stdio: "inherit" }
-  );
+  try {
+    execFileSync(
+      "xcrun",
+      [
+        "actool",
+        ICON_BUNDLE,
+        "--compile",
+        tmpDir,
+        "--platform",
+        "macosx",
+        "--minimum-deployment-target",
+        "12.0",
+        "--app-icon",
+        APP_ICON_NAME,
+        "--output-partial-info-plist",
+        path.join(tmpDir, "plist.plist"),
+        "--include-all-app-icons",
+      ],
+      { stdio: "inherit" }
+    );
+  } catch (error) {
+    const detail = error?.signal ? ` (terminated by ${error.signal})` : "";
+    console.warn(
+      `compile-macos-icon: actool failed${detail}. ` +
+        "Existing icon.icns will be used as the fallback."
+    );
+    return;
+  }
 
   const producedCar = path.join(tmpDir, "Assets.car");
   if (!fs.existsSync(producedCar)) {

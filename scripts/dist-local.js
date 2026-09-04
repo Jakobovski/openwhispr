@@ -25,7 +25,10 @@
  * locally installed app does not need it once quarantine is cleared.
  */
 
+const fs = require("fs");
 const { execFileSync, spawnSync } = require("child_process");
+
+const LOCAL_DEVELOPMENT_ROOT = "OpenWhispr Local Development Root";
 
 /** Codesigning identities in the keychain, best for this purpose first. */
 function findIdentities() {
@@ -41,18 +44,19 @@ function findIdentities() {
   const found = [];
   for (const line of raw.split("\n")) {
     // e.g. `  1) ABC123 "Apple Development: someone@example.com (TEAMID)"`
-    const match = line.match(/^\s*\d+\)\s+[0-9A-F]+\s+"(.+)"\s*$/);
-    if (match) found.push(match[1]);
+    const match = line.match(/^\s*\d+\)\s+([0-9A-F]+)\s+"(.+)"\s*$/);
+    if (match) found.push({ hash: match[1], name: match[2] });
   }
 
   // Developer ID is the only one that also satisfies Gatekeeper for other people, so it
   // wins when present. Apple Development is enough for the permissions problem, which is
   // what this script is for.
-  const rank = (name) => {
+  const rank = ({ name }) => {
     if (name.startsWith("Developer ID Application")) return 0;
     if (name.startsWith("Apple Development")) return 1;
-    if (name.startsWith("Mac Developer")) return 2;
-    return 3;
+    if (name === LOCAL_DEVELOPMENT_ROOT) return 2;
+    if (name.startsWith("Mac Developer")) return 3;
+    return 4;
   };
   return found.sort((a, b) => rank(a) - rank(b));
 }
@@ -77,9 +81,14 @@ if (!identity) {
   process.exit(1);
 }
 
-console.log(`[dist-local] signing identity: ${identity}`);
+console.log(`[dist-local] signing identity: ${identity.name} (${identity.hash})`);
 if (identities.length > 1) {
-  console.log(`[dist-local] (also available: ${identities.slice(1).join(", ")})`);
+  console.log(
+    `[dist-local] (also available: ${identities
+      .slice(1)
+      .map(({ name }) => name)
+      .join(", ")})`
+  );
 }
 
 // better-sqlite3 must be built against Electron's ABI, not Node's.
@@ -116,18 +125,31 @@ if (identities.length > 1) {
   console.log("[dist-local] better-sqlite3 is built for Electron's ABI.");
 }
 
+// Compile the modern macOS icon when the local Xcode installation supports it. If it
+// does not, omit that one optional resource so electron-builder can use icon.icns
+// instead of failing because Assets.car is absent.
+{
+  const result = spawnSync("npm", ["run", "compile:mac-icon"], { stdio: "inherit" });
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+const builderArgs = [
+  "exec",
+  "--",
+  "electron-builder",
+  // Use the certificate hash, not its display name. The old development leaf has a
+  // name that is a prefix of the stable root, so name-based matching can select the
+  // wrong identity and make TCC grants change again.
+  `--config.mac.identity=${identity.hash}`,
+  "--config.mac.notarize=false",
+];
+if (!fs.existsSync("src/assets/Assets.car")) {
+  console.log("[dist-local] Assets.car unavailable; using the legacy icon.icns fallback.");
+  builderArgs.push("--config.mac.extraResources=[]");
+}
+
 // build:renderer first, always. Calling electron-builder without it ships a stale
 // renderer bundle — the build looks clean and the app is silently a version behind.
-for (const args of [
-  ["run", "build:renderer"],
-  [
-    "exec",
-    "--",
-    "electron-builder",
-    `--config.mac.identity=${identity}`,
-    "--config.mac.notarize=false",
-  ],
-]) {
+for (const args of [["run", "build:renderer"], builderArgs]) {
   const result = spawnSync("npm", args, { stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
