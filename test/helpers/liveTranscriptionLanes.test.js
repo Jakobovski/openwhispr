@@ -104,6 +104,18 @@ test("frames are converted once and forwarded to every lane", async () => {
   assert.equal(fake.calls.sent.length, 1);
 });
 
+test("frames captured while a socket connects are replayed as pre-roll", async () => {
+  const { lanes, fake } = build({ startDelayMs: 40 });
+  const starting = lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
+
+  lanes.feed(frame(4));
+  assert.equal(fake.calls.sent.length, 0, "the socket is not open yet");
+  await starting;
+
+  assert.equal(fake.calls.sent.length, 1, "opening audio must reach the newly opened socket");
+  assert.equal(fake.calls.sent[0].byteLength, 8);
+});
+
 test("multiple live providers connect concurrently", async () => {
   const releases = {};
   const starts = [];

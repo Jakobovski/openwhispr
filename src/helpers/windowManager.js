@@ -15,6 +15,7 @@ const {
   NOTIFICATION_WINDOW_CONFIG,
   TRANSCRIPTION_PREVIEW_CONFIG,
   TRANSCRIPTION_PREVIEW_SIZE_LIMITS,
+  PUSH_TO_TALK_START_DELAY_MS,
   WINDOW_SIZES,
   WindowPositionUtil,
 } = require("./windowConfig");
@@ -272,7 +273,6 @@ class WindowManager {
       return;
     }
 
-    const MIN_HOLD_DURATION_MS = 150;
     const MAX_PUSH_DURATION_MS = 300000; // 5 minutes max recording
     const downTime = Date.now();
 
@@ -303,7 +303,7 @@ class WindowManager {
         this.macCompoundPushState.isRecording = true;
         this.sendStartDictation();
       }
-    }, MIN_HOLD_DURATION_MS);
+    }, PUSH_TO_TALK_START_DELAY_MS);
   }
 
   handleMacPushModifierUp(modifier) {
@@ -398,7 +398,6 @@ class WindowManager {
       return;
     }
 
-    const MIN_HOLD_DURATION_MS = 150;
     const downTime = Date.now();
 
     this.showDictationPanel();
@@ -419,7 +418,7 @@ class WindowManager {
         this.winPushState.isRecording = true;
         this.sendStartDictation();
       }
-    }, MIN_HOLD_DURATION_MS);
+    }, PUSH_TO_TALK_START_DELAY_MS);
   }
 
   // With several dictation hotkeys bound, only the key that started the push

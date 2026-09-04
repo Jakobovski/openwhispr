@@ -10,6 +10,11 @@ const isKDEWayland =
   process.env.XDG_SESSION_TYPE === "wayland" &&
   /kde/i.test(process.env.XDG_CURRENT_DESKTOP || "");
 
+// Leave enough time for a bare modifier to become a macOS navigation shortcut (for
+// example Fn+Delete) without making push-to-talk wait the old, first-syllable-clipping
+// 150 ms. All push-to-talk entry points share this value so they cannot drift apart.
+const PUSH_TO_TALK_START_DELAY_MS = 100;
+
 const MAIN_OVERLAY_TYPE =
   process.platform === "darwin"
     ? "panel"
@@ -269,6 +274,7 @@ module.exports = {
   NOTIFICATION_WINDOW_CONFIG,
   TRANSCRIPTION_PREVIEW_CONFIG,
   TRANSCRIPTION_PREVIEW_SIZE_LIMITS,
+  PUSH_TO_TALK_START_DELAY_MS,
   WINDOW_SIZES,
   WindowPositionUtil,
 };

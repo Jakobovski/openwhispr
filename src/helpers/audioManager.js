@@ -1244,15 +1244,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // silently, and wrong by however long ago that recording ended.
       this._recordingStoppedAt = null;
 
-      // Fire and forget, before the mic is even acquired: OCR then runs while
-      // the user speaks instead of adding latency at the end.
-      this.startScreenContextCapture();
-
-      // Same reasoning, and the socket needs the head start more: connecting takes
-      // ~130ms, and frames captured before it is ready are buffered rather than lost.
-      // Not awaited, so a slow connect cannot delay the mic.
-      void this.startLiveLanesForThisRecording();
-
       const constraints = await this.getAudioConstraints(forceDefaultMic);
       const micStream = await this.acquireHealthyMicStream(
         await navigator.mediaDevices.getUserMedia(constraints),
@@ -1322,6 +1313,13 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         isProcessing: false,
         micCaptureStatus: "active",
       });
+
+      // Audio capture gets first use of the renderer thread. Socket and OCR setup can
+      // perform synchronous work before their first await; starting either before
+      // getUserMedia used to make the beginning of a recording contend with setup work.
+      // Live lanes buffer frames while their sockets connect, so no audio is lost.
+      this.startScreenContextCapture();
+      void this.startLiveLanesForThisRecording();
 
       const {
         showTranscriptionPreview,
@@ -5221,9 +5219,6 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         return false;
       }
 
-      // Same as the batch path: start OCR before the mic, so it overlaps speech.
-      this.startScreenContextCapture();
-
       this.stopRequestedDuringStreamingStart = false;
 
       const t0 = performance.now();
@@ -5257,6 +5252,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       // Start fallback recorder in case streaming produces no results.
       this._streamingFallbackSegments = [];
       this.startStreamingFallbackRecorder(stream);
+
+      // The fallback recorder is live before OCR can occupy the renderer thread.
+      this.startScreenContextCapture();
 
       // 2. Set up audio pipeline so frames flow the instant WebSocket is ready.
       //    Frames sent before the connection is open are buffered (bounded) by

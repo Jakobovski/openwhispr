@@ -17,6 +17,7 @@
 const { floatToPcm16 } = require("../utils/pcmAudio");
 
 const SAMPLE_RATE = 16000;
+const PRE_ROLL_MAX_SAMPLES = SAMPLE_RATE;
 
 // How long a lane gets to hand over its closing transcript.
 //
@@ -53,6 +54,10 @@ class LiveTranscriptionLanes {
     // pushed after close() had already run — leaving a socket open that nobody owned.
     this.starting = null;
     this.generation = 0;
+    // Audio capture intentionally starts before sockets. Retain up to one second of
+    // opening audio so a slow connection cannot eat the first word.
+    this.preRollPcm = [];
+    this.preRollSamples = 0;
   }
 
   /** True once any lane is open, so the caller can skip converting frames for nothing. */
@@ -76,6 +81,8 @@ class LiveTranscriptionLanes {
     this.discard();
     const generation = ++this.generation;
     this.modelByProvider.clear();
+    this.preRollPcm = [];
+    this.preRollSamples = 0;
     if (!lanes?.length) return;
 
     const starting = (async () => {
@@ -111,7 +118,11 @@ class LiveTranscriptionLanes {
               this._warn("reported an error", lane.provider, error)
             );
             this.modelByProvider.set(lane.provider, result?.model ?? null);
-            this.lanes.push({ provider: lane.provider, api, unsubscribe });
+            const liveLane = { provider: lane.provider, api, unsubscribe };
+            this.lanes.push(liveLane);
+            // Replay everything captured while this particular socket connected. New
+            // frames are sent normally once the lane is present in this.lanes.
+            for (const pcm of this.preRollPcm) this._send(liveLane, pcm.buffer);
           } catch (error) {
             this._warn("threw while starting", lane.provider, error?.message);
           }
@@ -123,7 +134,11 @@ class LiveTranscriptionLanes {
     try {
       await starting;
     } finally {
-      if (this.starting === starting) this.starting = null;
+      if (this.starting === starting) {
+        this.starting = null;
+        this.preRollPcm = [];
+        this.preRollSamples = 0;
+      }
     }
   }
 
@@ -137,15 +152,26 @@ class LiveTranscriptionLanes {
 
   /** One captured block of float samples, to every open lane. */
   feed(frame) {
-    if (!this.lanes.length || !frame?.length) return;
+    if ((!this.lanes.length && !this.starting) || !frame?.length) return;
     // Converted once for all lanes rather than per socket.
     const pcm = floatToPcm16(frame);
-    for (const lane of this.lanes) {
-      try {
-        lane.api.send(pcm.buffer);
-      } catch {
-        // A dead socket must not interrupt the recording; close() reports it.
+    if (this.starting) {
+      this.preRollPcm.push(pcm);
+      this.preRollSamples += pcm.length;
+      while (this.preRollSamples > PRE_ROLL_MAX_SAMPLES && this.preRollPcm.length > 1) {
+        this.preRollSamples -= this.preRollPcm.shift().length;
       }
+    }
+    for (const lane of this.lanes) {
+      this._send(lane, pcm.buffer);
+    }
+  }
+
+  _send(lane, buffer) {
+    try {
+      lane.api.send(buffer);
+    } catch {
+      // A dead socket must not interrupt the recording; close() reports it.
     }
   }
 
@@ -168,6 +194,8 @@ class LiveTranscriptionLanes {
 
     this.generation += 1;
     this.starting = null;
+    this.preRollPcm = [];
+    this.preRollSamples = 0;
     for (const lane of lanes) {
       closing.set(lane.provider, this._closeLane(lane, anchorAt));
     }
@@ -181,6 +209,8 @@ class LiveTranscriptionLanes {
   discard() {
     this.generation += 1;
     this.starting = null;
+    this.preRollPcm = [];
+    this.preRollSamples = 0;
     const lanes = this.lanes;
     this.lanes = [];
     for (const lane of lanes) {

@@ -259,6 +259,7 @@ process.on("unhandledRejection", (reason, promise) => {
 // Import helper module classes (but don't instantiate yet - wait for app.whenReady())
 const EnvironmentManager = require("./src/helpers/environment");
 const WindowManager = require("./src/helpers/windowManager");
+const { PUSH_TO_TALK_START_DELAY_MS } = require("./src/helpers/windowConfig");
 const DatabaseManager = require("./src/helpers/database");
 const ClipboardManager = require("./src/helpers/clipboard");
 const WhisperManager = require("./src/helpers/whisper");
@@ -1154,7 +1155,6 @@ async function startApp() {
     let globeKeyDownTime = 0;
     let globeKeyIsRecording = false;
     let globeLastStopTime = 0;
-    const MIN_HOLD_DURATION_MS = 150;
     const POST_STOP_COOLDOWN_MS = 300;
 
     globeKeyManager.on("globe-down", async () => {
@@ -1194,7 +1194,7 @@ async function startApp() {
                 debugLogger?.debug("[Globe] Starting dictation (push hold)");
                 windowManager.sendStartDictation();
               }
-            }, MIN_HOLD_DURATION_MS);
+            }, PUSH_TO_TALK_START_DELAY_MS);
           } else {
             windowManager.sendToggleDictation();
           }
@@ -1314,7 +1314,7 @@ async function startApp() {
             rightModIsRecording = true;
             windowManager.sendStartDictation();
           }
-        }, MIN_HOLD_DURATION_MS);
+        }, PUSH_TO_TALK_START_DELAY_MS);
       } else {
         windowManager.sendToggleDictation();
       }
@@ -1400,7 +1400,7 @@ async function startApp() {
             mouseButtonIsRecording = true;
             windowManager.sendStartDictation();
           }
-        }, MIN_HOLD_DURATION_MS);
+        }, PUSH_TO_TALK_START_DELAY_MS);
       } else {
         windowManager.sendToggleDictation();
       }

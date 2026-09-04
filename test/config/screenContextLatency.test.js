@@ -5,8 +5,8 @@ const path = require("path");
 
 // Whether screen context OCR is actually adding latency to a dictation is a question
 // this file exists to keep answerable from the stats page rather than from guessing:
-// the capture starts before the mic is even acquired (see startRecording), so by the
-// time collectScreenContext is asked for it, it should almost always already be done.
+// the capture starts immediately after the mic recorder (see startRecording), so it
+// overlaps speech without competing with capture of the first word.
 // If it isn't, that has to show up as a real number — median/p95 for how long the wait
 // typically is, and a drop rate for how often it hits the ceiling with nothing to show.
 //
