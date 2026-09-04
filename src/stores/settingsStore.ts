@@ -12,6 +12,7 @@ import { BYOK_API_KEYS } from "../config/secretKeys";
 import { deriveTranscriptionMode, hasNoStoredProviderSettings } from "../config/inferenceModes";
 import modelRegistryData from "../models/modelRegistryData.json";
 import { normalizeRetentionDays } from "../helpers/retentionSettings";
+import { parseStoredNumber } from "../helpers/numberSettings";
 import type { LocalTranscriptionProvider, InferenceMode, SelfHostedType } from "../types/electron";
 import type { GoogleCalendarAccount } from "../types/calendar";
 import { PROMPT_KIND_LIST, type PromptKind } from "../config/prompts/registry";
@@ -75,8 +76,7 @@ function readBoolean(key: string, fallback: boolean): boolean {
 
 function readNumber(key: string, fallback: number): number {
   if (!isBrowser) return fallback;
-  const parsed = parseInt(localStorage.getItem(key) ?? "", 10);
-  return isNaN(parsed) ? fallback : parsed;
+  return parseStoredNumber(localStorage.getItem(key), fallback);
 }
 
 function readRetentionDays(key: string, fallback: number): number {
@@ -862,7 +862,7 @@ function createNumberSetter(key: string) {
 
 function createRetentionDaysSetter(key: "audioRetentionDays" | "transcriptRetentionDays") {
   return (value: number) => {
-    const fallback = key === "audioRetentionDays" ? 30 : 0;
+    const fallback = settingsDefaults.storeDefaults[key];
     const days = normalizeRetentionDays(value, fallback);
     if (isBrowser) localStorage.setItem(key, String(days));
     useSettingsStore.setState({ [key]: days });
@@ -1247,8 +1247,14 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   })(),
   cloudBackupEnabled: readBoolean("cloudBackupEnabled", false),
   telemetryEnabled: readBoolean("telemetryEnabled", false),
-  audioRetentionDays: readRetentionDays("audioRetentionDays", 30),
-  transcriptRetentionDays: readRetentionDays("transcriptRetentionDays", 0),
+  audioRetentionDays: readRetentionDays(
+    "audioRetentionDays",
+    settingsDefaults.storeDefaults.audioRetentionDays
+  ),
+  transcriptRetentionDays: readRetentionDays(
+    "transcriptRetentionDays",
+    settingsDefaults.storeDefaults.transcriptRetentionDays
+  ),
   dataRetentionEnabled: readBoolean("dataRetentionEnabled", true),
   saveDiscardedTranscriptions: readBoolean("saveDiscardedTranscriptions", false),
   audioCuesEnabled: readBoolean("audioCuesEnabled", true),
@@ -2923,15 +2929,11 @@ export async function initializeSettings(): Promise<void> {
     } else if (NUMERIC_SETTINGS.has(key)) {
       const parsed = Number(newValue);
       if (key === "audioRetentionDays" || key === "transcriptRetentionDays") {
-        value = normalizeRetentionDays(
-          newValue,
-          key === "audioRetentionDays" ? 30 : state.transcriptRetentionDays
-        );
-      } else if (Number.isNaN(parsed)) {
-        value =
-          key === "audioRetentionDays" ? 30 : (state as unknown as Record<string, unknown>)[key];
+        value = normalizeRetentionDays(newValue, settingsDefaults.storeDefaults[key]);
+      } else if (!Number.isFinite(parsed)) {
+        value = (state as unknown as Record<string, unknown>)[key];
       } else {
-        value = key === "audioRetentionDays" ? Math.round(parsed) : parsed;
+        value = parsed;
       }
     } else {
       value = newValue;

@@ -128,4 +128,3 @@ test("the MAI model is v2 everywhere, with no v1.5 left behind", () => {
   assert.match(lanes, /model: "microsoft\/mai-transcribe-2"/, "the OpenRouter lane must be v2");
   assert.match(lanes, /model: "MAI-Transcribe-2"/, "the Azure lane must be v2");
 });
-

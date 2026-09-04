@@ -18,9 +18,7 @@ const {
   LiveTranscriptionSocket,
   FINAL_WAIT_MS,
 } = require("../../src/helpers/liveTranscriptionSocket");
-const {
-  LIVE_LANE_CLOSE_BUDGET_MS,
-} = require("../../src/helpers/liveTranscriptionLanes");
+const { LIVE_LANE_CLOSE_BUDGET_MS } = require("../../src/helpers/liveTranscriptionLanes");
 const {
   geminiLiveDialect,
   sonioxRealtimeDialect,
@@ -48,6 +46,18 @@ function local(dialect, port) {
 
 const pcm = (bytes = 320) => Buffer.alloc(bytes, 1);
 const settle = () => new Promise((r) => setTimeout(r, 60));
+
+test("gemini: a combined final-and-complete frame preserves both events", () => {
+  assert.deepEqual(
+    geminiLiveDialect.parseMessage({
+      serverContent: {
+        inputTranscription: { text: "short take" },
+        generationComplete: true,
+      },
+    }),
+    [{ kind: "final", text: "short take", replaces: false }, { kind: "segment-end" }]
+  );
+});
 
 test("gemini: no audio is sent before setup is acknowledged", async () => {
   // The real failure: Gemini closes the socket on anything sent before setupComplete.
@@ -88,6 +98,49 @@ test("gemini: no audio is sent before setup is acknowledged", async () => {
 
   await socket.disconnect(false);
   wss.close();
+});
+
+test("gemini: stopping before setup acknowledgement queues audio and the end marker", async (t) => {
+  const received = { beforeAck: 0, afterAck: [] };
+  let acked = false;
+  const { wss, port } = await startServer((ws) => {
+    ws.on("message", (data, isBinary) => {
+      const text = isBinary ? "" : data.toString();
+      if (text.includes('"setup"')) {
+        setTimeout(() => {
+          acked = true;
+          ws.send(JSON.stringify({ setupComplete: {} }));
+        }, 80);
+        return;
+      }
+      if (!acked) {
+        received.beforeAck++;
+        return;
+      }
+      received.afterAck.push(text);
+      if (text.includes("audio_stream_end")) {
+        ws.send(
+          JSON.stringify({
+            serverContent: {
+              inputTranscription: { text: "short take" },
+              generationComplete: true,
+            },
+          })
+        );
+      }
+    });
+  });
+  t.after(() => wss.close());
+
+  const socket = new LiveTranscriptionSocket(local(geminiLiveDialect, port));
+  await socket.connect({ apiKey: "k" });
+  socket.sendAudio(pcm());
+  const result = await socket.disconnect(true);
+
+  assert.equal(received.beforeAck, 0, "nothing may precede setupComplete");
+  assert.equal(received.afterAck.length, 2, "audio and end marker must both be delivered");
+  assert.match(received.afterAck[1], /audio_stream_end/);
+  assert.equal(result.text, "short take");
 });
 
 test("gemini: audio goes out as a base64 JSON envelope", async () => {
@@ -405,7 +458,9 @@ test("a socket that closes mid-recording says its transcript is incomplete", asy
     ws.on("message", (data, isBinary) => {
       if (isBinary || !data.toString().includes('"setup"')) return;
       ws.send(JSON.stringify({ setupComplete: {} }));
-      ws.send(JSON.stringify({ serverContent: { inputTranscription: { text: "Only the start" } } }));
+      ws.send(
+        JSON.stringify({ serverContent: { inputTranscription: { text: "Only the start" } } })
+      );
       // Dropped mid-recording, before anything asked it to stop. terminate() rather than
       // close(): a real connection death is abrupt, with no closing handshake, which is
       // the case that was going unnoticed.

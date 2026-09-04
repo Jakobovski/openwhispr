@@ -49,6 +49,7 @@ import {
   DEFAULT_RECONCILE_PROVIDER,
   DEFAULT_RECONCILE_PROVIDER_B,
   DEFAULT_RECONCILE_TIMEOUT_MS,
+  MULTI_FIRST_SUCCESS_TIMEOUT_MS,
   resolveMultiTranscriptionModel,
   providerWantsStreaming,
 } from "../config/multiTranscription";
@@ -1380,8 +1381,12 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         // Pinned mic is gone (Chromium rotates IDs / device unplugged). Retry once on the default mic. See #900.
         logger.warn("Pinned microphone unavailable, retrying on default mic", {}, "audio");
         this.cachedMicDeviceId = null;
+        this.liveLanes.discard();
         return this.startRecording(true);
       }
+
+      this.liveLanes.discard();
+      this.cancelScreenContextCapture();
 
       let errorTitle = "Recording Error";
       let errorDescription = `Failed to access microphone: ${error.message}`;
@@ -1463,6 +1468,9 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         description: `Could not start the microphone: ${error.message}`,
       });
       this.isRecording = false;
+      micStream.getTracks().forEach((track) => track.stop());
+      this.liveLanes.discard();
+      this.cancelScreenContextCapture();
       this.onStateChange?.({
         isRecording: false,
         isProcessing: false,
@@ -1533,6 +1541,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         "audio"
       );
       this.isProcessing = false;
+      this.liveLanes.discard();
+      this.cancelScreenContextCapture();
       this._localSpeechGateState = null;
       this.onStateChange?.({ isRecording: false, isProcessing: false });
       this.onTranscriptionComplete?.({ success: true, text: "" });
@@ -1730,6 +1740,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   cancelProcessing() {
     if (this.isProcessing) {
       this.isProcessing = false;
+      this.liveLanes.discard();
+      this.cancelScreenContextCapture();
       this.onStateChange?.({ isRecording: false, isProcessing: false });
       return true;
     }
@@ -1739,6 +1751,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
   async processAudio(audioBlob, metadata = {}) {
     const pipelineStart = performance.now();
     const settings = getSettings();
+    const multiTranscriptionActive = isMultiTranscriptionEnabled(settings);
+    // Settings can change while the user is talking. If multi mode was active at the
+    // start but is not the route chosen now, nobody else will consume its live sockets.
+    if (!multiTranscriptionActive) this.liveLanes.discard();
     const speechGateDecision = getLocalSpeechGateDecision(this._localSpeechGateState);
     this._localSpeechGateState = null;
 
@@ -1762,6 +1778,8 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         "audio"
       );
       this.isProcessing = false;
+      this.liveLanes.discard();
+      this.cancelScreenContextCapture();
       this.onStateChange?.({ isRecording: false, isProcessing: false });
       this.onTranscriptionComplete?.({ success: true, text: "" });
       return;
@@ -1806,7 +1824,7 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
         }
         activeModel = "openwhispr-cloud";
         result = await this.processWithOpenWhisprCloud(audioBlob, metadata);
-      } else if (isMultiTranscriptionEnabled(settings)) {
+      } else if (multiTranscriptionActive) {
         activeModel = "multi";
         result = await this.processWithMultiTranscription(audioBlob, metadata);
       } else {
@@ -2542,6 +2560,10 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       ]);
       if (outcome === expired) {
         this.recordModelLatency("screenContext", "screenContext", null, 0, "dropped");
+        // collect() is still awaiting the main-process sidecar after this local race
+        // returns. Cancel it explicitly so a dictation started during that window cannot
+        // attach itself to the previous window's capture and receive stale terms.
+        window.electronAPI?.windowOcrCancel?.();
         return null;
       }
       this.recordModelLatency(
@@ -3716,12 +3738,21 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
    */
   async startLiveLanesForThisRecording() {
     const settings = getSettings();
-    if (settings.multiTranscriptionEnabled !== true) return;
+    // Match the exact gate processAudio uses. Looking only at the UI toggle opened
+    // sockets in local/single-provider mode, where nothing ever called close().
+    if (!isMultiTranscriptionEnabled(settings)) {
+      this.liveLanes.discard();
+      return;
+    }
 
-    const lanes = resolveMultiTranscriptionLanes(settings).filter((lane) =>
-      providerWantsStreaming(lane.provider, settings)
-    );
-    if (lanes.length === 0) return;
+    const lanes = resolveMultiTranscriptionLanes(settings).filter((lane) => {
+      const keyField = MULTI_TRANSCRIPTION_API_KEY_FIELDS[lane.provider];
+      return providerWantsStreaming(lane.provider, settings) && keyField && settings[keyField];
+    });
+    if (lanes.length === 0) {
+      this.liveLanes.discard();
+      return;
+    }
 
     const language = getBaseLanguageCode(this.getEffectiveSttLanguage(settings));
     await this.liveLanes.start(lanes, {
@@ -4258,14 +4289,19 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
       budgetSeconds,
       settings.dualTranscriptionSecondTimeoutMaxMs
     );
-    const { firstSuccessIndex, droppedIndexes } = await awaitLanesWithBudget(
-      tracked,
-      settled,
-      budgetMs,
+    const recordingEndedAt = this._recordingStoppedAt ?? performance.now();
+    const {
+      firstSuccessIndex,
+      droppedIndexes,
+      timedOut: firstSuccessTimedOut,
+    } = await awaitLanesWithBudget(tracked, settled, budgetMs, {
       // Measured from the end of the recording: the budget is how long the user waits
       // after they stop talking, not how long after whichever lane answered first.
-      { deadlineAt: (this._recordingStoppedAt ?? performance.now()) + budgetMs }
-    );
+      deadlineAt: recordingEndedAt + budgetMs,
+      // Unlike the short slow-lane budget, this only prevents a set of hung requests
+      // from leaving the app in its processing state forever.
+      firstSuccessDeadlineAt: recordingEndedAt + MULTI_FIRST_SUCCESS_TIMEOUT_MS,
+    });
     const droppedProviders = droppedIndexes.map((index) => lanes[index].provider);
 
     if (droppedProviders.length > 0) {
@@ -4331,6 +4367,11 @@ registerProcessor("pcm-streaming-processor", PCMStreamingProcessor);
     const answered = sides.filter((side) => side.text && side.text.trim());
     if (answered.length === 0) {
       const firstRejection = settled.find((result) => result?.status === "rejected");
+      if (firstSuccessTimedOut) {
+        throw new Error(
+          `Multi transcription produced no text within ${MULTI_FIRST_SUCCESS_TIMEOUT_MS / 1000}s`
+        );
+      }
       throw firstRejection?.reason || new Error("Multi transcription produced no text");
     }
 

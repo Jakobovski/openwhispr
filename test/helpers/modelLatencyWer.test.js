@@ -59,6 +59,20 @@ test("a lane with timings but no merged dictation has no rate", () => {
   assert.equal(row.median_wer, null);
 });
 
+test("an unknown outcome cannot become a zero-millisecond success", () => {
+  const db = freshDb();
+  const result = db.recordModelLatency({
+    kind: "transcription",
+    provider: "broken",
+    model: "typo",
+    ms: null,
+    outcome: "droped",
+  });
+
+  assert.equal(result.success, false);
+  assert.equal(statFor(db, "broken"), undefined);
+});
+
 test("a perfect score is kept, not confused with an absent one", () => {
   const db = freshDb();
   db.recordModelLatency({

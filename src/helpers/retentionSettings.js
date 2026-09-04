@@ -1,9 +1,12 @@
 // Pure resolver for the "retention-settings-changed" IPC sync. Both renderer
 // windows re-sync on mount, so the handler needs to know whether the incoming
 // values actually differ before kicking off another cleanup sweep.
+const settingsDefaults = require("../config/settingsDefaults.json");
+
 const DEFAULT_RETENTION_SETTINGS = {
-  audioRetentionDays: 30,
-  transcriptRetentionDays: 0, // 0 = keep transcripts forever
+  audioRetentionDays: settingsDefaults.storeDefaults.audioRetentionDays,
+  // 0 = keep transcripts forever
+  transcriptRetentionDays: settingsDefaults.storeDefaults.transcriptRetentionDays,
 };
 
 // IPC payloads and localStorage are both untrusted inputs. In particular,

@@ -90,6 +90,10 @@ class LiveTranscriptionSocket {
     // Set by finalize(). Until then a provider's "complete" marks the end of a
     // speech segment, not of the stream: Gemini emits one after every pause.
     this._endOfStreamSent = false;
+    // A short recording can stop after the websocket opens but before a provider such as
+    // Gemini acknowledges setup. Its end marker must wait behind that acknowledgement
+    // just like its audio does; sending either early makes Gemini close the socket.
+    this._finalizePending = false;
   }
 
   getStatus() {
@@ -115,6 +119,7 @@ class LiveTranscriptionSocket {
     this._sawProviderFinal = false;
     this._streamEnded = false;
     this._endOfStreamSent = false;
+    this._finalizePending = false;
     // Set when the socket goes down before we asked it to. The transcript it leaves
     // behind covers only the audio that got through, so it is a failure dressed as a
     // result — the caller has to be able to tell the difference.
@@ -220,6 +225,7 @@ class LiveTranscriptionSocket {
     this.preReadyBuffer = [];
     this.preReadyBufferBytes = 0;
     for (const chunk of buffered) this._writeAudio(chunk);
+    if (this._finalizePending) this._sendEndOfStream();
   }
 
   _handleMessage(raw) {
@@ -340,13 +346,25 @@ class LiveTranscriptionSocket {
   /** Tell the provider the utterance is over so it emits its final transcript. */
   finalize() {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return false;
-    // Anything still buffered is real speech and has to go before the end marker.
-    this._markReady();
+    if (this._endOfStreamSent) return true;
+    // Gemini rejects both audio and the end marker before setupComplete. Remember the
+    // request and let _markReady flush audio first, then send the marker.
+    if (this.dialect.needsSetupAck && !this.isReady) {
+      this._finalizePending = true;
+      return true;
+    }
+    return this._sendEndOfStream();
+  }
+
+  _sendEndOfStream() {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN || this._endOfStreamSent)
+      return this._endOfStreamSent;
     const signal = this.dialect.buildEndOfStream?.();
     if (signal === null || signal === undefined) return false;
     // From here a provider's segment-complete does mean the stream is complete, and its
     // silence means it has nothing more to send.
     this._endOfStreamSent = true;
+    this._finalizePending = false;
     this._armQuietResolve();
     this.ws.send(signal);
     return true;

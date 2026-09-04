@@ -5,10 +5,12 @@
 // "sometimes dictation takes ages", which is exactly the kind of thing that needs
 // tests rather than reasoning.
 //
-//   1. The wait for the *first* success is unbounded. A lane that fails fast — a 401,
-//      an empty response — must not shorten anyone else's wait, and dropping every
+//   1. The wait for the *first* success ignores the short slow-lane budget. A lane that
+//      fails fast — a 401, an empty response — must not shorten anyone else's wait, and dropping every
 //      lane for missing a deadline would leave the dictation with no transcript at
-//      all. Failures are skipped and the wait continues to the next lane.
+//      all. Failures are skipped and the wait continues to the next lane. A separate
+//      hard safety deadline still applies, because a network request may never settle
+//      and the UI must not stay in "processing" forever.
 //
 //      Once there is a transcript, the cutoff is an absolute deadline the caller
 //      supplies — normally the end of the recording plus the budget. That is what the
@@ -34,30 +36,64 @@
  * @param {number} [options.deadlineAt] Absolute performance.now() cutoff, normally the
  *   end of the recording plus the budget. Overrides budgetMs when given, so the wait is
  *   measured from when the user stopped talking rather than from the first answer.
- * @returns {Promise<{firstSuccessIndex: number, droppedIndexes: number[]}>}
+ * @param {number} [options.firstSuccessDeadlineAt] Independent hard safety deadline for
+ *   receiving any usable transcript.
+ * @returns {Promise<{firstSuccessIndex: number, droppedIndexes: number[], timedOut: boolean}>}
  *   firstSuccessIndex is -1 when every lane failed.
  */
-async function awaitLanesWithBudget(tracked, settled, budgetMs, { deadlineAt } = {}) {
+async function awaitLanesWithBudget(
+  tracked,
+  settled,
+  budgetMs,
+  { deadlineAt, firstSuccessDeadlineAt } = {}
+) {
   // Race only the lanes still outstanding. A settled promise would win instantly and
   // spin this loop, so each winner is removed before the next round.
   let remaining = tracked.map((promise, index) => ({ promise, index }));
   let firstSuccessIndex = -1;
+  let firstTimer;
+  const firstExpired = Symbol("first-success-expired");
+  const firstDeadline =
+    typeof firstSuccessDeadlineAt === "number"
+      ? new Promise((resolve) => {
+          firstTimer = setTimeout(
+            () => resolve(firstExpired),
+            Math.max(0, firstSuccessDeadlineAt - performance.now())
+          );
+        })
+      : null;
 
-  while (remaining.length > 0) {
-    const winner = await Promise.race(remaining.map((entry) => entry.promise));
-    remaining = remaining.filter((entry) => entry.index !== winner);
-    if (settled[winner]?.status === "fulfilled") {
-      firstSuccessIndex = winner;
-      break;
+  try {
+    while (remaining.length > 0) {
+      const winner = await Promise.race([
+        ...remaining.map((entry) => entry.promise),
+        ...(firstDeadline ? [firstDeadline] : []),
+      ]);
+      if (winner === firstExpired) {
+        return {
+          firstSuccessIndex: -1,
+          droppedIndexes: remaining
+            .filter(({ index }) => settled[index] === null)
+            .map(({ index }) => index),
+          timedOut: true,
+        };
+      }
+      remaining = remaining.filter((entry) => entry.index !== winner);
+      if (settled[winner]?.status === "fulfilled") {
+        firstSuccessIndex = winner;
+        break;
+      }
     }
+  } finally {
+    clearTimeout(firstTimer);
   }
 
   // Every lane failed. The loop above already awaited all of them, so there is
   // nothing outstanding and no budget to enforce.
-  if (firstSuccessIndex === -1) return { firstSuccessIndex, droppedIndexes: [] };
+  if (firstSuccessIndex === -1) return { firstSuccessIndex, droppedIndexes: [], timedOut: false };
 
   const outstanding = remaining.map((entry) => entry.promise);
-  if (outstanding.length === 0) return { firstSuccessIndex, droppedIndexes: [] };
+  if (outstanding.length === 0) return { firstSuccessIndex, droppedIndexes: [], timedOut: false };
 
   // Anchored to the end of the recording when the caller supplies a deadline, rather than
   // to whichever lane happened to answer first.
@@ -68,9 +104,8 @@ async function awaitLanesWithBudget(tracked, settled, budgetMs, { deadlineAt } =
   // 900ms + budget after the tail. What the user waits is time since they stopped
   // talking, so that is what the deadline is measured in.
   //
-  // The wait for the *first* success is still unbounded on purpose: dropping every lane
-  // for missing a deadline would leave the dictation with no transcript at all, which is
-  // worse than being late.
+  // The short slow-lane deadline never drops every lane. The independent first-success
+  // safety deadline above is the only whole-fan-out bound.
   const remainingMs =
     typeof deadlineAt === "number" ? Math.max(0, deadlineAt - performance.now()) : budgetMs;
 
@@ -90,7 +125,7 @@ async function awaitLanesWithBudget(tracked, settled, budgetMs, { deadlineAt } =
   for (const { index } of remaining) {
     if (settled[index] === null) droppedIndexes.push(index);
   }
-  return { firstSuccessIndex, droppedIndexes };
+  return { firstSuccessIndex, droppedIndexes, timedOut: false };
 }
 
 /**

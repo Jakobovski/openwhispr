@@ -63,7 +63,8 @@ const FILES = sourceFiles().map((file) => ({
  */
 function storeDefaults() {
   const defaults = new Map();
-  const pattern = /read(?:String|Boolean|Number)\(\s*"(\w+)"\s*,\s*([^,)]+(?:\([^)]*\))?)\)/g;
+  const pattern =
+    /read(?:String|Boolean|Number|RetentionDays)\(\s*"(\w+)"\s*,\s*([^,)]+(?:\([^)]*\))?)\)/g;
   for (const match of storeSource.matchAll(pattern)) {
     defaults.set(match[1], { expression: match[2].trim() });
   }
@@ -73,7 +74,7 @@ function storeDefaults() {
 /** property name -> storage key, for the reads where the two sit together. */
 function storeProperties() {
   const pairs = [];
-  const pattern = /(\w+):\s*read(?:String|Boolean|Number)\(\s*"(\w+)"/g;
+  const pattern = /(\w+):\s*read(?:String|Boolean|Number|RetentionDays)\(\s*"(\w+)"/g;
   for (const match of storeSource.matchAll(pattern)) {
     pairs.push({ property: match[1], key: match[2] });
   }
@@ -114,7 +115,8 @@ test("the store's read helpers cannot disagree with the key they read", () => {
 
 test("no setting is read twice in the store with different defaults", () => {
   const seen = new Map();
-  const pattern = /read(?:String|Boolean|Number)\(\s*"(\w+)"\s*,\s*([^,)]+(?:\([^)]*\))?)\)/g;
+  const pattern =
+    /read(?:String|Boolean|Number|RetentionDays)\(\s*"(\w+)"\s*,\s*([^,)]+(?:\([^)]*\))?)\)/g;
   for (const match of storeSource.matchAll(pattern)) {
     const [key, expression] = [match[1], match[2].trim()];
     if (!seen.has(key)) seen.set(key, new Set());

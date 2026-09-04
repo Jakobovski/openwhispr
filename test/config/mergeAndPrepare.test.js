@@ -162,7 +162,9 @@ test("a merge that produces no text is reported as dropped, not as nothing to me
   // Every path that returns without merged text must say so. Counted rather than
   // pattern-matched across the whole file, so a third such path added later fails here
   // instead of quietly inheriting the old label.
-  const noMergePaths = audioManager.match(/reconciled: false,\n\s+(\/\/[^\n]*\n\s+)*reconcileDropped: true,/g);
+  const noMergePaths = audioManager.match(
+    /reconciled: false,\n\s+(\/\/[^\n]*\n\s+)*reconcileDropped: true,/g
+  );
   assert.equal(
     (noMergePaths || []).length,
     2,
@@ -203,9 +205,7 @@ test("sense outranks the rarity preference, and is stated before it", () => {
   // agent left off", and it is not a sentence anyone says. The gate has to come first, or
   // the model reads the rarity rule and applies it before checking that the result means
   // anything.
-  const prompt = JSON.parse(
-    read("src", "locales", "en", "prompts.json")
-  ).reconcilePrompt;
+  const prompt = JSON.parse(read("src", "locales", "en", "prompts.json")).reconcilePrompt;
 
   const sense = prompt.indexOf("Sense comes first");
   const rarity = prompt.indexOf("biased toward frequent words");
@@ -223,4 +223,3 @@ test("sense outranks the rarity preference, and is stated before it", () => {
     "the rarity rule must say outright that it does not outrank sense"
   );
 });
-

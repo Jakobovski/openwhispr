@@ -128,7 +128,10 @@ class WindowOcrManager {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        this.child = null;
+        // A cancelled capture can finish after the next dictation has already spawned
+        // its sidecar. The old close event must not forget the new child, or cancel()
+        // can no longer stop it.
+        if (this.child === child) this.child = null;
         resolve(value);
       };
 

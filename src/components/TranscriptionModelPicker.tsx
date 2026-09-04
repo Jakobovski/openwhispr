@@ -275,9 +275,7 @@ const PROVIDER_CREDENTIALS: Record<
   },
   xai: {
     consoleUrl: "https://console.x.ai",
-    fields: [
-      { key: "xaiApiKey", input: "secret" },
-    ],
+    fields: [{ key: "xaiApiKey", input: "secret" }],
   },
   mistral: {
     consoleUrl: "https://console.mistral.ai/api-keys",
@@ -311,9 +309,7 @@ const PROVIDER_CREDENTIALS: Record<
   },
   soniox: {
     consoleUrl: "https://console.soniox.com",
-    fields: [
-      { key: "sonioxApiKey", input: "secret" },
-    ],
+    fields: [{ key: "sonioxApiKey", input: "secret" }],
   },
   "azure-speech": {
     consoleUrl: "https://portal.azure.com",
@@ -321,15 +317,11 @@ const PROVIDER_CREDENTIALS: Record<
   },
   meta: {
     consoleUrl: "https://developer.meta.com/ai/",
-    fields: [
-      { key: "metaApiKey", input: "secret" },
-    ],
+    fields: [{ key: "metaApiKey", input: "secret" }],
   },
   gemini: {
     consoleUrl: "https://aistudio.google.com/apikey",
-    fields: [
-      { key: "geminiApiKey", input: "secret" },
-    ],
+    fields: [{ key: "geminiApiKey", input: "secret" }],
   },
   openrouter: {
     consoleUrl: "https://openrouter.ai/keys",

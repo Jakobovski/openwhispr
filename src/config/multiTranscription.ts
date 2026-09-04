@@ -353,6 +353,11 @@ export const MULTI_SECOND_TIMEOUT_PERCENT_CHOICES = [0, 5, 7.5, 10, 20, 30, 50];
 // settings.
 export const DEFAULT_MULTI_SECOND_MAX_WAIT_MS = 2500;
 
+// The slow-lane budget starts only after one provider has produced usable text. This is
+// the independent safety ceiling before that point: a network request may remain pending
+// forever, but a dictation may not leave the UI processing forever.
+export const MULTI_FIRST_SUCCESS_TIMEOUT_MS = 30_000;
+
 // Offered in Settings. 0 means "no cap" — the percentage is free to grow unbounded.
 export const MULTI_SECOND_MAX_WAIT_CHOICES_MS = [1500, 2000, 2500, 5000, 10000, 15000, 0];
 

@@ -1086,7 +1086,9 @@ class IPCHandlers {
 
     ipcMain.handle("get-audio-buffer", async (event, id) => {
       const buffer = this.audioStorageManager.getAudioBuffer(id);
-      return buffer ? buffer.buffer : null;
+      return buffer
+        ? buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+        : null;
     });
 
     ipcMain.handle("delete-transcription-audio", async (event, id) => {
@@ -4423,8 +4425,9 @@ class IPCHandlers {
     });
 
     ipcMain.handle("retry-transcription", async (event, id, settings) => {
-      const buffer = this.audioStorageManager.getAudioBuffer(id);
-      if (!buffer) return { success: false, error: "Audio file not found" };
+      const audioFile = this.audioStorageManager.getAudioFile(id);
+      if (!audioFile) return { success: false, error: "Audio file not found" };
+      const { buffer, filePath, fileName, mimeType } = audioFile;
       try {
         let result;
         const preferredLanguage = settings?.preferredLanguage;
@@ -4441,7 +4444,7 @@ class IPCHandlers {
 
         if (selfHostedRoute?.kind === "self-hosted") {
           const formData = new FormData();
-          formData.append("file", new Blob([buffer], { type: "audio/webm" }), "audio.webm");
+          formData.append("file", new Blob([buffer], { type: mimeType }), fileName);
           if (selfHostedRoute.model) {
             formData.append("model", selfHostedRoute.model);
           }
@@ -4495,7 +4498,7 @@ class IPCHandlers {
                 };
                 if (buffer.length > CLOUD_INLINE_LIMIT) {
                   const { text } = await chunkedCloudTranscribe({
-                    buffer,
+                    filePath,
                     apiUrl,
                     authHeader,
                     multipartFields,
@@ -4504,8 +4507,8 @@ class IPCHandlers {
                 } else {
                   const { body, boundary } = buildMultipartBody(
                     buffer,
-                    "audio.webm",
-                    "audio/webm",
+                    fileName,
+                    mimeType,
                     multipartFields
                   );
                   const url = new URL(`${apiUrl}/api/transcribe`);
@@ -4527,8 +4530,8 @@ class IPCHandlers {
           // Attested transport, so this can't reuse the generic fetch below.
           const { text, model } = await transcribeWithTinfoil({
             audioBuffer: buffer,
-            fileName: "audio.webm",
-            contentType: "audio/webm",
+            fileName,
+            contentType: mimeType,
             language,
             apiKey: this.environmentManager.getTinfoilKey(),
           });
@@ -4566,7 +4569,7 @@ class IPCHandlers {
           }
 
           const formData = new FormData();
-          formData.append("file", new Blob([buffer], { type: "audio/webm" }), "audio.webm");
+          formData.append("file", new Blob([buffer], { type: mimeType }), fileName);
           if (provider === "xai") {
             // xAI STT does not accept a model field; language only when in supported set
             if (language && XAI_STT_LANGUAGES.has(language)) {

@@ -474,7 +474,8 @@ export const useMeetingRecordingStore = create<MeetingRecordingState>()(() => ({
   systemPartialSpeakerName: null,
   diarizationSessionId: null,
   sessionDiarizationEnabled:
-    (getSettings() as { speakerDiarizationEnabled?: boolean }).speakerDiarizationEnabled ?? settingsDefaults.storeDefaults.speakerDiarizationEnabled,
+    (getSettings() as { speakerDiarizationEnabled?: boolean }).speakerDiarizationEnabled ??
+    settingsDefaults.storeDefaults.speakerDiarizationEnabled,
   sessionExpectedCount: DEFAULT_EXPECTED_SPEAKER_COUNT,
   userTouchedStepper: false,
   error: null,

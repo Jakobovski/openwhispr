@@ -138,6 +138,25 @@ func recognizeText(in image: CGImage) throws -> String {
         .joined(separator: "\n")
 }
 
+@available(macOS 14.0, *)
+func backingScale(for window: SCWindow, displays: [SCDisplay]) -> CGFloat {
+    // NSScreen.main describes the menu-bar display, not necessarily the display that
+    // contains the focused window. On a mixed Retina/non-Retina setup that either
+    // downscales the OCR input or asks ScreenCaptureKit for twice the real dimensions.
+    // SCDisplay frames and SCWindow frames share ScreenCaptureKit's coordinate space, so
+    // choose the display containing the largest part of the window and derive its scale
+    // from logical points versus captured pixels.
+    let display = displays.max { left, right in
+        let leftIntersection = left.frame.intersection(window.frame)
+        let rightIntersection = right.frame.intersection(window.frame)
+        let leftArea = leftIntersection.isNull ? 0 : leftIntersection.width * leftIntersection.height
+        let rightArea = rightIntersection.isNull ? 0 : rightIntersection.width * rightIntersection.height
+        return leftArea < rightArea
+    }
+    guard let display, display.frame.width > 0 else { return 2.0 }
+    return CGFloat(display.width) / display.frame.width
+}
+
 // MARK: - Main
 
 guard #available(macOS 14.0, *) else {
@@ -167,7 +186,7 @@ Task {
         let config = SCStreamConfiguration()
         // Capture at the window's backing resolution; Vision reads small text
         // far more reliably than it does a downscaled screenshot.
-        let scale = NSScreen.main?.backingScaleFactor ?? 2.0
+        let scale = backingScale(for: window, displays: content.displays)
         config.width = Int(window.frame.width * scale)
         config.height = Int(window.frame.height * scale)
         config.showsCursor = false

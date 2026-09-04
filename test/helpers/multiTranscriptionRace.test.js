@@ -288,6 +288,18 @@ test("an already-expired deadline still waits for a first success", async () => 
   assert.ok(elapsed < 600, `returned in ${elapsed}ms rather than waiting on the slow lane`);
 });
 
+test("the independent first-success deadline bounds lanes that never settle", async () => {
+  const settled = [null, null];
+  const tracked = [new Promise(() => {}), new Promise(() => {})];
+  const result = await awaitLanesWithBudget(tracked, settled, 500, {
+    firstSuccessDeadlineAt: performance.now() + 20,
+  });
+
+  assert.equal(result.firstSuccessIndex, -1);
+  assert.equal(result.timedOut, true);
+  assert.deepEqual(result.droppedIndexes, [0, 1]);
+});
+
 test("without a deadline the old budget-from-first-success behaviour is unchanged", async () => {
   // Other callers still pass only a budget; they must not change meaning.
   const { tracked, settled } = lanes([

@@ -60,7 +60,12 @@ const geminiLiveDialect = {
         // phrases separated by one-second silences produced two finals, the first
         // arriving mid-recording. Replacing here kept only the last segment; appending is
         // what reassembles the dictation.
-        return { kind: "final", text: parsed.text, replaces: false };
+        // The final transcript and generationComplete can share one server frame. The
+        // generic parser quite reasonably prioritises the text, but dropping the second
+        // signal makes a finished short take sit through the quiet-period timer.
+        return message?.serverContent?.generationComplete
+          ? [{ kind: "final", text: parsed.text, replaces: false }, { kind: "segment-end" }]
+          : { kind: "final", text: parsed.text, replaces: false };
       case "done":
         // generationComplete closes a *segment*, and one arrives after every pause, so it
         // cannot mean the stream is over. The socket decides that, from whether

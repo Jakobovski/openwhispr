@@ -89,8 +89,9 @@ class AudioStorageManager {
   getAudioPath(transcriptionId) {
     try {
       const files = fs.readdirSync(this.audioDir);
+      const id = String(transcriptionId);
       const match = files.find(
-        (f) => f.endsWith(`-${transcriptionId}.webm`) || f === `${transcriptionId}.webm`
+        (file) => isAudioFile(file) && transcriptionIdFromFilename(file) === id
       );
       if (match) return path.join(this.audioDir, match);
     } catch {}
@@ -98,13 +99,32 @@ class AudioStorageManager {
   }
 
   getAudioBuffer(transcriptionId) {
+    return this.getAudioFile(transcriptionId)?.buffer ?? null;
+  }
+
+  getAudioFile(transcriptionId) {
     const filePath = this.getAudioPath(transcriptionId);
     if (!filePath) return null;
     try {
-      return fs.readFileSync(filePath);
+      const extension = path.extname(filePath).toLowerCase();
+      const mimeType =
+        {
+          ".wav": "audio/wav",
+          ".ogg": "audio/ogg",
+          ".m4a": "audio/mp4",
+          ".mp3": "audio/mpeg",
+          ".flac": "audio/flac",
+          ".webm": "audio/webm",
+        }[extension] || "application/octet-stream";
+      return {
+        buffer: fs.readFileSync(filePath),
+        filePath,
+        fileName: path.basename(filePath),
+        mimeType,
+      };
     } catch (error) {
       debugLogger.error(
-        "Failed to read audio",
+        "Failed to read audio file",
         { transcriptionId, error: error.message },
         "audio-storage"
       );
@@ -214,14 +234,17 @@ class AudioStorageManager {
         }
       }
 
-      const { remove, totalBytes, freedBytes } = selectOverflowFiles(entries, maxBytes);
+      const { remove, totalBytes } = selectOverflowFiles(entries, maxBytes);
       if (remove.length === 0) return { deleted: 0, totalBytes };
 
       const deletedIds = [];
+      const sizeByName = new Map(entries.map((entry) => [entry.name, entry.size]));
+      let actuallyFreedBytes = 0;
       for (const name of remove) {
         try {
           fs.unlinkSync(path.join(this.audioDir, name));
           deletedIds.push(transcriptionIdFromFilename(name));
+          actuallyFreedBytes += sizeByName.get(name) || 0;
         } catch (error) {
           debugLogger.error(
             "Failed to delete audio over cap",
@@ -238,13 +261,13 @@ class AudioStorageManager {
         "Audio storage cap enforced",
         {
           deleted: deletedIds.length,
-          freedMb: Math.round(freedBytes / 1048576),
-          totalMb: Math.round(totalBytes / 1048576),
+          freedMb: Math.round(actuallyFreedBytes / 1048576),
+          totalMb: Math.round((totalBytes - actuallyFreedBytes) / 1048576),
           capMb: Math.round(maxBytes / 1048576),
         },
         "audio-storage"
       );
-      return { deleted: deletedIds.length, totalBytes: totalBytes - freedBytes };
+      return { deleted: deletedIds.length, totalBytes: totalBytes - actuallyFreedBytes };
     } catch (error) {
       debugLogger.error("Audio cap sweep failed", { error: error.message }, "audio-storage");
       return { deleted: 0, totalBytes: 0 };

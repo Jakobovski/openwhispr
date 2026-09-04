@@ -12,6 +12,8 @@
     "vertexLocation": "us-central1",
     "whisperModel": "base",
     "speakerDiarizationEnabled": true,
+    "audioRetentionDays": 30,
+    "transcriptRetentionDays": 0,
     "preferredLanguage": "en",
     "cloudTranscriptionMode": "byok",
     "transcriptionMode": "providers",

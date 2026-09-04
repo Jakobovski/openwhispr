@@ -15,6 +15,7 @@
     "main.js",
     "preload.js",
     "package.json",
+    ".env.bundled",
     "node_modules/**/*",
     "src/dist/**/*",
     "src/helpers/**/*",
@@ -94,7 +95,6 @@
     "src/workers/**/*"
   ],
   "extraResources": [
-    ".env",
     "src/assets/**/*",
     {
       "from": "resources/bin/",
@@ -155,10 +155,6 @@
       {
         "from": "src/assets/Assets.car",
         "to": "Assets.car"
-      },
-      {
-        "from": ".env.bundled",
-        "to": ".env"
       }
     ],
     "extendInfo": {

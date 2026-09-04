@@ -285,10 +285,16 @@ test("every configured lane has somewhere to enter its key", () => {
   const lanes = fs.readFileSync(path.join(root, "src", "config", "multiTranscription.ts"), "utf8");
 
   // id/apiKeyField pairs straight out of the lane table.
-  const configured = [...lanes.matchAll(/id: "([a-z-]+)",\s*\n\s*label: "[^"]*",\s*\n\s*model: "[^"]*",\s*\n\s*apiKeyField: "([a-zA-Z]+)",/g)]
-    .map((m) => [m[1], m[2]]);
-  const inline = [...lanes.matchAll(/\{ id: "([a-z-]+)", label: "[^"]*", model: "[^"]*", apiKeyField: "([a-zA-Z]+)" \}/g)]
-    .map((m) => [m[1], m[2]]);
+  const configured = [
+    ...lanes.matchAll(
+      /id: "([a-z-]+)",\s*\n\s*label: "[^"]*",\s*\n\s*model: "[^"]*",\s*\n\s*apiKeyField: "([a-zA-Z]+)",/g
+    ),
+  ].map((m) => [m[1], m[2]]);
+  const inline = [
+    ...lanes.matchAll(
+      /\{ id: "([a-z-]+)", label: "[^"]*", model: "[^"]*", apiKeyField: "([a-zA-Z]+)" \}/g
+    ),
+  ].map((m) => [m[1], m[2]]);
   const all = [...configured, ...inline];
   assert.ok(all.length >= 5, `expected to find the lane table, parsed ${all.length} lanes`);
 
@@ -310,7 +316,10 @@ test("the credential panel never falls back to another provider's fields", () =>
     path.join(__dirname, "..", "..", "src", "components", "TranscriptionModelPicker.tsx"),
     "utf8"
   );
-  assert.doesNotMatch(picker, /PROVIDER_CREDENTIALS\[selectedCloudProvider\] \?\? PROVIDER_CREDENTIALS\./);
+  assert.doesNotMatch(
+    picker,
+    /PROVIDER_CREDENTIALS\[selectedCloudProvider\] \?\? PROVIDER_CREDENTIALS\./
+  );
 });
 
 test("every streaming-capable provider gets a mode control, seeded from one default", () => {
@@ -439,4 +448,3 @@ test("a provider with a live socket is declared streaming-capable", () => {
     `${missing.join(", ")} can stream but is absent from STREAMING_CAPABLE_PROVIDERS, so it has no mode setting and no control`
   );
 });
-

@@ -1,4 +1,4 @@
-import { concatFrames, encodeWavPcm16Buffer, UPLOAD_SAMPLE_RATE } from "../utils/pcmAudio";
+import { concatFrames, encodeWavPcm16Buffer, UPLOAD_SAMPLE_RATE } from "../utils/pcmAudio.js";
 
 // Captures dictation as 16 kHz mono PCM straight from the microphone.
 //
@@ -15,6 +15,15 @@ import { concatFrames, encodeWavPcm16Buffer, UPLOAD_SAMPLE_RATE } from "../utils
 // uses.
 const WORKLET_SOURCE = `
 class DictationPcmProcessor extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    // Messages on a MessagePort are ordered. Echoing this marker lets the renderer wait
+    // until every frame posted before it has arrived before it builds the final WAV.
+    this.port.onmessage = (event) => {
+      if (event.data === "flush") this.port.postMessage("flushed");
+    };
+  }
+
   process(inputs) {
     const channel = inputs[0] && inputs[0][0];
     // A disconnected or silent-by-design input yields no channel; keep the node alive so
@@ -49,6 +58,7 @@ export class PcmBatchRecorder {
     this._context = null;
     this._source = null;
     this._processor = null;
+    this._generation = 0;
   }
 
   /** "recording" | "inactive", matching what the batch path checks on MediaRecorder. */
@@ -63,15 +73,44 @@ export class PcmBatchRecorder {
 
   async start() {
     if (this._state === "recording") return;
+    const generation = ++this._generation;
+    // Synchronous, like MediaRecorder.start(). A stop arriving while addModule is in
+    // flight must see a live recorder and cancel this start instead of finalizing an
+    // empty recording while the worklet later comes alive on an orphaned microphone.
+    this._state = "recording";
     // Constructed at the target rate so the browser resamples during capture; asking for
     // 16 kHz here is what removes the separate resample step later.
-    this._context = new AudioContext({ sampleRate: UPLOAD_SAMPLE_RATE });
-    await this._context.audioWorklet.addModule(getWorkletUrl());
+    const context = new AudioContext({ sampleRate: UPLOAD_SAMPLE_RATE });
+    this._context = context;
+    try {
+      if (context.state === "suspended") await context.resume();
+      await context.audioWorklet.addModule(getWorkletUrl());
+    } catch (error) {
+      // stop() deliberately closes the context while startup may still be awaiting it.
+      // That cancellation is not a recording error and must not surface as one.
+      if (generation !== this._generation || this._state !== "recording") return;
+      this._state = "inactive";
+      if (this._context === context) this._context = null;
+      context.close().catch(() => {});
+      throw error;
+    }
+    if (
+      generation !== this._generation ||
+      this._state !== "recording" ||
+      this._context !== context
+    ) {
+      return;
+    }
 
-    this._source = this._context.createMediaStreamSource(this.stream);
-    this._processor = new AudioWorkletNode(this._context, "dictation-pcm-processor");
+    this._source = context.createMediaStreamSource(this.stream);
+    this._processor = new AudioWorkletNode(context, "dictation-pcm-processor");
     this._processor.port.onmessage = (event) => {
       const frame = event.data;
+      if (frame === "flushed") {
+        this._flushResolve?.();
+        this._flushResolve = null;
+        return;
+      }
       if (!frame?.length) return;
       this._frames.push(frame);
       this.onFrame?.(frame);
@@ -80,8 +119,7 @@ export class PcmBatchRecorder {
     // Connected to the destination because some Chromium versions do not pull a worklet
     // that has no downstream node. The worklet emits nothing, so this is silent.
     this._source.connect(this._processor);
-    this._processor.connect(this._context.destination);
-    this._state = "recording";
+    this._processor.connect(context.destination);
   }
 
   /**
@@ -91,26 +129,55 @@ export class PcmBatchRecorder {
   stop() {
     if (this._state !== "recording") return;
     this._state = "inactive";
-
-    const samples = concatFrames(this._frames);
-    this._frames = [];
-    const sampleRate = this.sampleRate;
-
+    this._generation += 1;
+    const context = this._context;
+    const sampleRate = context?.sampleRate ?? UPLOAD_SAMPLE_RATE;
+    const processor = this._processor;
     try {
-      this._processor?.port.close();
       this._source?.disconnect();
-      this._processor?.disconnect();
     } catch {
       // Teardown races a dying mic; the segment is already captured either way.
     }
-    const context = this._context;
-    this._context = null;
-    context?.close().catch(() => {});
 
-    const blob = new Blob([encodeWavPcm16Buffer(samples, sampleRate)], { type: "audio/wav" });
-    // Asynchronous on purpose: MediaRecorder's onstop never ran synchronously inside
-    // stop(), and the rotation handshake in replaceBatchMic relies on that ordering.
-    Promise.resolve().then(() => this.onstop?.({ blob, samples, sampleRate }));
+    void (async () => {
+      // Do not close the port until it has delivered the tail already produced by the
+      // audio thread. Without this, releasing the hotkey can drop the final block(s),
+      // exactly where the last phoneme of the last word lives.
+      if (processor) {
+        await new Promise((resolve) => {
+          let settled = false;
+          const done = () => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            resolve();
+          };
+          const timer = setTimeout(done, 100);
+          this._flushResolve = done;
+          try {
+            processor.port.postMessage("flush");
+          } catch {
+            done();
+          }
+        });
+      }
+
+      const samples = concatFrames(this._frames);
+      this._frames = [];
+      try {
+        processor?.port.close();
+        processor?.disconnect();
+      } catch {}
+      if (this._context === context) this._context = null;
+      this._source = null;
+      this._processor = null;
+      context?.close().catch(() => {});
+
+      const blob = new Blob([encodeWavPcm16Buffer(samples, sampleRate)], {
+        type: "audio/wav",
+      });
+      this.onstop?.({ blob, samples, sampleRate });
+    })();
   }
 }
 

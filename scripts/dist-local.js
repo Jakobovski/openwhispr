@@ -93,11 +93,10 @@ if (identities.length > 1) {
 // The check is inverted on purpose: the correct binary is the one this Node *cannot*
 // load. Nothing else distinguishes them, since both live at the same path.
 {
-  const probe = spawnSync(
-    process.execPath,
-    ["-e", "new (require('better-sqlite3'))(':memory:')"],
-    { encoding: "utf8", cwd: __dirname + "/.." }
-  );
+  const probe = spawnSync(process.execPath, ["-e", "new (require('better-sqlite3'))(':memory:')"], {
+    encoding: "utf8",
+    cwd: __dirname + "/..",
+  });
   if (probe.status === 0) {
     console.error(
       "[dist-local] better-sqlite3 is built for Node, not Electron — packaging it would\n" +
@@ -137,11 +136,16 @@ for (const args of [
 // requirement is visible at build time rather than discovered as lost permissions.
 const app = "dist/mac-arm64/OpenWhispr.app";
 try {
-  const requirement = execFileSync("codesign", ["-d", "-r-", app], {
+  // `codesign -d` writes its report to stderr even on success. execFileSync's return
+  // value is stdout, so the previous check always read an empty string and could never
+  // verify the requirement it claimed to verify.
+  const probe = spawnSync("codesign", ["-d", "-r-", app], {
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "ignore"],
   });
+  if (probe.status !== 0) throw new Error((probe.stderr || "codesign failed").trim());
+  const requirement = `${probe.stdout || ""}\n${probe.stderr || ""}`;
   const line = requirement.split("\n").find((l) => l.includes("designated =>")) ?? "";
+  if (!line) throw new Error("codesign did not report a designated requirement");
   console.log(`\n[dist-local] ${line.trim()}`);
   if (line.includes("cdhash")) {
     console.error(
@@ -150,6 +154,9 @@ try {
     process.exit(1);
   }
   console.log("[dist-local] Requirement is identity-based, so permissions survive reinstalls.");
-} catch {
-  console.log("[dist-local] (could not read the designated requirement to verify it)");
+} catch (error) {
+  console.error(
+    `[dist-local] could not verify the designated requirement: ${error?.message || error}`
+  );
+  process.exit(1);
 }

@@ -52,6 +52,7 @@ class LiveTranscriptionLanes {
     // short dictation can end before the socket is up, and without this its lanes were
     // pushed after close() had already run — leaving a socket open that nobody owned.
     this.starting = null;
+    this.generation = 0;
   }
 
   /** True once any lane is open, so the caller can skip converting frames for nothing. */
@@ -69,46 +70,60 @@ class LiveTranscriptionLanes {
    * @param {(provider: string) => Promise<string[]>} options.termsFor
    */
   async start(lanes, { language, termsFor }) {
-    this.lanes = [];
+    // A previous take may have ended on a route that never consumed these lanes (for
+    // example, settings changed while recording). Stop it before replacing the array;
+    // simply assigning [] loses the only handles to billable sockets.
+    this.discard();
+    const generation = ++this.generation;
     this.modelByProvider.clear();
     if (!lanes?.length) return;
 
-    this.starting = (async () => {
-      for (const lane of lanes) {
-        const api = this.providers[this.keyByProvider[lane.provider]];
-        if (!api?.start) continue;
-        try {
-          // No model: the caller's lane model is the provider's *batch* model, which a
-          // streaming socket rejects — Soniox answers "Specified model stt-async-v5 does
-          // not support real-time transcription" and closes. The dialect's own default is
-          // the streaming model.
-          const result = await api.start({
-            sampleRate: SAMPLE_RATE,
-            language,
-            vocabulary: await termsFor(lane.provider),
-          });
-          if (result?.success === false) {
-            this._warn("failed to start", lane.provider, result.error);
-            continue;
+    const starting = (async () => {
+      await Promise.all(
+        lanes.map(async (lane) => {
+          const api = this.providers[this.keyByProvider[lane.provider]];
+          if (!api?.start) return;
+          try {
+            // No model: the caller's lane model is the provider's *batch* model, which a
+            // streaming socket rejects — Soniox answers "Specified model stt-async-v5 does
+            // not support real-time transcription" and closes. The dialect's own default is
+            // the streaming model.
+            const result = await api.start({
+              sampleRate: SAMPLE_RATE,
+              language,
+              vocabulary: await termsFor(lane.provider),
+            });
+            if (result?.success === false) {
+              this._warn("failed to start", lane.provider, result.error);
+              return;
+            }
+            // A newer recording may have started while this provider was connecting.
+            // A stale completion owns only its own socket and must never enter the new
+            // recording's lane list.
+            if (generation !== this.generation) {
+              api.stop?.()?.catch?.(() => {});
+              return;
+            }
+            // Subscribed so the provider's own words reach the log. Without it a fatal
+            // error showed up only as repeated "audio send dropped" warnings: the symptom,
+            // with the cause discarded.
+            const unsubscribe = api.onError?.((error) =>
+              this._warn("reported an error", lane.provider, error)
+            );
+            this.modelByProvider.set(lane.provider, result?.model ?? null);
+            this.lanes.push({ provider: lane.provider, api, unsubscribe });
+          } catch (error) {
+            this._warn("threw while starting", lane.provider, error?.message);
           }
-          // Subscribed so the provider's own words reach the log. Without it a fatal
-          // error showed up only as repeated "audio send dropped" warnings: the symptom,
-          // with the cause discarded.
-          const unsubscribe = api.onError?.((error) =>
-            this._warn("reported an error", lane.provider, error)
-          );
-          this.modelByProvider.set(lane.provider, result?.model ?? null);
-          this.lanes.push({ provider: lane.provider, api, unsubscribe });
-        } catch (error) {
-          this._warn("threw while starting", lane.provider, error?.message);
-        }
-      }
+        })
+      );
     })();
+    this.starting = starting;
 
     try {
-      await this.starting;
+      await starting;
     } finally {
-      this.starting = null;
+      if (this.starting === starting) this.starting = null;
     }
   }
 
@@ -151,20 +166,21 @@ class LiveTranscriptionLanes {
     const lanes = this.lanes;
     this.lanes = [];
 
-    const pending = this.starting;
+    this.generation += 1;
+    this.starting = null;
     for (const lane of lanes) {
       closing.set(lane.provider, this._closeLane(lane, anchorAt));
     }
 
-    // A start still in flight has lanes this call cannot see yet. Nothing can be awaited
-    // for them without reintroducing the stall, so they are closed unread — the caller's
-    // one-shot path already covers those providers.
-    if (pending) pending.then(() => this.discard()).catch(() => {});
+    // A start still in flight sees the generation change and closes its own socket when
+    // it finishes. The caller's one-shot path already covers that provider.
     return closing;
   }
 
   /** Close everything without reading it, for a cancelled take. */
   discard() {
+    this.generation += 1;
+    this.starting = null;
     const lanes = this.lanes;
     this.lanes = [];
     for (const lane of lanes) {
@@ -177,7 +193,6 @@ class LiveTranscriptionLanes {
         // Cancelling must not throw; the recording is already being thrown away.
       }
     }
-    if (this.starting) this.starting.then(() => this.discard()).catch(() => {});
   }
 
   async _closeLane(lane, anchorAt) {

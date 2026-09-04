@@ -158,7 +158,11 @@ test("a name the recogniser mangled is still learned, or the feature does nothin
   // The case the filter must not break: neither spelling is a word of the language, and
   // this is exactly what the dictionary is for.
   assert.deepEqual(
-    extractCorrections("Call Shunade about the meeting today", "Call Sinead about the meeting today", []),
+    extractCorrections(
+      "Call Shunade about the meeting today",
+      "Call Sinead about the meeting today",
+      []
+    ),
     ["Sinead"]
   );
 });
@@ -175,7 +179,10 @@ test("a contraction whose base is too short for the lexicon is still rejected", 
   ];
   for (const [before, after] of cases) {
     const learned = extractCorrections(before, after, []);
-    assert.deepEqual(learned, [], `learned ${JSON.stringify(learned)} from ${JSON.stringify(after)}`);
+    assert.deepEqual(
+      learned,
+      [],
+      `learned ${JSON.stringify(learned)} from ${JSON.stringify(after)}`
+    );
   }
 });
-

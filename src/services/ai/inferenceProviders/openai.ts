@@ -261,7 +261,9 @@ export const openaiProvider: InferenceProvider = {
               .clone()
               .json()
               .catch(() => null);
-            if (isReasoningMandatoryError(rejection ? extractApiErrorMessage(rejection, "") : null)) {
+            if (
+              isReasoningMandatoryError(rejection ? extractApiErrorMessage(rejection, "") : null)
+            ) {
               requestBody.reasoning = fallbackReasoningRequest();
               res = await doFetch();
             }

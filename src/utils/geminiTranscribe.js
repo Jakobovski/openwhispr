@@ -59,7 +59,11 @@ const GEMINI_LIVE_AUDIO_MIME = "audio/pcm;rate=16000";
  * @param {string[]} [opts.vocabulary] - Custom dictionary plus on-screen terms.
  * @param {string} [opts.mode] - "smart" | "verbatim"
  */
-function buildTranscriptionConfig({ language, vocabulary, mode = DEFAULT_TRANSCRIPTION_MODE } = {}) {
+function buildTranscriptionConfig({
+  language,
+  vocabulary,
+  mode = DEFAULT_TRANSCRIPTION_MODE,
+} = {}) {
   const config = { mode };
 
   // Only when actually known: a wrong hint is worse than none, and "auto" is the app's

@@ -52,6 +52,11 @@ test("hitting the collection budget is recorded as dropped, not silently ignored
     /recordModelLatency\(\s*"screenContext"[\s\S]{0,120}"dropped"/,
     "a timeout must be recorded as a dropped call, distinct from a fast empty result"
   );
+  assert.match(
+    section,
+    /windowOcrCancel/,
+    "a timed-out capture must be cancelled so the next dictation cannot reuse it"
+  );
 });
 
 test("the timeout path is distinguishable from collect() itself resolving null", () => {

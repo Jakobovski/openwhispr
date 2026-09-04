@@ -83,6 +83,9 @@ class EnvironmentManager {
 
     const fallbackPaths = [
       path.join(__dirname, "..", "..", ".env"), // Development
+      // Optional per-build config. It is included by the ordinary `files` glob when
+      // present, so a checkout without one still packages successfully.
+      path.join(__dirname, "..", "..", ".env.bundled"),
       path.join(process.resourcesPath, ".env"),
       path.join(process.resourcesPath, "app.asar.unpacked", ".env"),
       path.join(process.resourcesPath, "app", ".env"), // Legacy

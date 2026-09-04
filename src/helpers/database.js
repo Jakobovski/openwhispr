@@ -13,6 +13,7 @@ const MAX_SNIPPET_TRIGGER_LENGTH = 100;
 // Latency samples kept for the stats page. At one or two rows per dictation this is
 // years of heavy use, and the table is only ever read in full by that one page.
 const MODEL_LATENCY_MAX_ROWS = 20000;
+const MODEL_LATENCY_OUTCOMES = new Set(["ok", "failed", "dropped"]);
 
 class DatabaseManager {
   constructor() {
@@ -745,6 +746,9 @@ class DatabaseManager {
     try {
       if (!this.db) throw new Error("Database not initialized");
       if (!kind) return { success: false };
+      if (!MODEL_LATENCY_OUTCOMES.has(outcome)) {
+        return { success: false, error: `Invalid model latency outcome: ${outcome}` };
+      }
       // A timing is required of a successful call and meaningless for the others.
       const timed = typeof ms === "number" && Number.isFinite(ms) && ms >= 0;
       if (outcome === "ok" && !timed) return { success: false };

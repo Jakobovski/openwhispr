@@ -43,9 +43,7 @@
       "size": "631MB",
       "sizeMb": 631,
       "language": "en",
-      "supportedLanguages": [
-        "en"
-      ],
+      "supportedLanguages": ["en"],
       "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming.tar.bz2",
       "extractDir": "sherpa-onnx-nemo-parakeet-unified-en-0.6b-int8-non-streaming",
       "descriptionKey": "models.descriptions.parakeet.parakeet_unified_en_0_6b"
@@ -56,9 +54,7 @@
       "size": "632MB",
       "sizeMb": 632,
       "language": "en",
-      "supportedLanguages": [
-        "en"
-      ],
+      "supportedLanguages": ["en"],
       "runtime": "online",
       "downloadUrl": "https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25.tar.bz2",
       "extractDir": "sherpa-onnx-nemotron-speech-streaming-en-0.6b-560ms-int8-2026-04-25",

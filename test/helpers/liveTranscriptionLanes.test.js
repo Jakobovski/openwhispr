@@ -104,6 +104,64 @@ test("frames are converted once and forwarded to every lane", async () => {
   assert.equal(fake.calls.sent.length, 1);
 });
 
+test("multiple live providers connect concurrently", async () => {
+  const releases = {};
+  const starts = [];
+  const provider = (name) => ({
+    start: () => {
+      starts.push(name);
+      return new Promise((resolve) => {
+        releases[name] = () => resolve({ success: true, model: `${name}-live` });
+      });
+    },
+    send: () => {},
+    stop: async () => ({ text: name }),
+  });
+  const lanes = new LiveTranscriptionLanes({
+    providers: { a: provider("a"), b: provider("b") },
+    keyByProvider: { first: "a", second: "b" },
+    logger: { warn: () => {} },
+  });
+
+  const starting = lanes.start([{ provider: "first" }, { provider: "second" }], {
+    termsFor: async () => [],
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(starts.sort(), ["a", "b"], "the second socket must not wait for the first");
+  releases.a();
+  releases.b();
+  await starting;
+  lanes.discard();
+});
+
+test("a stale connection finishing cannot discard the next recording's lane", async () => {
+  let releaseOld;
+  const old = fakeApi();
+  old.api.start = () =>
+    new Promise((resolve) => {
+      releaseOld = () => resolve({ success: true, model: "old-live" });
+    });
+  const current = fakeApi();
+  const lanes = new LiveTranscriptionLanes({
+    providers: { old: old.api, current: current.api },
+    keyByProvider: { first: "old", second: "current" },
+    logger: { warn: () => {} },
+  });
+
+  const staleStart = lanes.start([{ provider: "first" }], { termsFor: async () => [] });
+  await new Promise((resolve) => setImmediate(resolve));
+  await lanes.start([{ provider: "second" }], { termsFor: async () => [] });
+
+  releaseOld();
+  await staleStart;
+  assert.equal(old.calls.stop, 1, "the stale socket must close itself");
+  assert.equal(current.calls.stop, 0, "it must not close the current socket");
+
+  lanes.feed(frame());
+  assert.equal(current.calls.sent.length, 1, "the current lane remains active");
+  lanes.discard();
+});
+
 test("a dead socket does not interrupt the recording", async () => {
   const { lanes } = build({ sendThrows: true });
   await lanes.start([{ provider: "soniox" }], { termsFor: async () => [] });
@@ -267,6 +325,11 @@ test("audioManager only owns the policy, not the lifecycle", () => {
   assert.match(audioManager, /this\.liveLanes\.discard\(\)/);
   assert.match(audioManager, /this\.liveLanes\.close\(/);
   assert.match(audioManager, /providerWantsStreaming\(lane\.provider, settings\)/);
+  assert.match(
+    audioManager,
+    /if \(!isMultiTranscriptionEnabled\(settings\)\) \{\s*this\.liveLanes\.discard\(\);/,
+    "live lanes must use the same effective route gate as processAudio"
+  );
   // The five methods this replaced should be gone.
   for (const gone of [
     "_feedLiveTranscriptionLanes",
@@ -303,9 +366,11 @@ test("a streaming lane races on the same deadline as a batch lane", () => {
 });
 
 test("the deadline and every lane timing are anchored to the recording's end", () => {
+  assert.match(audioManager, /deadlineAt: recordingEndedAt \+ budgetMs/);
   assert.match(
     audioManager,
-    /\{ deadlineAt: \(this\._recordingStoppedAt \?\? performance\.now\(\)\) \+ budgetMs \}/
+    /firstSuccessDeadlineAt: recordingEndedAt \+ MULTI_FIRST_SUCCESS_TIMEOUT_MS/,
+    "a set of hung lanes must not leave processing active forever"
   );
   assert.match(
     audioManager,
@@ -364,8 +429,13 @@ test("the streamed model outlives the lane, so a dropped lane is still filed cor
   // A dropped or failed lane returns no result at all, which is exactly when the stats
   // row still has to name the right model.
   return (async () => {
-    const { lanes } = build({ startResult: { success: true, model: "stt-rt-v5" }, stopHangs: true });
-    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+    const { lanes } = build({
+      startResult: { success: true, model: "stt-rt-v5" },
+      stopHangs: true,
+    });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], {
+      termsFor: async () => [],
+    });
 
     const closing = lanes.close(performance.now());
     assert.equal(await closing.get("soniox"), null, "the lane was dropped");
@@ -376,7 +446,9 @@ test("the streamed model outlives the lane, so a dropped lane is still filed cor
 test("a provider that never started reports no model rather than a stale one", () => {
   return (async () => {
     const { lanes } = build({ startResult: { success: true, model: "stt-rt-v5" } });
-    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], {
+      termsFor: async () => [],
+    });
     assert.equal(lanes.modelFor("soniox"), "stt-rt-v5");
 
     // A later recording where the lane fails to start must not inherit the last one's model.
@@ -397,7 +469,9 @@ test("a lane whose socket died mid-recording defers to batch", () => {
     const { lanes, warnings } = build({
       stopResult: { text: "Only the first second", incomplete: true },
     });
-    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], {
+      termsFor: async () => [],
+    });
 
     const closing = lanes.close(performance.now());
 
@@ -412,7 +486,9 @@ test("a lane whose socket died mid-recording defers to batch", () => {
 test("a complete transcript is still used, so the check is not simply dropping lanes", () => {
   return (async () => {
     const { lanes } = build({ stopResult: { text: "the whole dictation", incomplete: false } });
-    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], { termsFor: async () => [] });
+    await lanes.start([{ provider: "soniox", model: "stt-async-v5" }], {
+      termsFor: async () => [],
+    });
 
     const result = await lanes.close(performance.now()).get("soniox");
     assert.equal(result.text, "the whole dictation");
@@ -449,4 +525,3 @@ test("a lane still waiting on its socket is not mistaken for a batch fallback", 
     "the flag must not be set before the live result is known"
   );
 });
-
