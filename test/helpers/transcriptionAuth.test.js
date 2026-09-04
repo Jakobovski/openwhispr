@@ -46,6 +46,17 @@ test("returns false for openai cloud provider mode", async () => {
   );
 });
 
+test("provider-specific transcription does not run the unrelated OpenAI key preflight", async () => {
+  const { shouldSkipTranscriptionApiKey } = await import("../../src/helpers/transcriptionAuth.js");
+  for (const cloudTranscriptionProvider of ["gemini", "soniox", "meta"]) {
+    assert.equal(
+      shouldSkipTranscriptionApiKey({ cloudTranscriptionProvider }),
+      true,
+      cloudTranscriptionProvider
+    );
+  }
+});
+
 test("returns false when transcriptionMode is missing from settings", async () => {
   const { shouldSkipTranscriptionApiKey } = await import("../../src/helpers/transcriptionAuth.js");
   assert.equal(shouldSkipTranscriptionApiKey({}), false);
